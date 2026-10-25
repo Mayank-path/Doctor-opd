@@ -1,0 +1,238 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum ClinicRole {
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+  STAFF
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AppointmentType {
+  SCHEDULED
+  WALK_IN
+  FOLLOW_UP
+  EMERGENCY
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  NO_SHOW
+}
+
+enum QueueStatus {
+  WAITING
+  CALLED
+  IN_CONSULTATION
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
+model User {
+  id          String             @id @default(uuid())
+  phone       String             @unique
+  email       String?            @unique
+  passwordHash String?
+  fullName    String
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  memberships ClinicMembership[]
+
+  @@map("users")
+}
+
+model Clinic {
+  id            String              @id @default(uuid())
+  name          String
+  slug          String?             @unique
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
+  state         String?
+  postalCode    String?
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  memberships   ClinicMembership[]
+  patients      Patient[]
+  uhidCounter   PatientUhidCounter?
+  appointments  Appointment[]
+  queueEntries  OpdQueueEntry[]
+  dailyCounters OpdDailyCounter[]
+
+  @@map("clinics")
+}
+
+model ClinicMembership {
+  id        String           @id @default(uuid())
+  userId    String
+  clinicId  String
+  role      ClinicRole       @default(STAFF)
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  appointments  Appointment[]     @relation("DoctorAppointments")
+  queueEntries  OpdQueueEntry[]   @relation("DoctorQueueEntries")
+  dailyCounters OpdDailyCounter[] @relation("DoctorDailyCounters")
+
+  @@unique([userId, clinicId])
+  @@index([userId])
+  @@index([clinicId])
+  @@map("clinic_memberships")
+}
+
+model Patient {
+  id             String    @id @default(uuid())
+  clinicId       String
+  uhid           String
+  fullName       String
+  gender         Gender
+  dateOfBirth    DateTime? @db.Date
+  phone          String
+  alternatePhone String?
+  email          String?
+  address        String?
+  city           String?
+  pincode        String?
+  isActive       Boolean   @default(true)
+  deletedAt      DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  clinic       Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  queueEntries OpdQueueEntry[]
+
+  @@unique([clinicId, uhid])
+  @@unique([id, clinicId])
+  @@index([clinicId, phone])
+  @@index([clinicId, fullName])
+  @@index([clinicId, createdAt])
+  @@map("patients")
+}
+
+model PatientUhidCounter {
+  id        String   @id @default(uuid())
+  clinicId  String   @unique
+  lastUhid  Int      @default(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@map("patient_uhid_counters")
+}
+
+model Appointment {
+  id        String @id @default(uuid())
+  clinicId  String
+  patientId String
+  doctorId  String
+
+  serviceDate DateTime  @db.Date
+  startTime   DateTime  @db.Timestamptz(3)
+  endTime     DateTime? @db.Timestamptz(3)
+
+  type           AppointmentType   @default(SCHEDULED)
+  status         AppointmentStatus @default(SCHEDULED)
+  chiefComplaint String?
+  notes          String?
+
+  cancellationReason String?
+  cancelledAt        DateTime? @db.Timestamptz(3)
+  rescheduledFromId  String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient         Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  doctor          ClinicMembership @relation("DoctorAppointments", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  rescheduledFrom Appointment?     @relation("AppointmentRescheduling", fields: [rescheduledFromId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  rescheduledTo   Appointment[]    @relation("AppointmentRescheduling")
+  queueEntry      OpdQueueEntry?
+
+  @@unique([id, clinicId])
+  @@index([clinicId, serviceDate, doctorId])
+  @@index([clinicId, patientId])
+  @@index([clinicId, status])
+  @@map("appointments")
+}
+
+model OpdQueueEntry {
+  id             String  @id @default(uuid())
+  clinicId       String
+  patientId      String
+  doctorId       String
+  appointmentId  String? @unique
+  idempotencyKey String?
+
+  serviceDate           DateTime    @db.Date
+  tokenNumber           Int
+  status                QueueStatus @default(WAITING)
+  priority              Int         @default(0)
+
+  checkInTime           DateTime  @default(now()) @db.Timestamptz(3)
+  calledAt              DateTime? @db.Timestamptz(3)
+  consultationStartTime DateTime? @db.Timestamptz(3)
+  consultationEndTime   DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  clinic      Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient     Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  doctor      ClinicMembership @relation("DoctorQueueEntries", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  appointment Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@unique([clinicId, doctorId, serviceDate, tokenNumber], name: "clinic_doctor_date_token_unique")
+  @@unique([clinicId, idempotencyKey], name: "clinic_idempotency_unique")
+  @@index([clinicId, serviceDate, doctorId, status])
+  @@index([clinicId, patientId])
+  @@map("opd_queue_entries")
+}
+
+model OpdDailyCounter {
+  id              String   @id @default(uuid())
+  clinicId        String
+  doctorId        String
+  serviceDate     DateTime @db.Date
+  lastTokenNumber Int      @default(0)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  clinic Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctor ClinicMembership @relation("DoctorDailyCounters", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+
+  @@unique([clinicId, doctorId, serviceDate], name: "clinic_doctor_date_counter_unique")
+  @@map("opd_daily_counters")
+}
