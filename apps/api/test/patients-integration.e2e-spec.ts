@@ -108,6 +108,7 @@ describe('Patient API & UHID Concurrency (PostgreSQL Integration)', () => {
   const clinic2ReceptionistId = crypto.randomUUID();
   const outsiderUserId = crypto.randomUUID();
   const clinic4AdminId = crypto.randomUUID();
+  const suspendedDoctorUserId = crypto.randomUUID();
 
   // Test Tokens
   let adminToken: string;
@@ -115,6 +116,7 @@ describe('Patient API & UHID Concurrency (PostgreSQL Integration)', () => {
   let doctorToken: string;
   let staffToken: string;
   let suspendedToken: string;
+  let suspendedDoctorToken: string;
   let clinic2ReceptionistToken: string;
   let outsiderToken: string;
   let clinic4AdminToken: string;
@@ -233,6 +235,12 @@ describe('Patient API & UHID Concurrency (PostgreSQL Integration)', () => {
         fullName: 'Test Clinic 4 Admin',
         email: 'test.c4admin@chk6d.test',
       },
+      {
+        id: suspendedDoctorUserId,
+        phone: '+919999900009',
+        fullName: 'Test Suspended Doctor',
+        email: 'test.suspdoc@chk6d.test',
+      },
     ];
     for (const u of testUsers) {
       await prisma.user.create({ data: u });
@@ -284,6 +292,12 @@ describe('Patient API & UHID Concurrency (PostgreSQL Integration)', () => {
           role: ClinicRole.ADMIN,
           status: MembershipStatus.ACTIVE,
         },
+        {
+          userId: suspendedDoctorUserId,
+          clinicId: clinic1Id,
+          role: ClinicRole.DOCTOR,
+          status: MembershipStatus.SUSPENDED,
+        },
       ],
     });
 
@@ -310,6 +324,10 @@ describe('Patient API & UHID Concurrency (PostgreSQL Integration)', () => {
     clinic4AdminToken = await authService.signToken(
       clinic4AdminId,
       '+919999900008',
+    );
+    suspendedDoctorToken = await authService.signToken(
+      suspendedDoctorUserId,
+      '+919999900009',
     );
   });
 
@@ -777,45 +795,78 @@ describe('Patient API & UHID Concurrency (PostgreSQL Integration)', () => {
       expect(patchRes.status).toBe(403);
     });
 
-    it('DOCTOR role is denied patient registration and demographic update (403)', async () => {
-      // POST /patients
+    it('DOCTOR role is permitted all patient operations (create, search, detail, update)', async () => {
+      // 1. DOCTOR creates patient (201)
       const postRes = await request(app.getHttpServer())
         .post('/api/v1/patients')
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinic1Id)
         .send({
-          fullName: 'Doctor Denied Create',
-          gender: Gender.MALE,
+          fullName: 'Doctor Created Patient',
+          gender: Gender.FEMALE,
           phone: '+919866600002',
+          city: 'Solan',
         });
-      expect(postRes.status).toBe(403);
+      expect(postRes.status).toBe(201);
+      const doctorPatient = postRes.body as PatientResponse;
+      expect(doctorPatient.fullName).toBe('Doctor Created Patient');
+      expect(doctorPatient.clinicId).toBe(clinic1Id);
+      expect(doctorPatient.uhid).toBeDefined();
 
-      // PATCH /patients/:id
-      const patchRes = await request(app.getHttpServer())
-        .patch(`/api/v1/patients/${testPatientId}`)
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinic1Id)
-        .send({ fullName: 'Doctor Modified' });
-      expect(patchRes.status).toBe(403);
-    });
+      const newId = doctorPatient.id;
 
-    it('DOCTOR role is permitted to search and view patient details (200)', async () => {
-      // GET /patients
+      // 2. DOCTOR searches for patient (200)
       const listRes = await request(app.getHttpServer())
-        .get('/api/v1/patients')
+        .get('/api/v1/patients?q=Doctor+Created')
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinic1Id);
       expect(listRes.status).toBe(200);
-      expect(listRes.body).toHaveProperty('data');
-      expect(listRes.body).toHaveProperty('meta');
+      const searchBody = listRes.body as PaginatedPatientResponse;
+      expect(searchBody.data.some((p) => p.id === newId)).toBe(true);
 
-      // GET /patients/:id
+      // 3. DOCTOR views patient detail (200)
       const detailRes = await request(app.getHttpServer())
-        .get(`/api/v1/patients/${testPatientId}`)
+        .get(`/api/v1/patients/${newId}`)
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinic1Id);
       expect(detailRes.status).toBe(200);
-      expect((detailRes.body as PatientResponse).id).toBe(testPatientId);
+      expect((detailRes.body as PatientResponse).id).toBe(newId);
+
+      // 4. DOCTOR updates patient demographics (200)
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/api/v1/patients/${newId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ city: 'Shimla East', address: 'Near Ridge' });
+      expect(patchRes.status).toBe(200);
+      const updatedPatient = patchRes.body as PatientResponse;
+      expect(updatedPatient.city).toBe('Shimla East');
+      expect(updatedPatient.address).toBe('Near Ridge');
+      expect(updatedPatient.clinicId).toBe(clinic1Id);
+    });
+
+    it('DOCTOR who is not a member of the selected practice is denied (403)', async () => {
+      // Doctor from Clinic 1 tries to access Clinic 2
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/patients')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic2Id);
+      expect(res.status).toBe(403);
+      expect((res.body as ErrorResponse).message).toContain('not a member');
+    });
+
+    it('DOCTOR with suspended membership is denied (403)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/patients')
+        .set('Authorization', `Bearer ${suspendedDoctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          fullName: 'Suspended Doctor Patient',
+          gender: Gender.MALE,
+          phone: '+919866600099',
+        });
+      expect(res.status).toBe(403);
+      expect((res.body as ErrorResponse).message).toContain('SUSPENDED');
     });
 
     it('RECEPTIONIST role is permitted all patient operations (201, 200)', async () => {

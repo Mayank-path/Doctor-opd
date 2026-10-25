@@ -26,6 +26,11 @@ enum Gender {
   OTHER
 }
 
+enum ConsultationStatus {
+  DRAFT
+  FINALIZED
+}
+
 enum AppointmentType {
   SCHEDULED
   WALK_IN
@@ -54,15 +59,15 @@ enum QueueStatus {
 }
 
 model User {
-  id          String             @id @default(uuid())
-  phone       String             @unique
-  email       String?            @unique
+  id           String             @id @default(uuid())
+  phone        String             @unique
+  email        String?            @unique
   passwordHash String?
-  fullName    String
-  isActive    Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  memberships ClinicMembership[]
+  fullName     String
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  memberships  ClinicMembership[]
 
   @@map("users")
 }
@@ -86,6 +91,7 @@ model Clinic {
   appointments  Appointment[]
   queueEntries  OpdQueueEntry[]
   dailyCounters OpdDailyCounter[]
+  consultations Consultation[]
 
   @@map("clinics")
 }
@@ -105,6 +111,7 @@ model ClinicMembership {
   appointments  Appointment[]     @relation("DoctorAppointments")
   queueEntries  OpdQueueEntry[]   @relation("DoctorQueueEntries")
   dailyCounters OpdDailyCounter[] @relation("DoctorDailyCounters")
+  consultations Consultation[]    @relation("ClinicianConsultations")
 
   @@unique([userId, clinicId])
   @@index([userId])
@@ -130,9 +137,10 @@ model Patient {
   createdAt      DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
-  clinic       Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  appointments Appointment[]
-  queueEntries OpdQueueEntry[]
+  clinic        Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments  Appointment[]
+  queueEntries  OpdQueueEntry[]
+  consultations Consultation[]
 
   @@unique([clinicId, uhid])
   @@unique([id, clinicId])
@@ -197,10 +205,10 @@ model OpdQueueEntry {
   appointmentId  String? @unique
   idempotencyKey String?
 
-  serviceDate           DateTime    @db.Date
-  tokenNumber           Int
-  status                QueueStatus @default(WAITING)
-  priority              Int         @default(0)
+  serviceDate DateTime    @db.Date
+  tokenNumber Int
+  status      QueueStatus @default(WAITING)
+  priority    Int         @default(0)
 
   checkInTime           DateTime  @default(now()) @db.Timestamptz(3)
   calledAt              DateTime? @db.Timestamptz(3)
@@ -235,4 +243,44 @@ model OpdDailyCounter {
 
   @@unique([clinicId, doctorId, serviceDate], name: "clinic_doctor_date_counter_unique")
   @@map("opd_daily_counters")
+}
+
+model Consultation {
+  id          String @id @default(uuid())
+  clinicId    String
+  patientId   String
+  clinicianId String
+
+  encounterDate DateTime           @default(now()) @db.Timestamptz(3)
+  status        ConsultationStatus @default(DRAFT)
+  finalizedAt   DateTime?          @db.Timestamptz(3)
+
+  chiefComplaint String
+  symptoms       String?
+  examination    String?
+  diagnosis      String?
+  treatmentPlan  String?
+  followUpDate   DateTime? @db.Date
+
+  bpSystolic      Int?
+  bpDiastolic     Int?
+  pulse           Int?
+  temperature     Decimal? @db.Decimal(4, 1)
+  weightKg        Decimal? @db.Decimal(5, 2)
+  heightCm        Decimal? @db.Decimal(5, 2)
+  spo2            Int?
+  respiratoryRate Int?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  clinic    Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient   Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  clinician ClinicMembership @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+
+  @@unique([id, clinicId])
+  @@index([clinicId, patientId, encounterDate(sort: Desc)])
+  @@index([clinicId, encounterDate(sort: Desc)])
+  @@index([clinicId, status])
+  @@map("consultations")
 }

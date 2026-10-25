@@ -44,40 +44,48 @@ describe('PatientsController', () => {
   });
 
   describe('Role-Based Access Control Metadata', () => {
-    it('create should restrict access to ADMIN and RECEPTIONIST', () => {
+    it('create should allow ADMIN, DOCTOR, and RECEPTIONIST', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const targetHandler = controller.create;
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
-      expect(roles).toEqual([ClinicRole.ADMIN, ClinicRole.RECEPTIONIST]);
+      expect(roles).toEqual([
+        ClinicRole.ADMIN,
+        ClinicRole.DOCTOR,
+        ClinicRole.RECEPTIONIST,
+      ]);
     });
 
-    it('findAll should allow ADMIN, RECEPTIONIST, and DOCTOR', () => {
+    it('findAll should allow ADMIN, DOCTOR, and RECEPTIONIST', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const targetHandler = controller.findAll;
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
       expect(roles).toEqual([
         ClinicRole.ADMIN,
-        ClinicRole.RECEPTIONIST,
         ClinicRole.DOCTOR,
+        ClinicRole.RECEPTIONIST,
       ]);
     });
 
-    it('findOne should allow ADMIN, RECEPTIONIST, and DOCTOR', () => {
+    it('findOne should allow ADMIN, DOCTOR, and RECEPTIONIST', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const targetHandler = controller.findOne;
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
       expect(roles).toEqual([
         ClinicRole.ADMIN,
-        ClinicRole.RECEPTIONIST,
         ClinicRole.DOCTOR,
+        ClinicRole.RECEPTIONIST,
       ]);
     });
 
-    it('update should restrict access to ADMIN and RECEPTIONIST', () => {
+    it('update should allow ADMIN, DOCTOR, and RECEPTIONIST', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const targetHandler = controller.update;
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
-      expect(roles).toEqual([ClinicRole.ADMIN, ClinicRole.RECEPTIONIST]);
+      expect(roles).toEqual([
+        ClinicRole.ADMIN,
+        ClinicRole.DOCTOR,
+        ClinicRole.RECEPTIONIST,
+      ]);
     });
   });
 

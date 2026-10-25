@@ -31,7 +31,7 @@ export class PatientsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @RequireRoles(ClinicRole.ADMIN, ClinicRole.RECEPTIONIST)
+  @RequireRoles(ClinicRole.ADMIN, ClinicRole.DOCTOR, ClinicRole.RECEPTIONIST)
   async create(
     @ActiveClinic('clinicId') clinicId: string,
     @Body() dto: CreatePatientDto,
@@ -40,7 +40,7 @@ export class PatientsController {
   }
 
   @Get()
-  @RequireRoles(ClinicRole.ADMIN, ClinicRole.RECEPTIONIST, ClinicRole.DOCTOR)
+  @RequireRoles(ClinicRole.ADMIN, ClinicRole.DOCTOR, ClinicRole.RECEPTIONIST)
   async findAll(
     @ActiveClinic('clinicId') clinicId: string,
     @Query() query: PatientSearchQueryDto,
@@ -49,7 +49,7 @@ export class PatientsController {
   }
 
   @Get(':id')
-  @RequireRoles(ClinicRole.ADMIN, ClinicRole.RECEPTIONIST, ClinicRole.DOCTOR)
+  @RequireRoles(ClinicRole.ADMIN, ClinicRole.DOCTOR, ClinicRole.RECEPTIONIST)
   async findOne(
     @ActiveClinic('clinicId') clinicId: string,
     @Param(
@@ -62,7 +62,7 @@ export class PatientsController {
   }
 
   @Patch(':id')
-  @RequireRoles(ClinicRole.ADMIN, ClinicRole.RECEPTIONIST)
+  @RequireRoles(ClinicRole.ADMIN, ClinicRole.DOCTOR, ClinicRole.RECEPTIONIST)
   async update(
     @ActiveClinic('clinicId') clinicId: string,
     @Param(
