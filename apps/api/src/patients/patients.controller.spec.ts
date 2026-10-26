@@ -16,6 +16,9 @@ describe('PatientsController', () => {
     findOne: jest.Mock;
     update: jest.Mock;
   };
+  let consultationsService: {
+    findPatientHistory: jest.Mock;
+  };
   let reflector: Reflector;
 
   const mockClinicId = 'clinic-alpha-456';
@@ -27,8 +30,14 @@ describe('PatientsController', () => {
       findOne: jest.fn(),
       update: jest.fn(),
     };
+    consultationsService = {
+      findPatientHistory: jest.fn(),
+    };
     reflector = new Reflector();
-    controller = new PatientsController(service as unknown as PatientsService);
+    controller = new PatientsController(
+      service as unknown as PatientsService,
+      consultationsService as unknown as any,
+    );
   });
 
   describe('Guard Configuration', () => {
@@ -86,6 +95,13 @@ describe('PatientsController', () => {
         ClinicRole.DOCTOR,
         ClinicRole.RECEPTIONIST,
       ]);
+    });
+
+    it('findConsultationHistory should strictly restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.findConsultationHistory;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
     });
   });
 
@@ -150,6 +166,24 @@ describe('PatientsController', () => {
         mockClinicId,
         'e4b85c3e-2d93-4a11-b956-65c3b6f272a2',
         dto,
+      );
+    });
+
+    it('findConsultationHistory should pass active clinicId, patientId, and query to consultationsService', async () => {
+      const patientId = 'e4b85c3e-2d93-4a11-b956-65c3b6f272a2';
+      const query = { page: 1, limit: 10 };
+      consultationsService.findPatientHistory.mockResolvedValue({
+        data: [],
+        items: [],
+        meta: { page: 1, limit: 10, total: 0, totalPages: 1 },
+      });
+
+      await controller.findConsultationHistory(mockClinicId, patientId, query);
+
+      expect(consultationsService.findPatientHistory).toHaveBeenCalledWith(
+        mockClinicId,
+        patientId,
+        query,
       );
     });
   });
