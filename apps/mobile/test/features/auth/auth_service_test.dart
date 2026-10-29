@@ -147,15 +147,75 @@ void main() {
       verifyNever(() => mockApiClient.post(any(), data: any(named: 'data')));
     });
 
-    test('logout clears secure storage and resets auth state', () async {
-      when(() => mockStorageService.clearAuth()).thenAnswer((_) async {});
+    test('logout clears secure storage and resets auth state while preserving active clinic by default', () async {
+      when(() => mockStorageService.clearAuth(clearClinic: false)).thenAnswer((_) async {});
 
       await authService.logout();
 
       expect(authService.isAuthenticated, isFalse);
       expect(authService.currentUser, isNull);
       expect(authService.errorMessage, isNull);
-      verify(() => mockStorageService.clearAuth()).called(1);
+      verify(() => mockStorageService.clearAuth(clearClinic: false)).called(1);
+    });
+
+    test('logout clears active clinic when clearClinic is true', () async {
+      when(() => mockStorageService.clearAuth(clearClinic: true)).thenAnswer((_) async {});
+
+      await authService.logout(clearClinic: true);
+
+      expect(authService.isAuthenticated, isFalse);
+      expect(authService.activeClinicId, isNull);
+      verify(() => mockStorageService.clearAuth(clearClinic: true)).called(1);
+    });
+
+    test('initialize restores activeClinicId alongside token and user', () async {
+      const testClinicId = 'ab1aa951-7907-445f-b2f3-b0a072d053af';
+      when(() => mockStorageService.getAccessToken())
+          .thenAnswer((_) async => 'stored-jwt-token');
+      when(() => mockStorageService.getUser())
+          .thenAnswer((_) async => mockUser);
+      when(() => mockStorageService.getActiveClinicId())
+          .thenAnswer((_) async => testClinicId);
+
+      await authService.initialize();
+
+      expect(authService.isInitialized, isTrue);
+      expect(authService.isAuthenticated, isTrue);
+      expect(authService.activeClinicId, equals(testClinicId));
+      verify(() => mockStorageService.getActiveClinicId()).called(1);
+    });
+
+    test('setActiveClinic persists clinic ID and updates activeClinicId getter', () async {
+      const testClinicId = 'ab1aa951-7907-445f-b2f3-b0a072d053af';
+      when(() => mockStorageService.saveActiveClinicId(testClinicId))
+          .thenAnswer((_) async {});
+
+      await authService.setActiveClinic(testClinicId);
+
+      expect(authService.activeClinicId, equals(testClinicId));
+      verify(() => mockStorageService.saveActiveClinicId(testClinicId)).called(1);
+    });
+
+    test('updateUserRole updates currentUser role and persists user', () async {
+      when(() => mockStorageService.getAccessToken())
+          .thenAnswer((_) async => 'stored-jwt-token');
+      when(() => mockStorageService.getUser())
+          .thenAnswer((_) async => mockUser);
+      when(() => mockStorageService.getActiveClinicId())
+          .thenAnswer((_) async => 'clinic-1');
+      when(() => mockStorageService.saveUser(any()))
+          .thenAnswer((_) async {});
+
+      await authService.initialize();
+      expect(authService.currentUser?.role, isNull);
+
+      await authService.updateUserRole('DOCTOR');
+
+      expect(authService.currentUser?.role, equals('DOCTOR'));
+      verify(() => mockStorageService.saveUser(any(
+            that: isA<AuthUser>().having((u) => u.role, 'role', 'DOCTOR'),
+          ))).called(1);
     });
   });
 }
+

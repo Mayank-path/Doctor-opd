@@ -62,7 +62,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
       final user = await _storageService.getUser();
       if (!mounted) return;
 
-      if (user == null || user.role != 'DOCTOR') {
+      if (user != null && user.role != null && user.role != 'DOCTOR') {
         setState(() {
           _isForbidden = true;
           _isLoadingUser = false;
@@ -108,7 +108,8 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
         _consultations = response.data;
         _isLoadingConsultations = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('CONSULTATIONS_LOAD_ERROR: $e\n$stack');
       if (!mounted) return;
       setState(() {
         _isLoadingConsultations = false;
@@ -117,7 +118,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
         } else {
           _errorMessage = e is ApiException
               ? e.message
-              : 'Failed to load consultations. Please check your connection.';
+              : 'Failed to load consultations: $e';
         }
       });
     }
@@ -132,7 +133,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
   }
 
   Future<void> _navigateToDetails(Consultation item) async {
-    final result = await Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ConsultationDetailsScreen(
           consultationId: item.id,
@@ -143,7 +144,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
       ),
     );
 
-    if (result != null && mounted) {
+    if (mounted) {
       _loadConsultations(refresh: true);
     }
   }

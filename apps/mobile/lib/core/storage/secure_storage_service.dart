@@ -63,10 +63,19 @@ class SecureStorageService {
     }
   }
 
-  /// Clears all authentication tokens and cached user data (logout).
-  Future<void> clearAuth() async {
+  /// Clears authentication tokens and cached user data (logout).
+  /// Preserves the selected active clinic identifier across logout sessions by default,
+  /// ensuring that clinical devices retain their configured clinic context.
+  Future<void> clearAuth({bool clearClinic = false}) async {
     await _storage.delete(key: _keyAccessToken);
-    await _storage.delete(key: _keyActiveClinicId);
     await _storage.delete(key: _keyCachedUser);
+    if (clearClinic) {
+      await _storage.delete(key: _keyActiveClinicId);
+    }
+  }
+
+  /// Explicitly removes the active clinic identifier from secure storage.
+  Future<void> clearActiveClinicId() async {
+    await _storage.delete(key: _keyActiveClinicId);
   }
 }

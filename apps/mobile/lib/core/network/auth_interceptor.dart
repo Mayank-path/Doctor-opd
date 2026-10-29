@@ -18,10 +18,13 @@ class AuthInterceptor extends Interceptor {
       options.headers['Authorization'] = 'Bearer $token';
     }
 
-    // 2. Attach Active Clinic Selector header if present
-    final clinicId = await _storageService.getActiveClinicId();
-    if (clinicId != null && clinicId.isNotEmpty) {
-      options.headers['x-clinic-id'] = clinicId;
+    // 2. Attach Active Clinic Selector header if not explicitly specified
+    final existingClinicId = options.headers['x-clinic-id'];
+    if (existingClinicId == null || existingClinicId.toString().isEmpty) {
+      final clinicId = await _storageService.getActiveClinicId();
+      if (clinicId != null && clinicId.isNotEmpty) {
+        options.headers['x-clinic-id'] = clinicId;
+      }
     }
 
     // Always accept and send JSON

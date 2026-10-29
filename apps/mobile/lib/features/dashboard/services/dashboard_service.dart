@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../core/network/api_client.dart';
 import '../models/appointment_summary.dart';
@@ -31,6 +32,7 @@ class DashboardService {
     String? serviceDate,
   }) async {
     final date = serviceDate ?? getClinicLocalDate();
+    final clinicOptions = Options(headers: {'x-clinic-id': clinicId});
 
     // 1. Fetch Patients (ADMIN, DOCTOR, RECEPTIONIST authorized)
     int totalPatients = 0;
@@ -39,6 +41,7 @@ class DashboardService {
       final patientRes = await _apiClient.get(
         '/patients',
         queryParameters: {'page': 1, 'limit': 5},
+        options: clinicOptions,
       );
       if (patientRes.data is Map<String, dynamic>) {
         final dataMap = patientRes.data as Map<String, dynamic>;
@@ -51,7 +54,7 @@ class DashboardService {
       }
     } on ApiException catch (e) {
       // If user is not authorized or not a member of the clinic, fail fast
-      if (e.statusCode == 403 || e.statusCode == 401) {
+      if (e.statusCode == 403 || e.statusCode == 401 || e.statusCode == 400) {
         rethrow;
       }
     }
@@ -63,6 +66,7 @@ class DashboardService {
       final aptRes = await _apiClient.get(
         '/appointments',
         queryParameters: {'serviceDate': date, 'limit': 10},
+        options: clinicOptions,
       );
       if (aptRes.data is Map<String, dynamic>) {
         final dataMap = aptRes.data as Map<String, dynamic>;
@@ -74,7 +78,7 @@ class DashboardService {
             .toList();
       }
     } on ApiException catch (e) {
-      if (e.statusCode == 403 || e.statusCode == 401) {
+      if (e.statusCode == 403 || e.statusCode == 401 || e.statusCode == 400) {
         rethrow;
       }
     }
@@ -90,6 +94,7 @@ class DashboardService {
       final queueRes = await _apiClient.get(
         '/queue',
         queryParameters: {'serviceDate': date},
+        options: clinicOptions,
       );
       if (queueRes.data is Map<String, dynamic>) {
         final dataMap = queueRes.data as Map<String, dynamic>;
@@ -117,20 +122,21 @@ class DashboardService {
         }
       }
     } on ApiException catch (e) {
-      if (e.statusCode == 403 || e.statusCode == 401) {
+      if (e.statusCode == 403 || e.statusCode == 401 || e.statusCode == 400) {
         rethrow;
       }
     }
 
-    // 4. Probe Consultations endpoint to verify DOCTOR vs ADMIN role authorization
+    // 4. Probe Consultations endpoint to verify DOCTOR vs other role authorization
     bool isDoctor = false;
-    String detectedRole = 'ADMIN';
+    String detectedRole = 'UNKNOWN';
     String? consultationRestrictionMessage;
 
     try {
       await _apiClient.get(
         '/consultations',
         queryParameters: {'limit': 1},
+        options: clinicOptions,
       );
       isDoctor = true;
       detectedRole = 'DOCTOR';
@@ -138,22 +144,24 @@ class DashboardService {
       if (e.statusCode == 403) {
         isDoctor = false;
         final msg = e.message.toUpperCase();
-        if (msg.contains('ROLE ADMIN')) {
+        if (msg.contains('NOT A MEMBER') || msg.contains('MEMBERSHIP STATUS IS')) {
+          rethrow;
+        } else if (msg.contains('ROLE ADMIN')) {
           detectedRole = 'ADMIN';
         } else if (msg.contains('ROLE RECEPTIONIST')) {
           detectedRole = 'RECEPTIONIST';
         } else if (msg.contains('ROLE STAFF')) {
           detectedRole = 'STAFF';
-        } else if (msg.contains('NOT A MEMBER')) {
-          rethrow;
         } else {
-          detectedRole = 'ADMIN';
+          detectedRole = 'UNKNOWN';
         }
         consultationRestrictionMessage =
             'Clinical consultation records are restricted to Doctor role under clinical privacy rules.';
+      } else {
+        rethrow;
       }
     } catch (_) {
-      // Keep detectedRole fallback
+      detectedRole = 'UNKNOWN';
     }
 
     // 5. Check Health status

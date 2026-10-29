@@ -185,14 +185,14 @@ class Consultation {
       diagnosis: json['diagnosis'] as String?,
       treatmentPlan: json['treatmentPlan'] as String?,
       followUpDate: json['followUpDate'] as String?,
-      bpSystolic: (json['bpSystolic'] as num?)?.toInt(),
-      bpDiastolic: (json['bpDiastolic'] as num?)?.toInt(),
-      pulse: (json['pulse'] as num?)?.toInt(),
-      temperature: (json['temperature'] as num?)?.toDouble(),
-      weightKg: (json['weightKg'] as num?)?.toDouble(),
-      heightCm: (json['heightCm'] as num?)?.toDouble(),
-      spo2: (json['spo2'] as num?)?.toInt(),
-      respiratoryRate: (json['respiratoryRate'] as num?)?.toInt(),
+      bpSystolic: _parseInt(json['bpSystolic']),
+      bpDiastolic: _parseInt(json['bpDiastolic']),
+      pulse: _parseInt(json['pulse']),
+      temperature: _parseDouble(json['temperature']),
+      weightKg: _parseDouble(json['weightKg']),
+      heightCm: _parseDouble(json['heightCm']),
+      spo2: _parseInt(json['spo2']),
+      respiratoryRate: _parseInt(json['respiratoryRate']),
       createdAt: json['createdAt'] as String? ?? '',
       updatedAt: json['updatedAt'] as String? ?? '',
       patient: json['patient'] != null
@@ -306,5 +306,19 @@ class Consultation {
     } catch (_) {
       return finalizedAt;
     }
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 }

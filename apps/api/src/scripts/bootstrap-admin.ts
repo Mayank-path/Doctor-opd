@@ -72,7 +72,7 @@ export class TerminalManager {
   }
 }
 
-async function promptHidden(query: string): Promise<string> {
+export async function promptHidden(query: string): Promise<string> {
   const terminal = new TerminalManager();
 
   return new Promise((resolve) => {
@@ -109,7 +109,7 @@ async function promptHidden(query: string): Promise<string> {
   });
 }
 
-async function promptText(
+export async function promptText(
   rl: readline.Interface,
   query: string,
 ): Promise<string> {

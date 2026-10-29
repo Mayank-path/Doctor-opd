@@ -117,7 +117,7 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
       final user = await _storageService.getUser();
       if (!mounted) return;
 
-      if (user == null || user.role != 'DOCTOR') {
+      if (user == null || (user.role != null && user.role != 'DOCTOR')) {
         setState(() {
           _isForbidden = true;
           _isLoading = false;

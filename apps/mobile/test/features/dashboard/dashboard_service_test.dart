@@ -32,8 +32,11 @@ void main() {
 
     test('fetchDashboardStats successfully aggregates data for ADMIN user', () async {
       // 1. Mock Patients endpoint
-      when(() => mockApiClient.get('/patients', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/patients',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/patients'),
                 statusCode: 200,
                 data: {
@@ -57,8 +60,11 @@ void main() {
               ));
 
       // 2. Mock Appointments endpoint
-      when(() => mockApiClient.get('/appointments', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/appointments',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/appointments'),
                 statusCode: 200,
                 data: {
@@ -92,8 +98,11 @@ void main() {
               ));
 
       // 3. Mock Queue endpoint with multiple statuses
-      when(() => mockApiClient.get('/queue', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/queue',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/queue'),
                 statusCode: 200,
                 data: {
@@ -125,14 +134,17 @@ void main() {
               ));
 
       // 4. Mock Consultations endpoint: throws 403 role ADMIN not authorized
-      when(() => mockApiClient.get('/consultations', queryParameters: any(named: 'queryParameters')))
-          .thenThrow(const ApiException(
+      when(() => mockApiClient.get(
+            '/consultations',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenThrow(const ApiException(
             statusCode: 403,
             message: 'Access denied: role ADMIN is not authorized for this operation',
           ));
 
       // 5. Mock Health endpoint
-      when(() => mockApiClient.get('/health'))
+      when(() => mockApiClient.get('/health', options: any(named: 'options')))
           .thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/health'),
                 statusCode: 200,
@@ -162,31 +174,43 @@ void main() {
     });
 
     test('fetchDashboardStats detects DOCTOR role when consultations endpoint succeeds', () async {
-      when(() => mockApiClient.get('/patients', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/patients',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/patients'),
                 statusCode: 200,
                 data: {'data': [], 'meta': {'total': 0}},
               ));
-      when(() => mockApiClient.get('/appointments', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/appointments',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/appointments'),
                 statusCode: 200,
                 data: {'data': [], 'meta': {'total': 0}},
               ));
-      when(() => mockApiClient.get('/queue', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/queue',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/queue'),
                 statusCode: 200,
                 data: {'total': 0, 'data': []},
               ));
-      when(() => mockApiClient.get('/consultations', queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async => Response(
+      when(() => mockApiClient.get(
+            '/consultations',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/consultations'),
                 statusCode: 200,
                 data: {'data': []},
               ));
-      when(() => mockApiClient.get('/health'))
+      when(() => mockApiClient.get('/health', options: any(named: 'options')))
           .thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/health'),
                 statusCode: 200,
@@ -201,8 +225,11 @@ void main() {
     });
 
     test('fetchDashboardStats rethrows 403 Forbidden when user is not a member of the clinic', () async {
-      when(() => mockApiClient.get('/patients', queryParameters: any(named: 'queryParameters')))
-          .thenThrow(const ApiException(
+      when(() => mockApiClient.get(
+            '/patients',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          )).thenThrow(const ApiException(
             statusCode: 403,
             message: 'Access denied: user is not a member of the requested clinic',
           ));

@@ -8,6 +8,7 @@ class ClinicSelectorCard extends StatefulWidget {
   final bool isLoading;
   final String? validationError;
   final Future<void> Function(String clinicId) onSaveClinicId;
+  final VoidCallback? onContinueToDashboard;
 
   const ClinicSelectorCard({
     super.key,
@@ -15,6 +16,7 @@ class ClinicSelectorCard extends StatefulWidget {
     required this.isLoading,
     this.validationError,
     required this.onSaveClinicId,
+    this.onContinueToDashboard,
   });
 
   @override
@@ -30,14 +32,25 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.activeClinicId ?? '');
-    _isEditing = (widget.activeClinicId == null || widget.activeClinicId!.isEmpty);
+    _isEditing = (widget.activeClinicId == null ||
+        widget.activeClinicId!.isEmpty ||
+        widget.validationError != null);
   }
 
   @override
   void didUpdateWidget(covariant ClinicSelectorCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.activeClinicId != oldWidget.activeClinicId && !_isEditing) {
+    if (widget.validationError != null && oldWidget.validationError == null) {
+      _isEditing = true;
+    }
+    if (widget.activeClinicId != oldWidget.activeClinicId) {
       _controller.text = widget.activeClinicId ?? '';
+      if ((oldWidget.activeClinicId == null || oldWidget.activeClinicId!.isEmpty) &&
+          widget.activeClinicId != null &&
+          widget.activeClinicId!.isNotEmpty &&
+          widget.validationError == null) {
+        _isEditing = false;
+      }
     }
   }
 
@@ -83,36 +96,72 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: AppTheme.accentTeal.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.apartment_rounded,
                     color: AppTheme.accentTeal,
-                    size: 24,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Active Clinic Tenant',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        children: [
+                          const Text(
+                            'Active Clinic Tenant',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          if (hasActiveClinic && widget.validationError == null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successGreen.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 11,
+                                    color: AppTheme.successGreen,
+                                  ),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'ACTIVE',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.successGreen,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -120,7 +169,7 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                             ? 'Tenant-isolated PostgreSQL context'
                             : 'Clinic context required',
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: AppTheme.textSecondary,
                         ),
                       ),
@@ -133,21 +182,21 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                       foregroundColor: AppTheme.accentTeal,
                       visualDensity: VisualDensity.compact,
                     ),
-                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    icon: const Icon(Icons.edit_rounded, size: 14),
                     label: const Text('Change'),
                     onPressed: () => setState(() => _isEditing = true),
                   ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             if (!_isEditing && hasActiveClinic) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundLight,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.borderGray),
                 ),
                 child: Column(
@@ -156,17 +205,17 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                     const Text(
                       'CLINIC IDENTIFIER (UUID)',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                         color: AppTheme.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     SelectableText(
                       widget.activeClinicId!,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary,
@@ -175,23 +224,34 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              const Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 14, color: AppTheme.textSecondary),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Clinic name endpoint not implemented in backend (verified via x-clinic-id membership).',
+              if (widget.validationError == null) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    key: const Key('continue_to_dashboard_button'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 1,
+                    ),
+                    icon: const Icon(Icons.dashboard_rounded, size: 18),
+                    label: const Text(
+                      'Continue to Dashboard',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textSecondary,
-                        fontStyle: FontStyle.italic,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
                       ),
                     ),
+                    onPressed: widget.onContinueToDashboard,
                   ),
-                ],
-              ),
+                ),
+              ],
             ] else ...[
               const Text(
                 'Enter the Clinic UUID to scope all patient, appointment, and queue operations to that tenant:',

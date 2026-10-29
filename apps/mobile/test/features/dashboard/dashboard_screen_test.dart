@@ -274,5 +274,219 @@ void main() {
 
       verify(() => mockAuthService.logout()).called(1);
     });
+
+    testWidgets('clinic save validates with backend, updates active clinic, and renders Continue to Dashboard button',
+        (tester) async {
+      when(() => mockAuthService.getActiveClinicId())
+          .thenAnswer((_) async => null);
+      when(() => mockAuthService.setActiveClinic(any()))
+          .thenAnswer((_) async {});
+      when(() => mockDashboardService.fetchDashboardStats(
+            clinicId: 'ab1aa951-7907-445f-b2f3-b0a072d053af',
+            serviceDate: any(named: 'serviceDate'),
+          )).thenAnswer((_) async => testStats);
+
+      await tester.pumpWidget(buildTestWidget(clinicId: null));
+      await tester.pumpAndSettle();
+
+      // Enter clinic UUID into the field
+      final textField = find.byType(TextField);
+      expect(textField, findsOneWidget);
+      await tester.enterText(textField, 'ab1aa951-7907-445f-b2f3-b0a072d053af');
+      await tester.pumpAndSettle();
+
+      // Tap Save button
+      final saveButton = find.widgetWithText(ElevatedButton, 'Save');
+      expect(saveButton, findsOneWidget);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      // Verify active clinic was saved
+      verify(() => mockAuthService.setActiveClinic('ab1aa951-7907-445f-b2f3-b0a072d053af')).called(1);
+
+      // Verify Continue to Dashboard button and ACTIVE badge appear
+      expect(find.byKey(const Key('continue_to_dashboard_button')), findsOneWidget);
+      expect(find.text('Continue to Dashboard'), findsOneWidget);
+      expect(find.text('ACTIVE'), findsOneWidget);
+      expect(find.text('Clinic context verified! Welcome to OPD Dashboard.'), findsOneWidget);
+    });
+
+    testWidgets('tapping Continue to Dashboard button triggers scroll to dashboard section',
+        (tester) async {
+      when(() => mockDashboardService.fetchDashboardStats(
+            clinicId: testClinicId,
+            serviceDate: any(named: 'serviceDate'),
+          )).thenAnswer((_) async => testStats);
+
+      await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
+      await tester.pumpAndSettle();
+
+      // Continue to Dashboard button should be present
+      final continueBtn = find.byKey(const Key('continue_to_dashboard_button'));
+      expect(continueBtn, findsOneWidget);
+
+      await tester.tap(continueBtn);
+      await tester.pumpAndSettle();
+
+      // The section header should be rendered
+      expect(find.text('OPD CLINICAL DASHBOARD'), findsOneWidget);
+      expect(find.text('LIVE SYNC'), findsOneWidget);
+    });
+
+    testWidgets('opening navigation drawer exposes app-level navigation routes',
+        (tester) async {
+      when(() => mockDashboardService.fetchDashboardStats(
+            clinicId: testClinicId,
+            serviceDate: any(named: 'serviceDate'),
+          )).thenAnswer((_) async => testStats);
+
+      await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
+      await tester.pumpAndSettle();
+
+      // Open drawer using the scaffold's drawer button or swipe/openDrawer
+      final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
+      scaffoldState.openDrawer();
+      await tester.pumpAndSettle();
+
+      // Verify drawer contents
+      final drawerFinder = find.byType(Drawer);
+      expect(drawerFinder, findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Dashboard')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('OPD Queue')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Appointments')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Patients')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Active Clinic Context')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text(testClinicId)), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Log Out')), findsOneWidget);
+    });
+
+    testWidgets('restores active clinic context on load and renders live dashboard metrics',
+        (tester) async {
+      when(() => mockDashboardService.fetchDashboardStats(
+            clinicId: testClinicId,
+            serviceDate: any(named: 'serviceDate'),
+          )).thenAnswer((_) async => testStats);
+
+      await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
+      await tester.pumpAndSettle();
+
+      // Verifies session active clinic was queried
+      verify(() => mockAuthService.getActiveClinicId()).called(1);
+
+      // Verifies backend stats were requested for the restored clinic
+      verify(() => mockDashboardService.fetchDashboardStats(
+            clinicId: testClinicId,
+            serviceDate: any(named: 'serviceDate'),
+          )).called(1);
+
+      // Verifies live cards are present
+      expect(find.text("Today's OPD Queue"), findsOneWidget);
+      expect(find.text("Today's Appointments"), findsOneWidget);
+      expect(find.text('Registered Patients'), findsOneWidget);
+    });
+
+    testWidgets('role detection sets DOCTOR badge and unlocks Consultations quick action for verified doctor',
+        (tester) async {
+      final doctorStats = ClinicDashboardStats(
+        clinicId: testClinicId,
+        serviceDate: '2026-10-26',
+        totalPatients: 1,
+        recentPatients: testStats.recentPatients,
+        totalAppointmentsToday: 1,
+        appointmentsToday: testStats.appointmentsToday,
+        totalQueueToday: 1,
+        queueWaitingCount: 1,
+        queueCalledCount: 0,
+        queueInConsultationCount: 0,
+        queueCompletedCount: 0,
+        queueEntriesToday: testStats.queueEntriesToday,
+        isDoctor: true,
+        detectedRole: 'DOCTOR',
+        consultationRestrictionMessage: null,
+        healthStatus: 'online',
+        lastRefreshed: DateTime.now(),
+      );
+
+      when(() => mockDashboardService.fetchDashboardStats(
+            clinicId: testClinicId,
+            serviceDate: any(named: 'serviceDate'),
+          )).thenAnswer((_) async => doctorStats);
+      when(() => mockAuthService.updateUserRole('DOCTOR'))
+          .thenAnswer((_) async {});
+
+      await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
+      await tester.pumpAndSettle();
+
+      // Badge should display DOCTOR
+      expect(find.text('DOCTOR'), findsOneWidget);
+      // Role update was dispatched to auth service
+      verify(() => mockAuthService.updateUserRole('DOCTOR')).called(1);
+
+      // Consultations action should display 'Doctor visits' instead of 'Protected'
+      expect(find.text('Doctor visits'), findsOneWidget);
+      expect(find.text('Protected'), findsNothing);
+    });
+
+    testWidgets('profile badge shows PENDING instead of ADMIN fallback when role is not yet established',
+        (tester) async {
+      const userWithoutRole = AuthUser(
+        id: 'user-no-role',
+        email: 'doc@opd.local',
+        fullName: 'Dr. New Provider',
+      );
+
+      when(() => mockAuthService.getActiveClinicId())
+          .thenAnswer((_) async => null);
+      when(() => mockAuthService.currentUser).thenReturn(userWithoutRole);
+
+      await tester.pumpWidget(MaterialApp(
+        home: DashboardScreen(
+          authService: mockAuthService,
+          user: userWithoutRole,
+          dashboardService: mockDashboardService,
+          queueService: mockQueueService,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Should display PENDING, never hardcoded ADMIN
+      expect(find.text('PENDING'), findsOneWidget);
+      expect(find.text('ADMIN'), findsNothing);
+    });
+
+    testWidgets('validation failure displays actual API error and keeps clinic selector editable for recovery',
+        (tester) async {
+      when(() => mockAuthService.setActiveClinic(any()))
+          .thenAnswer((_) async {});
+      when(() => mockDashboardService.fetchDashboardStats(
+            clinicId: 'invalid-clinic-uuid',
+            serviceDate: any(named: 'serviceDate'),
+          )).thenThrow(const ApiException(
+        statusCode: 403,
+        message: 'Tenant authorization failed: Membership inactive in requested clinic',
+      ));
+
+      await tester.pumpWidget(buildTestWidget(clinicId: null));
+      await tester.pumpAndSettle();
+
+      // Enter invalid clinic ID
+      final textField = find.byType(TextField);
+      await tester.enterText(textField, 'invalid-clinic-uuid');
+      await tester.pumpAndSettle();
+
+      // Tap Save
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      // Should show the actual API error in the validation box
+      expect(
+        find.text('Tenant authorization failed: Membership inactive in requested clinic'),
+        findsOneWidget,
+      );
+
+      // The text field should remain visible and editable for recovery
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Save'), findsOneWidget);
+    });
   });
 }

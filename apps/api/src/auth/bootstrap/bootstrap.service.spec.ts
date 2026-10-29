@@ -12,9 +12,11 @@ describe('BootstrapService', () => {
   let prisma: {
     user: {
       count: jest.Mock;
+      findUnique: jest.Mock;
       create: jest.Mock;
     };
     clinic: {
+      findUnique: jest.Mock;
       create: jest.Mock;
     };
     clinicMembership: {
@@ -40,22 +42,40 @@ describe('BootstrapService', () => {
           executionOrder.push('user.count');
           return Promise.resolve(0);
         }),
+        findUnique: jest.fn(() => {
+          executionOrder.push('user.findUnique');
+          return Promise.resolve(null);
+        }),
         create: jest.fn(() => {
           executionOrder.push('user.create');
           return Promise.resolve({});
         }),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
       clinic: {
+        findUnique: jest.fn(() => {
+          executionOrder.push('clinic.findUnique');
+          return Promise.resolve({
+            id: 'clinic-1',
+            name: 'Apollo Care OPD',
+            isActive: true,
+          });
+        }),
         create: jest.fn(() => {
           executionOrder.push('clinic.create');
           return Promise.resolve({});
         }),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
       clinicMembership: {
         create: jest.fn(() => {
           executionOrder.push('clinicMembership.create');
           return Promise.resolve({});
         }),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
       $executeRaw: jest.fn(() => {
         executionOrder.push('$executeRaw');
@@ -213,6 +233,253 @@ describe('BootstrapService', () => {
 
       // Verify transaction was used
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('bootstrapDoctor', () => {
+    const validDoctorInput = {
+      email: 'dr.sharma@clinic.com',
+      password: 'DoctorPassword123!',
+      fullName: 'Dr. Ramesh Sharma',
+      phone: '+919876500001',
+      clinicId: 'clinic-1',
+    };
+
+    const mockActiveClinic = {
+      id: 'clinic-1',
+      name: 'Apollo Care OPD',
+      isActive: true,
+    };
+
+    const mockCreatedDoctorUser = {
+      id: 'doc-user-id',
+      email: 'dr.sharma@clinic.com',
+      phone: '+919876500001',
+      fullName: 'Dr. Ramesh Sharma',
+      passwordHash: 'dummy-doc-hash',
+      isActive: true,
+    };
+
+    const mockCreatedDoctorMembership = {
+      id: 'doc-membership-id',
+      userId: 'doc-user-id',
+      clinicId: 'clinic-1',
+      role: ClinicRole.DOCTOR,
+      status: MembershipStatus.ACTIVE,
+    };
+
+    it('should reject if doctor email is invalid', async () => {
+      await expect(
+        service.bootstrapDoctor({
+          ...validDoctorInput,
+          email: 'invalid-email',
+        }),
+      ).rejects.toThrow('Bootstrap failed: A valid email address is required.');
+    });
+
+    it('should reject if doctor password is shorter than 8 characters', async () => {
+      await expect(
+        service.bootstrapDoctor({
+          ...validDoctorInput,
+          password: 'short',
+        }),
+      ).rejects.toThrow(
+        'Bootstrap failed: Password must be at least 8 characters long.',
+      );
+    });
+
+    it('should reject if doctor phone is missing', async () => {
+      await expect(
+        service.bootstrapDoctor({
+          ...validDoctorInput,
+          phone: '',
+        }),
+      ).rejects.toThrow('Bootstrap failed: Phone number is required.');
+    });
+
+    it('should reject if doctor fullName is missing', async () => {
+      await expect(
+        service.bootstrapDoctor({
+          ...validDoctorInput,
+          fullName: '  ',
+        }),
+      ).rejects.toThrow('Bootstrap failed: Full name is required.');
+    });
+
+    it('should reject if clinicId is missing', async () => {
+      await expect(
+        service.bootstrapDoctor({
+          ...validDoctorInput,
+          clinicId: '  ',
+        }),
+      ).rejects.toThrow('Bootstrap failed: Target clinic ID is required.');
+    });
+
+    it('should reject if target clinic does not exist', async () => {
+      prisma.clinic.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.bootstrapDoctor(validDoctorInput),
+      ).rejects.toThrow(
+        'Bootstrap failed: Target clinic with ID "clinic-1" not found.',
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.clinicMembership.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject if target clinic is inactive', async () => {
+      prisma.clinic.findUnique.mockResolvedValue({
+        id: 'clinic-1',
+        name: 'Suspended Clinic',
+        isActive: false,
+      });
+
+      await expect(
+        service.bootstrapDoctor(validDoctorInput),
+      ).rejects.toThrow(
+        'Bootstrap failed: Target clinic "Suspended Clinic" (clinic-1) is inactive.',
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.clinicMembership.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject if a user with the same email already exists (abort safely)', async () => {
+      prisma.clinic.findUnique.mockResolvedValue(mockActiveClinic);
+      prisma.user.findUnique.mockImplementation(
+        ({ where }: { where: { email?: string; phone?: string } }) => {
+          if (where.email === 'dr.sharma@clinic.com') {
+            return Promise.resolve({
+              id: 'existing-admin-id',
+              email: 'dr.sharma@clinic.com',
+            });
+          }
+          return Promise.resolve(null);
+        },
+      );
+
+      await expect(
+        service.bootstrapDoctor(validDoctorInput),
+      ).rejects.toThrow(
+        'Bootstrap failed: A user with email "dr.sharma@clinic.com" already exists.',
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.clinicMembership.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject if a user with the same phone already exists (abort safely)', async () => {
+      prisma.clinic.findUnique.mockResolvedValue(mockActiveClinic);
+      prisma.user.findUnique.mockImplementation(
+        ({ where }: { where: { email?: string; phone?: string } }) => {
+          if (where.phone === '+919876500001') {
+            return Promise.resolve({
+              id: 'existing-admin-id',
+              phone: '+919876500001',
+            });
+          }
+          return Promise.resolve(null);
+        },
+      );
+
+      await expect(
+        service.bootstrapDoctor(validDoctorInput),
+      ).rejects.toThrow(
+        'Bootstrap failed: A user with phone number "+919876500001" already exists.',
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.clinicMembership.create).not.toHaveBeenCalled();
+    });
+
+    it('should create doctor identity with DOCTOR role and ACTIVE status in single transaction', async () => {
+      prisma.clinic.findUnique.mockResolvedValue(mockActiveClinic);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(mockCreatedDoctorUser);
+      prisma.clinicMembership.create.mockResolvedValue(
+        mockCreatedDoctorMembership,
+      );
+
+      const result = await service.bootstrapDoctor(validDoctorInput);
+
+      expect(result).toEqual({
+        userId: 'doc-user-id',
+        clinicId: 'clinic-1',
+        membershipId: 'doc-membership-id',
+        email: 'dr.sharma@clinic.com',
+        fullName: 'Dr. Ramesh Sharma',
+        role: ClinicRole.DOCTOR,
+        status: MembershipStatus.ACTIVE,
+      });
+
+      // Verify transaction was used
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+
+      // Verify user was created with hashed password
+      const userCreateCalls = prisma.user.create.mock.calls as Array<
+        [{ data: { email: string; passwordHash: string; fullName: string } }]
+      >;
+      const createdData = userCreateCalls[0][0].data;
+      expect(createdData.email).toBe('dr.sharma@clinic.com');
+      expect(createdData.fullName).toBe('Dr. Ramesh Sharma');
+      expect(createdData.passwordHash.startsWith('$argon2id$')).toBe(true);
+
+      const isPasswordValid = await argon2.verify(
+        createdData.passwordHash,
+        validDoctorInput.password,
+      );
+      expect(isPasswordValid).toBe(true);
+
+      // Verify DOCTOR membership was created for the existing clinic
+      const membershipCreateCalls = prisma.clinicMembership.create.mock
+        .calls as Array<
+        [{ data: { userId: string; clinicId: string; role: ClinicRole; status: MembershipStatus } }]
+      >;
+      expect(membershipCreateCalls[0][0].data).toEqual({
+        userId: 'doc-user-id',
+        clinicId: 'clinic-1',
+        role: ClinicRole.DOCTOR,
+        status: MembershipStatus.ACTIVE,
+      });
+
+      // Preservation requirement: clinic.create should NOT be called (existing clinic is preserved)
+      expect(prisma.clinic.create).not.toHaveBeenCalled();
+    });
+
+    it('should rollback transaction if membership creation fails', async () => {
+      prisma.clinic.findUnique.mockResolvedValue(mockActiveClinic);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(mockCreatedDoctorUser);
+      prisma.clinicMembership.create.mockRejectedValue(
+        new Error('Database foreign key violation'),
+      );
+
+      await expect(
+        service.bootstrapDoctor(validDoctorInput),
+      ).rejects.toThrow('Database foreign key violation');
+
+      // Verify transaction caught error
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should preserve existing ADMIN account and membership when provisioning doctor', async () => {
+      prisma.clinic.findUnique.mockResolvedValue(mockActiveClinic);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(mockCreatedDoctorUser);
+      prisma.clinicMembership.create.mockResolvedValue(
+        mockCreatedDoctorMembership,
+      );
+
+      const result = await service.bootstrapDoctor(validDoctorInput);
+
+      expect(result.role).toBe(ClinicRole.DOCTOR);
+      expect(result.status).toBe(MembershipStatus.ACTIVE);
+
+      // Verify no updates or deletes occurred on user, clinic, or clinicMembership
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(prisma.clinic.update).not.toHaveBeenCalled();
+      expect(prisma.clinic.delete).not.toHaveBeenCalled();
+      expect(prisma.clinic.create).not.toHaveBeenCalled();
+      expect(prisma.clinicMembership.update).not.toHaveBeenCalled();
+      expect(prisma.clinicMembership.delete).not.toHaveBeenCalled();
     });
   });
 });

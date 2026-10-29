@@ -168,7 +168,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
   }
 
   Future<void> _navigateToDetails(Patient patient) async {
-    final updated = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PatientDetailsScreen(
           patientId: patient.id,
@@ -178,7 +178,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
       ),
     );
 
-    if (updated == true && mounted) {
+    if (mounted) {
       _loadPatients(reset: true);
     }
   }

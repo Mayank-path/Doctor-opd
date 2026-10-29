@@ -51,6 +51,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late final DashboardService _dashboardService;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _dashboardContentKey = GlobalKey();
 
   String? _activeClinicId;
   ClinicDashboardStats? _stats;
@@ -62,18 +64,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _dashboardService = widget.dashboardService ?? DashboardService();
+    try {
+      _activeClinicId = widget.authService.activeClinicId;
+    } catch (_) {
+      _activeClinicId = null;
+    }
+    if (_activeClinicId != null && _activeClinicId!.isNotEmpty) {
+      _isLoading = true;
+    }
     _initializeDashboard();
   }
 
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    String? currentClinicId;
+    try {
+      currentClinicId = widget.authService.activeClinicId;
+    } catch (_) {
+      currentClinicId = null;
+    }
+    if (currentClinicId != null &&
+        currentClinicId.isNotEmpty &&
+        currentClinicId != _activeClinicId) {
+      setState(() {
+        _activeClinicId = currentClinicId;
+      });
+      _loadDashboardData(currentClinicId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeDashboard() async {
-    final clinicId = await widget.authService.getActiveClinicId();
+    String? clinicId = _activeClinicId;
+    if (clinicId == null || clinicId.isEmpty) {
+      try {
+        clinicId = await widget.authService.getActiveClinicId();
+      } catch (_) {
+        clinicId = null;
+      }
+    }
+
     if (mounted) {
       setState(() {
         _activeClinicId = clinicId;
       });
       if (clinicId != null && clinicId.trim().isNotEmpty) {
         await _loadDashboardData(clinicId.trim());
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
       }
+    }
+  }
+
+  void _scrollToDashboard() {
+    if (_dashboardContentKey.currentContext != null) {
+      Scrollable.ensureVisible(
+        _dashboardContentKey.currentContext!,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } else if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        260,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -91,27 +154,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _stats = stats;
           _isLoading = false;
         });
+        if (stats.detectedRole != 'UNKNOWN') {
+          try {
+            await widget.authService.updateUserRole(stats.detectedRole);
+          } catch (_) {}
+        }
       }
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          if (e.statusCode == 403) {
-            _clinicValidationError =
-                'Tenant authorization failed: You are not an active member of clinic "$clinicId".';
-            _errorMessage = 'Access denied for the selected clinic tenant.';
-          } else if (e.statusCode == 400) {
-            _clinicValidationError = 'Invalid clinic identifier format.';
-            _errorMessage = e.message;
-          } else {
-            _errorMessage = e.message;
-          }
+          _stats = null;
+          _clinicValidationError = e.message;
+          _errorMessage = (e.statusCode == 403)
+              ? 'Access denied for the selected clinic tenant.'
+              : e.message;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _stats = null;
           _errorMessage = 'Failed to load clinic dashboard: $e';
         });
       }
@@ -127,6 +191,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _activeClinicId = trimmed;
     });
     await _loadDashboardData(trimmed);
+
+    if (_stats != null && _clinicValidationError == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Clinic context verified! Welcome to OPD Dashboard.'),
+          backgroundColor: AppTheme.accentTeal,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      _scrollToDashboard();
+    }
   }
 
   Future<void> _navigateToPatients() async {
@@ -254,10 +329,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final hasActiveClinic = _activeClinicId != null && _activeClinicId!.isNotEmpty;
-    final effectiveRole = _stats?.detectedRole ?? widget.user.role ?? 'ADMIN';
+    final String? effectiveRole = (_stats?.detectedRole != null && _stats!.detectedRole != 'UNKNOWN')
+        ? _stats!.detectedRole
+        : (widget.authService.currentUser?.role != null && widget.authService.currentUser!.role!.isNotEmpty)
+            ? widget.authService.currentUser!.role
+            : (widget.user.role != null && widget.user.role!.isNotEmpty)
+                ? widget.user.role
+                : null;
+    final bool isDoctor = _stats?.isDoctor ?? (effectiveRole == 'DOCTOR');
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
+      drawer: _buildAppDrawer(context, effectiveRole, isDoctor),
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -316,6 +399,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
           },
           child: SingleChildScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: Center(
@@ -334,6 +418,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       isLoading: _isLoading,
                       validationError: _clinicValidationError,
                       onSaveClinicId: _handleSaveClinicId,
+                      onContinueToDashboard: _scrollToDashboard,
                     ),
                     const SizedBox(height: 16),
 
@@ -343,10 +428,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                     ],
 
+                    // OPD Dashboard Section Header with Anchor Key
+                    Container(
+                      key: _dashboardContentKey,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'OPD CLINICAL DASHBOARD',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: AppTheme.primaryNavy,
+                            ),
+                          ),
+                          if (hasActiveClinic && _stats != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successGreen.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AppTheme.successGreen.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 11,
+                                    color: AppTheme.successGreen,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'LIVE SYNC',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.successGreen,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
                     // Quick Actions Grid
                     QuickActionsGrid(
                       activeClinicId: _activeClinicId,
-                      isDoctor: _stats?.isDoctor ?? false,
+                      isDoctor: isDoctor,
                       onPatientsTap: _navigateToPatients,
                       onAppointmentsTap: _navigateToAppointments,
                       onQueueTap: _navigateToQueue,
@@ -354,7 +493,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // If no clinic context is selected, display guiding prompt
+                    // Body prompts based on clinic validation and data loading
                     if (!hasActiveClinic) ...[
                       _buildMissingClinicContextPrompt(),
                       const SizedBox(height: 16),
@@ -409,19 +548,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildUserProfileCard(String role) {
+  Widget _buildUserProfileCard(String? role) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: AppTheme.borderGray),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 26,
+              radius: 22,
               backgroundColor: AppTheme.primaryNavy,
               child: Text(
                 widget.user.fullName.isNotEmpty
@@ -429,7 +568,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     : 'U',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -456,15 +595,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                          color: role != null
+                              ? AppTheme.accentTeal.withValues(alpha: 0.12)
+                              : Colors.grey.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          role,
-                          style: const TextStyle(
+                          role ?? (_isLoading ? 'VERIFYING...' : 'PENDING'),
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.accentTeal,
+                            color: role != null ? AppTheme.accentTeal : Colors.grey.shade700,
                           ),
                         ),
                       ),
@@ -599,6 +740,130 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'Loading clinic metrics & OPD queue...',
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppDrawer(BuildContext context, String? effectiveRole, bool isDoctor) {
+    final hasActiveClinic = _activeClinicId != null && _activeClinicId!.isNotEmpty;
+
+    return Drawer(
+      child: Column(
+        children: [
+          UserAccountsDrawerHeader(
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryNavy,
+            ),
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: AppTheme.accentTeal,
+              child: Text(
+                widget.user.fullName.isNotEmpty
+                    ? widget.user.fullName[0].toUpperCase()
+                    : 'U',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            accountName: Text(
+              widget.user.fullName,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            accountEmail: Text(
+              effectiveRole != null
+                  ? '${widget.user.email ?? "No email"} • $effectiveRole'
+                  : (widget.user.email ?? "No email"),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard_rounded, color: AppTheme.primaryNavy),
+            title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+            onTap: () {
+              Navigator.of(context).pop();
+              _scrollToDashboard();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.confirmation_number_rounded, color: AppTheme.accentTeal),
+            title: const Text('OPD Queue'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _navigateToQueue();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit_calendar_rounded, color: AppTheme.accentTeal),
+            title: const Text('Appointments'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _navigateToAppointments();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.people_alt_rounded, color: AppTheme.accentTeal),
+            title: const Text('Patients'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _navigateToPatients();
+            },
+          ),
+          if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+            ListTile(
+              leading: const Icon(Icons.medical_services_rounded, color: Colors.purple),
+              title: const Text('Consultations'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _navigateToConsultations();
+              },
+            ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.apartment_rounded, color: AppTheme.textSecondary),
+            title: const Text('Active Clinic Context'),
+            subtitle: Text(
+              hasActiveClinic ? _activeClinicId! : 'No clinic configured',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+            ),
+            onTap: () {
+              Navigator.of(context).pop();
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            },
+          ),
+          const Spacer(),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout_rounded, color: AppTheme.errorRed),
+            title: const Text(
+              'Log Out',
+              style: TextStyle(
+                color: AppTheme.errorRed,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            onTap: () {
+              Navigator.of(context).pop();
+              _confirmLogout();
+            },
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );

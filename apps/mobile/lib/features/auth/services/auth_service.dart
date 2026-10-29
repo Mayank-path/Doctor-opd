@@ -12,6 +12,7 @@ class AuthService extends ChangeNotifier {
   final SecureStorageService _storageService;
 
   AuthUser? _currentUser;
+  String? _activeClinicId;
   bool _isLoading = false;
   String? _errorMessage;
   bool _isInitialized = false;
@@ -23,12 +24,13 @@ class AuthService extends ChangeNotifier {
         _storageService = storageService ?? SecureStorageService();
 
   AuthUser? get currentUser => _currentUser;
+  String? get activeClinicId => _activeClinicId;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isInitialized => _isInitialized;
 
-  /// Restores session from secure storage upon app launch.
+  /// Restores session and persisted active clinic selector from secure storage upon app launch.
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
@@ -37,11 +39,17 @@ class AuthService extends ChangeNotifier {
       final token = await _storageService.getAccessToken();
       if (token != null && token.isNotEmpty) {
         _currentUser = await _storageService.getUser();
+        try {
+          _activeClinicId = await _storageService.getActiveClinicId();
+        } catch (_) {
+          _activeClinicId = null;
+        }
       }
     } catch (_) {
       // In case of storage reading corruption, fail closed to login screen
       await _storageService.clearAuth();
       _currentUser = null;
+      _activeClinicId = null;
     } finally {
       _isLoading = false;
       _isInitialized = true;
@@ -78,6 +86,14 @@ class AuthService extends ChangeNotifier {
       await _storageService.saveUser(loginResponse.user);
 
       _currentUser = loginResponse.user;
+
+      // Restore previously persisted active clinic context if present
+      try {
+        _activeClinicId = await _storageService.getActiveClinicId();
+      } catch (_) {
+        _activeClinicId = null;
+      }
+
       _errorMessage = null;
       notifyListeners();
       return true;
@@ -95,24 +111,44 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Sets or updates the active clinic ID selector in secure storage.
+  /// Sets or updates the active clinic ID selector in secure storage and in-memory state.
   Future<void> setActiveClinic(String clinicId) async {
-    await _storageService.saveActiveClinicId(clinicId);
+    final trimmed = clinicId.trim();
+    await _storageService.saveActiveClinicId(trimmed);
+    _activeClinicId = trimmed;
     notifyListeners();
   }
 
-  /// Retrieves the selected clinic ID from secure storage.
+  /// Safely updates the user's clinic-specific verified role in memory and secure storage.
+  Future<void> updateUserRole(String role) async {
+    if (_currentUser != null && _currentUser!.role != role) {
+      _currentUser = _currentUser!.copyWith(role: role);
+      await _storageService.saveUser(_currentUser!);
+      notifyListeners();
+    }
+  }
+
+  /// Retrieves the selected clinic ID from in-memory state or secure storage.
   Future<String?> getActiveClinicId() async {
-    return _storageService.getActiveClinicId();
+    if (_activeClinicId != null && _activeClinicId!.isNotEmpty) {
+      return _activeClinicId;
+    }
+    final stored = await _storageService.getActiveClinicId();
+    _activeClinicId = stored;
+    return stored;
   }
 
   /// Logs out the user by clearing secure storage and in-memory session.
-  Future<void> logout() async {
+  /// Preserves the selected active clinic identifier unless [clearClinic] is true.
+  Future<void> logout({bool clearClinic = false}) async {
     _isLoading = true;
     notifyListeners();
 
-    await _storageService.clearAuth();
+    await _storageService.clearAuth(clearClinic: clearClinic);
     _currentUser = null;
+    if (clearClinic) {
+      _activeClinicId = null;
+    }
     _errorMessage = null;
 
     _isLoading = false;
