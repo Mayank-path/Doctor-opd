@@ -27,9 +27,15 @@ class AuthInterceptor extends Interceptor {
       }
     }
 
-    // Always accept and send JSON
-    options.headers['Accept'] = 'application/json';
-    options.headers['Content-Type'] = 'application/json';
+    // Accept JSON unless caller explicitly requested another content type (e.g. application/pdf)
+    if (!options.headers.containsKey('Accept')) {
+      options.headers['Accept'] = 'application/json';
+    }
+
+    // Set Content-Type to JSON only if not sending FormData and not explicitly defined
+    if (options.data is! FormData && !options.headers.containsKey('Content-Type')) {
+      options.headers['Content-Type'] = 'application/json';
+    }
 
     return handler.next(options);
   }

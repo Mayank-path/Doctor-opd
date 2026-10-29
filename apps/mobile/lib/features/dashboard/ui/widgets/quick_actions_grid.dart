@@ -10,6 +10,7 @@ class QuickActionsGrid extends StatelessWidget {
   final VoidCallback? onAppointmentsTap;
   final VoidCallback? onQueueTap;
   final VoidCallback? onConsultationsTap;
+  final VoidCallback? onPrescriptionsTap;
 
   const QuickActionsGrid({
     super.key,
@@ -19,6 +20,7 @@ class QuickActionsGrid extends StatelessWidget {
     this.onAppointmentsTap,
     this.onQueueTap,
     this.onConsultationsTap,
+    this.onPrescriptionsTap,
   });
 
   void _showComingSoonSheet(
@@ -226,6 +228,32 @@ class QuickActionsGrid extends StatelessWidget {
             ),
           ],
         ),
+        if (isDoctor || onPrescriptionsTap != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionCard(
+                  context,
+                  title: 'Prescriptions',
+                  subtitle: isDoctor ? 'Builder & History' : 'Protected',
+                  icon: Icons.receipt_long_rounded,
+                  color: Colors.teal.shade700,
+                  onTap: (isDoctor && onPrescriptionsTap != null)
+                      ? onPrescriptionsTap!
+                      : () => _showComingSoonSheet(
+                            context,
+                            title: 'Prescription Builder',
+                            icon: Icons.receipt_long_rounded,
+                            description: isDoctor
+                                ? 'Clinician-reviewed prescription builder, digital approvals, and authenticated PDF printing.'
+                                : 'Prescription creation is restricted to DOCTOR memberships.',
+                          ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

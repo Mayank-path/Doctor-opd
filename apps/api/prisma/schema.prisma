@@ -31,6 +31,45 @@ enum ConsultationStatus {
   FINALIZED
 }
 
+enum PrescriptionStatus {
+  DRAFT
+  APPROVED
+  SUPERSEDED
+  CANCELLED
+}
+
+enum DosageForm {
+  TABLET
+  CAPSULE
+  SYRUP
+  INJECTION
+  OINTMENT
+  DROPS
+  INHALER
+  OTHER
+}
+
+enum MedicationRoute {
+  ORAL
+  TOPICAL
+  INTRAVENOUS
+  INTRAMUSCULAR
+  SUBLINGUAL
+  INHALATION
+  OPHTHALMIC
+  NASAL
+  OTIC
+}
+
+enum MedicationTiming {
+  BEFORE_MEALS
+  AFTER_MEALS
+  WITH_MEALS
+  EMPTY_STOMACH
+  AT_BEDTIME
+  AS_NEEDED
+}
+
 enum AppointmentType {
   SCHEDULED
   WALK_IN
@@ -59,32 +98,33 @@ enum QueueStatus {
 }
 
 model User {
-  id           String             @id @default(uuid())
-  phone        String             @unique
-  email        String?            @unique
+  id           String               @id @default(uuid())
+  phone        String               @unique
+  email        String?              @unique
   passwordHash String?
   fullName     String
-  isActive     Boolean            @default(true)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
   memberships  ClinicMembership[]
+  auditEvents  ClinicalAuditEvent[]
 
   @@map("users")
 }
 
 model Clinic {
-  id            String              @id @default(uuid())
+  id            String               @id @default(uuid())
   name          String
-  slug          String?             @unique
+  slug          String?              @unique
   phone         String?
   email         String?
   address       String?
   city          String?
   state         String?
   postalCode    String?
-  isActive      Boolean             @default(true)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  isActive      Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
   memberships   ClinicMembership[]
   patients      Patient[]
   uhidCounter   PatientUhidCounter?
@@ -92,6 +132,8 @@ model Clinic {
   queueEntries  OpdQueueEntry[]
   dailyCounters OpdDailyCounter[]
   consultations Consultation[]
+  prescriptions Prescription[]
+  auditEvents   ClinicalAuditEvent[]
 
   @@map("clinics")
 }
@@ -112,6 +154,7 @@ model ClinicMembership {
   queueEntries  OpdQueueEntry[]   @relation("DoctorQueueEntries")
   dailyCounters OpdDailyCounter[] @relation("DoctorDailyCounters")
   consultations Consultation[]    @relation("ClinicianConsultations")
+  prescriptions Prescription[]    @relation("DoctorPrescriptions")
 
   @@unique([userId, clinicId])
   @@index([userId])
@@ -141,6 +184,7 @@ model Patient {
   appointments  Appointment[]
   queueEntries  OpdQueueEntry[]
   consultations Consultation[]
+  prescriptions Prescription[]
 
   @@unique([clinicId, uhid])
   @@unique([id, clinicId])
@@ -274,13 +318,89 @@ model Consultation {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  clinic    Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient   Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  clinician ClinicMembership @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  clinic        Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient       Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  clinician     ClinicMembership @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  prescriptions Prescription[]
 
   @@unique([id, clinicId])
   @@index([clinicId, patientId, encounterDate(sort: Desc)])
   @@index([clinicId, encounterDate(sort: Desc)])
   @@index([clinicId, status])
   @@map("consultations")
+}
+
+model Prescription {
+  id                       String             @id @default(uuid())
+  clinicId                 String
+  patientId                String
+  consultationId           String?
+  doctorId                 String
+  versionNumber            Int                @default(1)
+  status                   PrescriptionStatus @default(DRAFT)
+  supersedesPrescriptionId String?
+  amendmentReason          String?
+  notes                    String?
+  approvedAt               DateTime?          @db.Timestamptz(3)
+  createdAt                DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime           @updatedAt @db.Timestamptz(3)
+
+  clinic               Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient              Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  consultation         Consultation?    @relation(fields: [consultationId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  doctor               ClinicMembership @relation("DoctorPrescriptions", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  supersededBy         Prescription?    @relation("PrescriptionAmendments", fields: [supersedesPrescriptionId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  amendedPrescriptions Prescription[]   @relation("PrescriptionAmendments")
+
+  items PrescriptionItem[]
+
+  @@unique([id, clinicId])
+  @@index([clinicId, patientId, createdAt(sort: Desc)])
+  @@index([clinicId, consultationId])
+  @@index([clinicId, status])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id                  String           @id @default(uuid())
+  prescriptionId      String
+  clinicId            String
+  medicationName      String
+  brandName           String?
+  dosageForm          DosageForm       @default(TABLET)
+  strength            String
+  route               MedicationRoute  @default(ORAL)
+  frequency           String
+  durationValue       Int
+  durationUnit        String
+  timing              MedicationTiming @default(AFTER_MEALS)
+  specialInstructions String?
+  sortOrder           Int              @default(0)
+  createdAt           DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(3)
+
+  prescription Prescription @relation(fields: [prescriptionId, clinicId], references: [id, clinicId], onDelete: Cascade)
+
+  @@index([prescriptionId, sortOrder])
+  @@map("prescription_items")
+}
+
+model ClinicalAuditEvent {
+  id         String   @id @default(uuid())
+  clinicId   String
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, entityType, entityId])
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@map("clinical_audit_events")
 }

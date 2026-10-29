@@ -10,7 +10,9 @@ class AppTheme {
   // Color Palette
   static const Color primaryNavy = Color(0xFF0F172A);
   static const Color navyLight = Color(0xFF1E293B);
+  static const Color darkSlate = navyLight;
   static const Color accentTeal = Color(0xFF0D9488);
+  static const Color primaryTeal = accentTeal;
   static const Color accentTealLight = Color(0xFF14B8A6);
   static const Color backgroundLight = Color(0xFFF8FAFC);
   static const Color surfaceWhite = Color(0xFFFFFFFF);
@@ -21,6 +23,7 @@ class AppTheme {
   static const Color textSecondary = Color(0xFF64748B);
   static const Color textMuted = Color(0xFF94A3B8);
   static const Color errorRed = Color(0xFFEF4444);
+  static const Color dangerRed = errorRed;
   static const Color successGreen = Color(0xFF10B981);
   static const Color warningAmber = Color(0xFFF59E0B);
 

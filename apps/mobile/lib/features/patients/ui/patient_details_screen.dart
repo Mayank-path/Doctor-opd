@@ -8,6 +8,7 @@ import '../services/patients_service.dart';
 import 'patient_edit_screen.dart';
 import '../../consultations/ui/consultation_details_screen.dart';
 import '../../consultations/ui/consultation_create_screen.dart';
+import '../../prescriptions/ui/prescription_list_screen.dart';
 
 /// Patient Details Screen showing full demographics and role-aware clinical visit history
 class PatientDetailsScreen extends StatefulWidget {
@@ -536,6 +537,21 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                IconButton(
+                  key: const Key('patientPrescriptionsButton'),
+                  icon: const Icon(Icons.receipt_long_rounded, color: AppTheme.accentTeal, size: 22),
+                  tooltip: 'Patient Prescriptions',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PrescriptionListScreen(
+                          initialPatientId: widget.patientId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline, color: Colors.purple, size: 22),
                   tooltip: 'Start Consultation',

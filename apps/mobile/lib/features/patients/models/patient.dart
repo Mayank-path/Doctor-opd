@@ -62,6 +62,9 @@ class Patient {
     }
   }
 
+  /// Alias for age
+  int? get ageYears => age;
+
   factory Patient.fromJson(Map<String, dynamic> json) {
     return Patient(
       id: json['id'] as String? ?? '',

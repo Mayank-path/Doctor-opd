@@ -292,6 +292,9 @@ class Consultation {
   /// Whether consultation is in draft state (editable by attending doctor)
   bool get isDraft => status == ConsultationStatus.draft;
 
+  /// Helper getter for patient full name
+  String? get patientName => patient?.fullName;
+
   /// Whether the user is authorized to edit this draft
   /// (Must be DRAFT status, DOCTOR role, and matching clinicianId)
   bool canEdit(String? currentUserId, String? currentUserRole) {

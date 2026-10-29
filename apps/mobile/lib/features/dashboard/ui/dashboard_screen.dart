@@ -22,6 +22,8 @@ import '../../queue/services/queue_service.dart';
 import '../../queue/ui/queue_screen.dart';
 import '../../consultations/services/consultations_service.dart';
 import '../../consultations/ui/consultation_list_screen.dart';
+import '../../prescriptions/services/prescriptions_service.dart';
+import '../../prescriptions/ui/prescription_list_screen.dart';
 
 /// Production-ready Clinic Dashboard Screen
 /// Integrates real backend OPD endpoints, tenant isolation, and role boundaries.
@@ -33,6 +35,7 @@ class DashboardScreen extends StatefulWidget {
   final AppointmentsService? appointmentsService;
   final QueueService? queueService;
   final ConsultationsService? consultationsService;
+  final PrescriptionsService? prescriptionsService;
 
   const DashboardScreen({
     super.key,
@@ -43,6 +46,7 @@ class DashboardScreen extends StatefulWidget {
     this.appointmentsService,
     this.queueService,
     this.consultationsService,
+    this.prescriptionsService,
   });
 
   @override
@@ -290,6 +294,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _navigateToPrescriptions() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PrescriptionListScreen(
+          prescriptionsService: widget.prescriptionsService,
+        ),
+      ),
+    );
+    if (_activeClinicId != null && mounted) {
+      await _loadDashboardData(_activeClinicId!);
+    }
+  }
+
   void _confirmLogout() {
     showDialog(
       context: context,
@@ -490,6 +507,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onAppointmentsTap: _navigateToAppointments,
                       onQueueTap: _navigateToQueue,
                       onConsultationsTap: _navigateToConsultations,
+                      onPrescriptionsTap: _navigateToPrescriptions,
                     ),
                     const SizedBox(height: 16),
 
@@ -824,6 +842,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: () {
                 Navigator.of(context).pop();
                 _navigateToConsultations();
+              },
+            ),
+          if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+            ListTile(
+              leading: const Icon(Icons.receipt_long_rounded, color: Colors.teal),
+              title: const Text('Prescriptions'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _navigateToPrescriptions();
               },
             ),
           const Divider(),

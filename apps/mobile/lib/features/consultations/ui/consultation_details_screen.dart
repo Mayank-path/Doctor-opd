@@ -8,6 +8,7 @@ import '../models/update_consultation_request.dart';
 import '../services/consultations_service.dart';
 import 'components/consultation_finalize_dialog.dart';
 import 'components/vitals_input_grid.dart';
+import '../../prescriptions/ui/prescription_create_screen.dart';
 
 /// Screen displaying and managing a clinical consultation record.
 ///
@@ -452,6 +453,28 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
           backgroundColor: Colors.white,
           elevation: 0,
           actions: [
+            if (_consultation != null) ...[
+              IconButton(
+                key: const Key('consultationPrescriptionAppBarButton'),
+                icon: const Icon(Icons.receipt_long_rounded),
+                tooltip: 'Prescription Builder',
+                color: AppTheme.primaryNavy,
+                onPressed: () {
+                  final c = _consultation!;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PrescriptionCreateScreen(
+                        consultationId: c.id,
+                        prefilledPatientId: c.patientId,
+                        prefilledPatientName: c.patientName,
+                        prefilledConsultationContext:
+                            'Diagnosis: ${c.diagnosis ?? "N/A"} | Complaint: ${c.chiefComplaint}',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
             if (_consultation != null &&
                 !_consultation!.isFinalized &&
                 _canCurrentUserEdit()) ...[
@@ -783,6 +806,65 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
 
           const SizedBox(height: 12),
 
+          // Prescriptions Card
+          _buildCard(
+            title: 'Prescriptions',
+            icon: Icons.receipt_long_rounded,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _consultation?.isFinalized == true
+                        ? 'Prescription orders linked to this consultation.'
+                        : 'Draft or review prescription orders for this visit.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  key: const Key('composePrescriptionButton'),
+                  onPressed: () {
+                    final c = _consultation!;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PrescriptionCreateScreen(
+                          consultationId: c.id,
+                          prefilledPatientId: c.patientId,
+                          prefilledPatientName: c.patientName,
+                          prefilledConsultationContext:
+                              'Diagnosis: ${c.diagnosis ?? "N/A"} | Complaint: ${c.chiefComplaint}',
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentTeal,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text(
+                    'Prescription',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           // Follow-up Date Card
           _buildCard(
             title: 'Follow-Up Instructions',

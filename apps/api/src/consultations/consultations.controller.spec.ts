@@ -2,11 +2,13 @@ import { Reflector } from '@nestjs/core';
 import { ClinicRole, Consultation, ConsultationStatus } from '@prisma/client';
 import { ConsultationsController } from './consultations.controller';
 import { ConsultationsService } from './consultations.service';
+import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { ROLES_KEY } from '../auth/decorators/require-roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClinicAuthGuard } from '../auth/guards/clinic-auth.guard';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
 import { UpdateConsultationDto } from './dto/update-consultation.dto';
+import { CreateConsultationPrescriptionDto } from '../prescriptions/dto/create-consultation-prescription.dto';
 
 describe('ConsultationsController', () => {
   let controller: ConsultationsController;
@@ -14,6 +16,12 @@ describe('ConsultationsController', () => {
     createDraft: jest.Mock;
     updateDraft: jest.Mock;
     finalize: jest.Mock;
+    findAll: jest.Mock;
+    findOne: jest.Mock;
+  };
+  let prescriptionsService: {
+    createDraft: jest.Mock;
+    findAll: jest.Mock;
   };
   let reflector: Reflector;
 
@@ -29,9 +37,14 @@ describe('ConsultationsController', () => {
       findAll: jest.fn(),
       findOne: jest.fn(),
     };
+    prescriptionsService = {
+      createDraft: jest.fn(),
+      findAll: jest.fn(),
+    };
     reflector = new Reflector();
     controller = new ConsultationsController(
       service as unknown as ConsultationsService,
+      prescriptionsService as unknown as PrescriptionsService,
     );
   });
 
@@ -82,6 +95,20 @@ describe('ConsultationsController', () => {
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
       expect(roles).toEqual([ClinicRole.DOCTOR]);
     });
+
+    it('createPrescription should strictly restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.createPrescription;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
+    });
+
+    it('findPrescriptions should strictly restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.findPrescriptions;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
+    });
   });
 
   describe('createDraft Handler', () => {
@@ -100,7 +127,7 @@ describe('ConsultationsController', () => {
         chiefComplaint: 'Headache',
       };
 
-      service.createDraft.mockResolvedValue(mockResponse as Consultation);
+      service.createDraft.mockResolvedValue(mockResponse);
 
       const result = await controller.createDraft(
         mockClinicId,
@@ -132,7 +159,7 @@ describe('ConsultationsController', () => {
         bpSystolic: 125,
       };
 
-      service.updateDraft.mockResolvedValue(mockResponse as Consultation);
+      service.updateDraft.mockResolvedValue(mockResponse);
 
       const result = await controller.updateDraft(
         mockClinicId,
@@ -160,7 +187,7 @@ describe('ConsultationsController', () => {
         finalizedAt: new Date(),
       };
 
-      service.finalize.mockResolvedValue(mockResponse as Consultation);
+      service.finalize.mockResolvedValue(mockResponse);
 
       const result = await controller.finalize(
         mockClinicId,
@@ -202,7 +229,7 @@ describe('ConsultationsController', () => {
         clinicId: mockClinicId,
       };
 
-      service.findOne.mockResolvedValue(mockResponse as Consultation);
+      service.findOne.mockResolvedValue(mockResponse);
 
       const result = await controller.findOne(mockClinicId, mockConsultationId);
 
@@ -211,6 +238,93 @@ describe('ConsultationsController', () => {
         mockConsultationId,
       );
       expect(result).toBe(mockResponse);
+    });
+  });
+
+  describe('createPrescription Handler', () => {
+    it('should lookup consultation and delegate to prescriptionsService.createDraft', async () => {
+      const mockConsultation: Partial<Consultation> = {
+        id: mockConsultationId,
+        clinicId: mockClinicId,
+        patientId: 'patient-uuid-1',
+      };
+      service.findOne.mockResolvedValue(mockConsultation);
+
+      const dto: CreateConsultationPrescriptionDto = {
+        notes: 'Take after food',
+        items: [
+          {
+            medicationName: 'Paracetamol',
+            strength: '500 mg',
+            frequency: '1-0-1',
+            durationValue: 3,
+            durationUnit: 'DAYS',
+          },
+        ],
+      };
+
+      const mockPrescription = {
+        id: 'prescription-uuid-1',
+        clinicId: mockClinicId,
+        patientId: 'patient-uuid-1',
+        consultationId: mockConsultationId,
+      };
+
+      prescriptionsService.createDraft.mockResolvedValue(
+        mockPrescription as any,
+      );
+
+      const mockReq = {
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'Jest-Test' },
+      } as any;
+
+      const result = await controller.createPrescription(
+        mockClinicId,
+        mockDoctorUserId,
+        mockConsultationId,
+        dto,
+        mockReq,
+      );
+
+      expect(service.findOne).toHaveBeenCalledWith(
+        mockClinicId,
+        mockConsultationId,
+      );
+      expect(prescriptionsService.createDraft).toHaveBeenCalledWith(
+        mockClinicId,
+        mockDoctorUserId,
+        {
+          patientId: 'patient-uuid-1',
+          consultationId: mockConsultationId,
+          notes: 'Take after food',
+          items: dto.items,
+        },
+        '127.0.0.1',
+        'Jest-Test',
+      );
+      expect(result).toBe(mockPrescription);
+    });
+  });
+
+  describe('findPrescriptions Handler', () => {
+    it('should delegate to prescriptionsService.findAll with consultationId filter', async () => {
+      const mockResult = {
+        data: [],
+        items: [],
+        meta: { page: 1, limit: 20, total: 0, totalPages: 1 },
+      };
+      prescriptionsService.findAll.mockResolvedValue(mockResult);
+
+      const result = await controller.findPrescriptions(
+        mockClinicId,
+        mockConsultationId,
+      );
+
+      expect(prescriptionsService.findAll).toHaveBeenCalledWith(mockClinicId, {
+        consultationId: mockConsultationId,
+      });
+      expect(result).toBe(mockResult);
     });
   });
 });

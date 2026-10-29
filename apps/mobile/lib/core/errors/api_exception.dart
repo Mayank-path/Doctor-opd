@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Centralized API Exception definitions
 class ApiException implements Exception {
   final String message;
@@ -20,6 +22,20 @@ class ApiException implements Exception {
     String message = 'An unexpected error occurred';
     String? error;
     List<String> details = [];
+
+    if (responseData is List<int>) {
+      try {
+        final decoded = utf8.decode(responseData);
+        final parsed = jsonDecode(decoded);
+        if (parsed is Map<String, dynamic>) {
+          responseData = parsed;
+        } else {
+          responseData = decoded;
+        }
+      } catch (_) {
+        // Not a JSON error string
+      }
+    }
 
     if (responseData is Map<String, dynamic>) {
       error = responseData['error']?.toString();
@@ -58,6 +74,7 @@ class ApiException implements Exception {
       case 500:
       case 502:
       case 503:
+      case 504:
         return ServerException(
           message: 'Server error encountered. Please try again later.',
           statusCode: statusCode,
@@ -72,74 +89,91 @@ class ApiException implements Exception {
     }
   }
 
-  factory ApiException.networkError([String? customMessage]) {
+  /// Convenience factory for timeout exceptions
+  factory ApiException.timeout([String? message]) {
     return NetworkException(
-      message: customMessage ??
-          'Unable to connect to the clinic server. Please check your network connection.',
+      message: message ?? 'Request timed out. Please check your connection.',
     );
   }
 
-  factory ApiException.timeout() {
+  /// Convenience factory for network/connectivity exceptions
+  factory ApiException.networkError([String? message]) {
     return NetworkException(
-      message: 'Connection timed out. The clinic server is taking too long to respond.',
+      message: message ?? 'Unable to connect to the server. Check your network.',
     );
   }
 
   @override
-  String toString() => message;
+  String toString() {
+    if (details.isNotEmpty) {
+      return '$message (${details.join(', ')})';
+    }
+    return message;
+  }
 }
 
+/// 400 Bad Request — Validation or client request format failure
 class BadRequestException extends ApiException {
   const BadRequestException({
     required super.message,
-    super.details = const [],
+    super.details,
   }) : super(statusCode: 400, error: 'Bad Request');
 }
 
+/// 401 Unauthorized — Missing, expired, or invalid JWT
 class UnauthorizedException extends ApiException {
   const UnauthorizedException({
-    super.message = 'Authentication required or invalid credentials',
+    required super.message,
   }) : super(statusCode: 401, error: 'Unauthorized');
 }
 
+/// 403 Forbidden — Valid JWT, but unauthorized for target clinic or role
 class ForbiddenException extends ApiException {
   const ForbiddenException({
-    super.message = 'You do not have permission to access this clinic resource',
+    required super.message,
   }) : super(statusCode: 403, error: 'Forbidden');
 }
 
+/// 404 Not Found — Resource does not exist within active clinic
 class NotFoundException extends ApiException {
   const NotFoundException({
-    super.message = 'The requested clinic resource was not found',
+    required super.message,
   }) : super(statusCode: 404, error: 'Not Found');
 }
 
+/// 409 Conflict — Business rule violation (e.g. duplicate token, immutable consultation)
 class ConflictException extends ApiException {
   const ConflictException({
-    super.message = 'Conflict with the current state of the resource',
+    required super.message,
   }) : super(statusCode: 409, error: 'Conflict');
 }
 
+/// 422 Unprocessable Entity — Syntactically correct but semantically invalid
 class UnprocessableEntityException extends ApiException {
   const UnprocessableEntityException({
     required super.message,
-    super.details = const [],
+    super.details,
   }) : super(statusCode: 422, error: 'Unprocessable Entity');
 }
 
+/// 429 Too Many Requests — Throttling limit exceeded
 class RateLimitedException extends ApiException {
   const RateLimitedException({
-    super.message = 'Rate limit exceeded. Please wait before retrying.',
+    required super.message,
   }) : super(statusCode: 429, error: 'Too Many Requests');
 }
 
+/// 500/502/503/504 Server-side error
 class ServerException extends ApiException {
   const ServerException({
-    super.message = 'Internal server error occurred',
+    required super.message,
     super.statusCode = 500,
   }) : super(error: 'Internal Server Error');
 }
 
+/// Network connectivity, socket, or timeout failure
 class NetworkException extends ApiException {
-  const NetworkException({required super.message}) : super(statusCode: null);
+  const NetworkException({
+    required super.message,
+  });
 }
