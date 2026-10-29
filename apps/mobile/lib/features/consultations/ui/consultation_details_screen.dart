@@ -94,6 +94,15 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
 
     if (_consultation == null) {
       await _fetchConsultation();
+    } else if (_consultation!.patient == null) {
+      try {
+        final record = await _consultationsService.getConsultationById(widget.consultationId);
+        if (mounted && record.patient != null) {
+          setState(() {
+            _consultation = _consultation!.copyWith(patient: record.patient);
+          });
+        }
+      } catch (_) {}
     }
   }
 
@@ -264,7 +273,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
 
       if (mounted) {
         setState(() {
-          _consultation = updated;
+          _consultation = updated.patient != null
+              ? updated
+              : updated.copyWith(patient: _consultation?.patient);
           _hasUnsavedChanges = false;
           _isSaving = false;
         });
@@ -338,7 +349,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
 
       if (result != null && mounted) {
         setState(() {
-          _consultation = result;
+          _consultation = result.patient != null
+              ? result
+              : result.copyWith(patient: _consultation?.patient);
           _hasUnsavedChanges = false;
         });
 

@@ -94,6 +94,7 @@ export class PatientsService {
       const searchTerm = query.q.trim();
       where.OR = [
         { fullName: { contains: searchTerm, mode: 'insensitive' } },
+        { uhid: { contains: searchTerm, mode: 'insensitive' } },
         { phone: { contains: searchTerm } },
       ];
     }

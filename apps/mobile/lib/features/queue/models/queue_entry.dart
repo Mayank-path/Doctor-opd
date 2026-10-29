@@ -373,7 +373,8 @@ class QueueEntry {
   /// (Strict backend rule: Must be CALLED, and only assigned DOCTOR can start)
   bool canStartConsultation(String? currentUserId, String? currentUserRole) {
     if (status != QueueStatus.called) return false;
-    final isDoctorRole = currentUserRole?.toUpperCase() == 'DOCTOR';
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
     return isDoctorRole && currentUserId == doctorId;
   }
 
@@ -381,7 +382,8 @@ class QueueEntry {
   /// (Strict backend rule: Must be IN_CONSULTATION, and only assigned DOCTOR can complete)
   bool canComplete(String? currentUserId, String? currentUserRole) {
     if (status != QueueStatus.inConsultation) return false;
-    final isDoctorRole = currentUserRole?.toUpperCase() == 'DOCTOR';
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
     return isDoctorRole && currentUserId == doctorId;
   }
 

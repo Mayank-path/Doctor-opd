@@ -232,6 +232,60 @@ class Consultation {
     };
   }
 
+  Consultation copyWith({
+    String? id,
+    String? clinicId,
+    String? patientId,
+    String? clinicianId,
+    String? encounterDate,
+    ConsultationStatus? status,
+    String? finalizedAt,
+    String? chiefComplaint,
+    String? symptoms,
+    String? examination,
+    String? diagnosis,
+    String? treatmentPlan,
+    String? followUpDate,
+    int? bpSystolic,
+    int? bpDiastolic,
+    int? pulse,
+    double? temperature,
+    double? weightKg,
+    double? heightCm,
+    int? spo2,
+    int? respiratoryRate,
+    String? createdAt,
+    String? updatedAt,
+    ConsultationPatientSummary? patient,
+  }) {
+    return Consultation(
+      id: id ?? this.id,
+      clinicId: clinicId ?? this.clinicId,
+      patientId: patientId ?? this.patientId,
+      clinicianId: clinicianId ?? this.clinicianId,
+      encounterDate: encounterDate ?? this.encounterDate,
+      status: status ?? this.status,
+      finalizedAt: finalizedAt ?? this.finalizedAt,
+      chiefComplaint: chiefComplaint ?? this.chiefComplaint,
+      symptoms: symptoms ?? this.symptoms,
+      examination: examination ?? this.examination,
+      diagnosis: diagnosis ?? this.diagnosis,
+      treatmentPlan: treatmentPlan ?? this.treatmentPlan,
+      followUpDate: followUpDate ?? this.followUpDate,
+      bpSystolic: bpSystolic ?? this.bpSystolic,
+      bpDiastolic: bpDiastolic ?? this.bpDiastolic,
+      pulse: pulse ?? this.pulse,
+      temperature: temperature ?? this.temperature,
+      weightKg: weightKg ?? this.weightKg,
+      heightCm: heightCm ?? this.heightCm,
+      spo2: spo2 ?? this.spo2,
+      respiratoryRate: respiratoryRate ?? this.respiratoryRate,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      patient: patient ?? this.patient,
+    );
+  }
+
   /// Whether consultation is in finalized state (strictly immutable)
   bool get isFinalized => status == ConsultationStatus.finalized;
 
@@ -242,7 +296,8 @@ class Consultation {
   /// (Must be DRAFT status, DOCTOR role, and matching clinicianId)
   bool canEdit(String? currentUserId, String? currentUserRole) {
     if (isFinalized) return false;
-    final isDoctorRole = currentUserRole?.toUpperCase() == 'DOCTOR';
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
     return isDoctorRole && currentUserId == clinicianId;
   }
 
@@ -250,7 +305,8 @@ class Consultation {
   /// (Must be DRAFT status, DOCTOR role, and matching clinicianId)
   bool canFinalize(String? currentUserId, String? currentUserRole) {
     if (isFinalized) return false;
-    final isDoctorRole = currentUserRole?.toUpperCase() == 'DOCTOR';
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
     return isDoctorRole && currentUserId == clinicianId;
   }
 

@@ -96,6 +96,10 @@ void main() {
       expect(draft.canEdit(validDoctorId, 'DOCTOR'), isTrue);
       expect(draft.canFinalize(validDoctorId, 'DOCTOR'), isTrue);
 
+      // 1b. Assigned Doctor with null cached role: can edit and finalize
+      expect(draft.canEdit(validDoctorId, null), isTrue);
+      expect(draft.canFinalize(validDoctorId, null), isTrue);
+
       // 2. Different Doctor: cannot edit or finalize another doctor's draft (403 ownership)
       const otherDoctorId = '99999999-9999-9999-9999-999999999999';
       expect(draft.canEdit(otherDoctorId, 'DOCTOR'), isFalse);
@@ -114,6 +118,24 @@ void main() {
 
       expect(finalized.canEdit(validDoctorId, 'DOCTOR'), isFalse);
       expect(finalized.canFinalize(validDoctorId, 'DOCTOR'), isFalse);
+      expect(finalized.canEdit(validDoctorId, null), isFalse);
+      expect(finalized.canFinalize(validDoctorId, null), isFalse);
+    });
+
+    test('copyWith updates specified fields while preserving existing attributes', () {
+      final draft = Consultation.fromJson(sampleDraftJson);
+      final updated = draft.copyWith(
+        chiefComplaint: 'Updated complaint',
+        pulse: 88,
+        status: ConsultationStatus.finalized,
+      );
+
+      expect(updated.id, draft.id);
+      expect(updated.chiefComplaint, 'Updated complaint');
+      expect(updated.pulse, 88);
+      expect(updated.bpSystolic, draft.bpSystolic);
+      expect(updated.status, ConsultationStatus.finalized);
+      expect(updated.patient?.fullName, draft.patient?.fullName);
     });
 
     group('CreateConsultationRequest validation', () {

@@ -260,7 +260,7 @@ describe('PatientsService', () => {
       });
     });
 
-    it('should apply case-insensitive name or phone search when q is >= 2 characters', async () => {
+    it('should apply case-insensitive name, uhid, or phone search when q is >= 2 characters', async () => {
       prisma.patient.count.mockResolvedValue(1);
       prisma.patient.findMany.mockResolvedValue([]);
 
@@ -271,6 +271,7 @@ describe('PatientsService', () => {
         deletedAt: null,
         OR: [
           { fullName: { contains: 'Sharma', mode: 'insensitive' } },
+          { uhid: { contains: 'Sharma', mode: 'insensitive' } },
           { phone: { contains: 'Sharma' } },
         ],
       };
@@ -284,6 +285,34 @@ describe('PatientsService', () => {
         skip: 10,
         take: 10,
       });
+    });
+
+    it('should support searching directly by UHID identifier', async () => {
+      prisma.patient.count.mockResolvedValue(1);
+      prisma.patient.findMany.mockResolvedValue([
+        {
+          id: 'patient-uhid-1',
+          clinicId,
+          uhid: 'UHID-000001',
+          fullName: 'Pathania Jii',
+          phone: '+919876543210',
+          deletedAt: null,
+        },
+      ]);
+
+      const result = await service.findAll(clinicId, { q: 'UHID-000001' });
+
+      expect(prisma.patient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { uhid: { contains: 'UHID-000001', mode: 'insensitive' } },
+            ]),
+          }),
+        }),
+      );
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].uhid).toBe('UHID-000001');
     });
   });
 

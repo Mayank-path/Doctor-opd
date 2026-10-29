@@ -149,6 +149,13 @@ void main() {
         ),
         isTrue,
       );
+      expect(
+        entryCalled.canStartConsultation(
+          'd1111111-1111-1111-1111-111111111111',
+          null,
+        ),
+        isTrue,
+      );
       expect(entryCalled.canStartConsultation('other-doc', 'DOCTOR'), isFalse);
       expect(
         entryCalled.canStartConsultation(
@@ -175,6 +182,13 @@ void main() {
         entryConsulting.canComplete(
           'd1111111-1111-1111-1111-111111111111',
           'DOCTOR',
+        ),
+        isTrue,
+      );
+      expect(
+        entryConsulting.canComplete(
+          'd1111111-1111-1111-1111-111111111111',
+          null,
         ),
         isTrue,
       );

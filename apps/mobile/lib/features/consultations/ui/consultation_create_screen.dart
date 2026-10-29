@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../patients/models/patient.dart';
+import '../../patients/services/patients_service.dart';
 import '../models/create_consultation_request.dart';
 import '../services/consultations_service.dart';
+import 'components/patient_search_selector.dart';
 import 'components/vitals_input_grid.dart';
 import 'consultation_details_screen.dart';
 
@@ -24,6 +27,7 @@ class ConsultationCreateScreen extends StatefulWidget {
   final String? queueEntryId;
   final ConsultationsService? consultationsService;
   final SecureStorageService? storageService;
+  final PatientsService? patientsService;
 
   const ConsultationCreateScreen({
     super.key,
@@ -37,6 +41,7 @@ class ConsultationCreateScreen extends StatefulWidget {
     this.queueEntryId,
     this.consultationsService,
     this.storageService,
+    this.patientsService,
   });
 
   @override
@@ -49,6 +54,7 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
 
   late final ConsultationsService _consultationsService;
   late final SecureStorageService _storageService;
+  late final PatientsService _patientsService;
 
   bool _isLoading = true;
   bool _isCreating = false;
@@ -56,8 +62,9 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
   bool _hasUnsavedChanges = false;
   bool _isForbidden = false;
 
+  Patient? _selectedPatient;
+
   // Controllers
-  final _patientIdController = TextEditingController();
   final _chiefComplaintController = TextEditingController();
   final _symptomsController = TextEditingController();
   final _examinationController = TextEditingController();
@@ -81,9 +88,20 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
     _consultationsService =
         widget.consultationsService ?? ConsultationsService();
     _storageService = widget.storageService ?? SecureStorageService();
+    _patientsService = widget.patientsService ?? PatientsService();
 
     if (widget.patientId != null) {
-      _patientIdController.text = widget.patientId!;
+      _selectedPatient = Patient(
+        id: widget.patientId!,
+        clinicId: '',
+        uhid: widget.patientUhid ?? '',
+        fullName: widget.patientName ?? 'Patient',
+        gender: widget.patientGender ?? 'OTHER',
+        phone: '',
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
     }
     if (widget.initialChiefComplaint != null) {
       _chiefComplaintController.text = widget.initialChiefComplaint!;
@@ -94,7 +112,6 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
 
   @override
   void dispose() {
-    _patientIdController.dispose();
     _chiefComplaintController.dispose();
     _symptomsController.dispose();
     _examinationController.dispose();
@@ -212,11 +229,11 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
       return;
     }
 
-    final targetPatientId = widget.patientId ?? _patientIdController.text.trim();
-    if (targetPatientId.isEmpty) {
+    final targetPatientId = _selectedPatient?.id ?? widget.patientId;
+    if (targetPatientId == null || targetPatientId.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select or provide a valid Patient ID'),
+          content: Text('Please search and select a patient before creating draft'),
           backgroundColor: AppTheme.errorRed,
         ),
       );
@@ -395,11 +412,11 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
             else
               TextButton.icon(
                 onPressed: _submitCreateDraft,
-                icon: const Icon(Icons.check, color: Colors.white),
+                icon: const Icon(Icons.check, color: AppTheme.accentTeal),
                 label: const Text(
                   'Create Draft',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.accentTeal,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -412,8 +429,21 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Patient Info Card
-              _buildPatientHeader(),
+              // Patient Selection / Search Selector
+              PatientSearchSelector(
+                patientsService: _patientsService,
+                selectedPatient: _selectedPatient,
+                onPatientSelected: (patient) {
+                  setState(() {
+                    _selectedPatient = patient;
+                    _hasUnsavedChanges = true;
+                  });
+                },
+                isLocked: widget.queueEntryId != null,
+                lockReason: widget.queueEntryId != null
+                    ? 'Active OPD Queue Encounter'
+                    : null,
+              ),
               const SizedBox(height: 16),
 
               if (_errorMessage != null) ...[
@@ -649,112 +679,5 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
     );
   }
 
-  Widget _buildPatientHeader() {
-    final hasPatientInfo = widget.patientName != null;
 
-    return Card(
-      elevation: 0,
-      color: AppTheme.backgroundLight,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.person_outline,
-                  color: AppTheme.primaryNavy,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Patient Information',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryNavy,
-                  ),
-                ),
-                const Spacer(),
-                if (widget.patientUhid != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentTeal.withAlpha(30),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'UHID: ${widget.patientUhid}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryNavy,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (hasPatientInfo) ...[
-              Text(
-                widget.patientName!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${widget.patientGender ?? 'Unknown'} • ${widget.patientAge != null ? '${widget.patientAge} yrs' : 'Age N/A'}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ] else ...[
-              TextFormField(
-                controller: _patientIdController,
-                decoration: const InputDecoration(
-                  labelText: 'Patient UUID *',
-                  hintText: 'Enter valid Patient UUID...',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Patient UUID is required';
-                  }
-                  return null;
-                },
-              ),
-            ],
-            if (widget.queueEntryId != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.how_to_reg_outlined,
-                      size: 14, color: AppTheme.accentTeal),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Active OPD Queue Encounter',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.teal.shade800,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }

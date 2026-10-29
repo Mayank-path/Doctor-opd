@@ -13,10 +13,15 @@ import 'package:doctor_opd_mobile/features/consultations/ui/components/consultat
 import 'package:doctor_opd_mobile/features/consultations/ui/consultation_create_screen.dart';
 import 'package:doctor_opd_mobile/features/consultations/ui/consultation_details_screen.dart';
 import 'package:doctor_opd_mobile/features/consultations/ui/consultation_list_screen.dart';
+import 'package:doctor_opd_mobile/features/patients/models/paginated_patients_response.dart';
+import 'package:doctor_opd_mobile/features/patients/models/patient.dart';
+import 'package:doctor_opd_mobile/features/patients/services/patients_service.dart';
 
 class MockConsultationsService extends Mock implements ConsultationsService {}
 
 class MockSecureStorageService extends Mock implements SecureStorageService {}
+
+class MockPatientsService extends Mock implements PatientsService {}
 
 class FakeCreateConsultationRequest extends Fake
     implements CreateConsultationRequest {}
@@ -32,6 +37,7 @@ void main() {
 
   late MockConsultationsService mockConsultationsService;
   late MockSecureStorageService mockStorageService;
+  late MockPatientsService mockPatientsService;
 
   const validClinicId = '11111111-1111-1111-1111-111111111111';
   const validPatientId = '22222222-2222-2222-2222-222222222222';
@@ -121,6 +127,7 @@ void main() {
   setUp(() {
     mockConsultationsService = MockConsultationsService();
     mockStorageService = MockSecureStorageService();
+    mockPatientsService = MockPatientsService();
   });
 
   group('ConsultationListScreen Widget Tests', () {
@@ -270,6 +277,217 @@ void main() {
       expect(find.textContaining('Chief complaint is required'), findsOneWidget);
       verifyNever(() => mockConsultationsService.createDraft(any()));
     });
+
+    testWidgets('when no patient is pre-selected, displays searchable patient selector and blocks submission if no patient is selected', (tester) async {
+      when(() => mockStorageService.getUser()).thenAnswer((_) async => testDoctorUser);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConsultationCreateScreen(
+            consultationsService: mockConsultationsService,
+            storageService: mockStorageService,
+            patientsService: mockPatientsService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Start Consultation'), findsOneWidget);
+      expect(find.byKey(const Key('patientSearchInput')), findsOneWidget);
+      expect(find.text('Patient UUID *'), findsNothing); // Manual UUID input is eliminated!
+
+      // Fill chief complaint but leave patient unselected
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Primary reason for visit (e.g. Acute high fever with cough for 3 days)...'),
+        'Severe persistent migraine',
+      );
+
+      await tester.tap(find.text('Create Draft'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Please search and select a patient'), findsOneWidget);
+      verifyNever(() => mockConsultationsService.createDraft(any()));
+    });
+
+    testWidgets('searching patient by UHID, selecting patient, filling chief complaint submits real UUID and not UHID', (tester) async {
+      when(() => mockStorageService.getUser()).thenAnswer((_) async => testDoctorUser);
+
+      const targetPatientUuid = '55555555-5555-5555-5555-555555555555';
+      final searchedPatient = Patient(
+        id: targetPatientUuid,
+        clinicId: validClinicId,
+        uhid: 'UHID-000042',
+        fullName: 'Meera Deshmukh',
+        gender: 'FEMALE',
+        dateOfBirth: '1995-08-12',
+        phone: '+919876500000',
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      when(() => mockPatientsService.getPatients(
+            page: 1,
+            limit: 20,
+            query: 'UHID-000042',
+          )).thenAnswer((_) async => PaginatedPatientsResponse(
+            data: [searchedPatient],
+            meta: const PaginationMeta(page: 1, limit: 20, total: 1, totalPages: 1),
+          ));
+
+      when(() => mockConsultationsService.createDraft(any())).thenAnswer(
+        (_) async => testDraftConsultation,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConsultationCreateScreen(
+            consultationsService: mockConsultationsService,
+            storageService: mockStorageService,
+            patientsService: mockPatientsService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Search by UHID
+      await tester.enterText(find.byKey(const Key('patientSearchInput')), 'UHID-000042');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      // Verify search result appears
+      expect(find.text('Meera Deshmukh'), findsOneWidget);
+      expect(find.byKey(Key('patientResult_$targetPatientUuid')), findsOneWidget);
+
+      // Select patient
+      await tester.tap(find.byKey(Key('patientResult_$targetPatientUuid')));
+      await tester.pumpAndSettle();
+
+      // Patient card rendered, UUID is hidden from UI
+      expect(find.text('Meera Deshmukh'), findsOneWidget);
+      expect(find.text('UHID: UHID-000042'), findsOneWidget);
+      expect(find.text(targetPatientUuid), findsNothing);
+
+      // Enter chief complaint
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Primary reason for visit (e.g. Acute high fever with cough for 3 days)...'),
+        'Acute viral bronchitis with chest discomfort',
+      );
+
+      // Submit form
+      await tester.tap(find.text('Create Draft'));
+      await tester.pumpAndSettle();
+
+      // Verify createDraft was called with the actual UUID and NOT the UHID!
+      final captured = verify(() => mockConsultationsService.createDraft(captureAny())).captured;
+      expect(captured.length, equals(1));
+      final request = captured.first as CreateConsultationRequest;
+
+      expect(request.patientId, equals(targetPatientUuid));
+      expect(request.patientId, isNot(equals('UHID-000042'))); // UHID must never be submitted!
+      expect(request.chiefComplaint, equals('Acute viral bronchitis with chest discomfort'));
+    });
+
+    testWidgets('changing selected patient updates the real UUID submitted to createDraft', (tester) async {
+      when(() => mockStorageService.getUser()).thenAnswer((_) async => testDoctorUser);
+
+      const patient1Uuid = '11111111-1111-1111-1111-111111111111';
+      const patient2Uuid = '22222222-2222-2222-2222-222222222222';
+
+      final patient1 = Patient(
+        id: patient1Uuid,
+        clinicId: validClinicId,
+        uhid: 'UHID-000001',
+        fullName: 'First Patient',
+        gender: 'MALE',
+        phone: '+919876543210',
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final patient2 = Patient(
+        id: patient2Uuid,
+        clinicId: validClinicId,
+        uhid: 'UHID-000002',
+        fullName: 'Second Patient',
+        gender: 'FEMALE',
+        phone: '+919876543211',
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      when(() => mockPatientsService.getPatients(
+            page: 1,
+            limit: 20,
+            query: 'First',
+          )).thenAnswer((_) async => PaginatedPatientsResponse(
+            data: [patient1],
+            meta: const PaginationMeta(page: 1, limit: 20, total: 1, totalPages: 1),
+          ));
+
+      when(() => mockPatientsService.getPatients(
+            page: 1,
+            limit: 20,
+            query: 'Second',
+          )).thenAnswer((_) async => PaginatedPatientsResponse(
+            data: [patient2],
+            meta: const PaginationMeta(page: 1, limit: 20, total: 1, totalPages: 1),
+          ));
+
+      when(() => mockConsultationsService.createDraft(any())).thenAnswer(
+        (_) async => testDraftConsultation,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConsultationCreateScreen(
+            consultationsService: mockConsultationsService,
+            storageService: mockStorageService,
+            patientsService: mockPatientsService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Search & select first patient
+      await tester.enterText(find.byKey(const Key('patientSearchInput')), 'First');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('patientResult_$patient1Uuid')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('First Patient'), findsOneWidget);
+
+      // Change patient
+      await tester.tap(find.byKey(const Key('changePatientButton')));
+      await tester.pumpAndSettle();
+
+      // Search & select second patient
+      await tester.enterText(find.byKey(const Key('patientSearchInput')), 'Second');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('patientResult_$patient2Uuid')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Second Patient'), findsOneWidget);
+
+      // Enter chief complaint & submit
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Primary reason for visit (e.g. Acute high fever with cough for 3 days)...'),
+        'Follow-up review consultation',
+      );
+      await tester.tap(find.text('Create Draft'));
+      await tester.pumpAndSettle();
+
+      final captured = verify(() => mockConsultationsService.createDraft(captureAny())).captured;
+      final request = captured.first as CreateConsultationRequest;
+      expect(request.patientId, equals(patient2Uuid)); // Updated to second patient's UUID!
+    });
   });
 
   group('ConsultationDetailsScreen Widget Tests', () {
@@ -299,6 +517,38 @@ void main() {
 
       expect(find.text('Vikram Malhotra'), findsOneWidget);
       expect(find.text('UHID: UHID-2026-009 • Male • 51 yrs'), findsOneWidget);
+    });
+
+    testWidgets('displays draft in editable mode with Save and Finalize actions for assigned clinician when user role is not yet populated in storage', (tester) async {
+      const userWithoutRole = AuthUser(
+        id: validDoctorId,
+        email: 'dr.sharma@opd.local',
+        fullName: 'Dr. Ramesh Sharma',
+        role: null,
+      );
+      when(() => mockStorageService.getUser()).thenAnswer((_) async => userWithoutRole);
+      when(() => mockConsultationsService.getConsultationById(validConsultationId)).thenAnswer(
+        (_) async => testDraftConsultation,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConsultationDetailsScreen(
+            consultationId: validConsultationId,
+            initialConsultation: testDraftConsultation,
+            consultationsService: mockConsultationsService,
+            storageService: mockStorageService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Consultation Note'), findsOneWidget);
+      expect(find.text('Draft'), findsOneWidget);
+      expect(find.byKey(const Key('saveDraftButton')), findsOneWidget);
+      expect(find.byKey(const Key('finalizeConsultationButton')), findsOneWidget);
+      expect(find.text('Vikram Malhotra'), findsOneWidget);
     });
 
     testWidgets('displays finalized consultation strictly read-only with no edit/finalize controls', (tester) async {
