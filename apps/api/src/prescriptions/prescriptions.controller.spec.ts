@@ -121,7 +121,10 @@ describe('PrescriptionsController', () => {
         ],
       };
 
-      const mockResponse = { id: mockPrescriptionId, status: PrescriptionStatus.DRAFT };
+      const mockResponse = {
+        id: mockPrescriptionId,
+        status: PrescriptionStatus.DRAFT,
+      };
       service.createDraft.mockResolvedValue(mockResponse as any);
 
       const mockReq = {
@@ -188,7 +191,10 @@ describe('PrescriptionsController', () => {
         doctorNotes: 'Approved during OPD round',
       };
 
-      const mockResponse = { id: mockPrescriptionId, status: PrescriptionStatus.APPROVED };
+      const mockResponse = {
+        id: mockPrescriptionId,
+        status: PrescriptionStatus.APPROVED,
+      };
       service.approve.mockResolvedValue(mockResponse as any);
 
       const mockReq = {
@@ -294,7 +300,8 @@ describe('PrescriptionsController', () => {
       );
       expect(mockRes.set).toHaveBeenCalledWith({
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline; filename="Prescription-UHID-001-v1.pdf"',
+        'Content-Disposition':
+          'inline; filename="Prescription-UHID-001-v1.pdf"',
         'Content-Length': mockBuffer.length,
       });
       expect(mockRes.end).toHaveBeenCalledWith(mockBuffer);

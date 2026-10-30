@@ -109,31 +109,44 @@ model User {
   memberships  ClinicMembership[]
   auditEvents  ClinicalAuditEvent[]
 
+  // Clinical Knowledge-Pack Governance relations
+  reviewedApprovals        ClinicalReviewApproval[]
+  authorizedReleases       KnowledgePackRelease[]
+  governanceAudits         KnowledgePackGovernanceAudit[] @relation("GovernanceAuditActor")
+  reviewerCredential       ReviewerCredential?            @relation("ReviewerCredentialUser")
+  verifiedCredentials      ReviewerCredential[]           @relation("ReviewerCredentialVerifier")
+  authoredVersions         KnowledgePackVersion[]         @relation("KnowledgePackAuthor")
+  verificationDecisions    ReviewerVerificationHistory[]  @relation("VerificationHistoryActor")
+  registeredPublicKeys     ReviewerPublicKey[]            @relation("ReviewerPublicKeys")
+  consumedAttestationNonces GovernanceAttestationNonce[]  @relation("ReviewerNonces")
+
   @@map("users")
 }
 
 model Clinic {
-  id            String               @id @default(uuid())
-  name          String
-  slug          String?              @unique
-  phone         String?
-  email         String?
-  address       String?
-  city          String?
-  state         String?
-  postalCode    String?
-  isActive      Boolean              @default(true)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  memberships   ClinicMembership[]
-  patients      Patient[]
-  uhidCounter   PatientUhidCounter?
-  appointments  Appointment[]
-  queueEntries  OpdQueueEntry[]
-  dailyCounters OpdDailyCounter[]
-  consultations Consultation[]
-  prescriptions Prescription[]
-  auditEvents   ClinicalAuditEvent[]
+  id                    String                       @id @default(uuid())
+  name                  String
+  slug                  String?                      @unique
+  phone                 String?
+  email                 String?
+  address               String?
+  city                  String?
+  state                 String?
+  postalCode            String?
+  isActive              Boolean                      @default(true)
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  memberships           ClinicMembership[]
+  patients              Patient[]
+  uhidCounter           PatientUhidCounter?
+  appointments          Appointment[]
+  queueEntries          OpdQueueEntry[]
+  dailyCounters         OpdDailyCounter[]
+  consultations         Consultation[]
+  prescriptions         Prescription[]
+  auditEvents           ClinicalAuditEvent[]
+  differentialAudits    DifferentialDiagnosisAudit[]
+  knowledgePackReleases KnowledgePackRelease[]
 
   @@map("clinics")
 }
@@ -150,11 +163,12 @@ model ClinicMembership {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
-  appointments  Appointment[]     @relation("DoctorAppointments")
-  queueEntries  OpdQueueEntry[]   @relation("DoctorQueueEntries")
-  dailyCounters OpdDailyCounter[] @relation("DoctorDailyCounters")
-  consultations Consultation[]    @relation("ClinicianConsultations")
-  prescriptions Prescription[]    @relation("DoctorPrescriptions")
+  appointments       Appointment[]                @relation("DoctorAppointments")
+  queueEntries       OpdQueueEntry[]              @relation("DoctorQueueEntries")
+  dailyCounters      OpdDailyCounter[]            @relation("DoctorDailyCounters")
+  consultations      Consultation[]               @relation("ClinicianConsultations")
+  prescriptions      Prescription[]               @relation("DoctorPrescriptions")
+  differentialAudits DifferentialDiagnosisAudit[] @relation("ClinicianDifferentialAudits")
 
   @@unique([userId, clinicId])
   @@index([userId])
@@ -180,11 +194,12 @@ model Patient {
   createdAt      DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
-  clinic        Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  appointments  Appointment[]
-  queueEntries  OpdQueueEntry[]
-  consultations Consultation[]
-  prescriptions Prescription[]
+  clinic             Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments       Appointment[]
+  queueEntries       OpdQueueEntry[]
+  consultations      Consultation[]
+  prescriptions      Prescription[]
+  differentialAudits DifferentialDiagnosisAudit[]
 
   @@unique([clinicId, uhid])
   @@unique([id, clinicId])
@@ -318,10 +333,11 @@ model Consultation {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  clinic        Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient       Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  clinician     ClinicMembership @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
-  prescriptions Prescription[]
+  clinic             Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient            Patient                      @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  clinician          ClinicMembership             @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  prescriptions      Prescription[]
+  differentialAudits DifferentialDiagnosisAudit[]
 
   @@unique([id, clinicId])
   @@index([clinicId, patientId, encounterDate(sort: Desc)])
@@ -404,3 +420,378 @@ model ClinicalAuditEvent {
   @@index([clinicId, createdAt(sort: Desc)])
   @@map("clinical_audit_events")
 }
+
+// ============================================================================
+// DIFFERENTIAL DIAGNOSIS CLINICAL DECISION SUPPORT
+// ============================================================================
+
+enum KnowledgePackDomain {
+  GENERAL_MEDICINE
+  RESPIRATORY
+  GASTROENTEROLOGY
+  CARDIOLOGY
+  NEUROLOGY
+}
+
+enum KnowledgePackReleaseStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  RELEASED
+  DEPRECATED
+  ROLLED_BACK
+}
+
+enum ReviewerVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+  REVOKED
+}
+
+enum DifferentialMatchTier {
+  RED_FLAG_URGENT
+  STRONG_MATCH
+  MODERATE_MATCH
+  POSSIBLE
+  CONTRADICTED
+}
+
+enum DoctorCandidateAction {
+  ACCEPTED_AS_PRIMARY
+  ACCEPTED_AS_DIFFERENTIAL
+  REJECTED
+  DEFERRED_FOR_INVESTIGATION
+}
+
+/// Domain knowledge pack definition.
+model ClinicalKnowledgePack {
+  id          String              @id @default(uuid())
+  domain      KnowledgePackDomain @unique
+  name        String
+  description String
+  createdAt   DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @db.Timestamptz(3)
+
+  versions KnowledgePackVersion[]
+
+  @@map("clinical_knowledge_packs")
+}
+
+/// Immutable version of a knowledge pack.
+model KnowledgePackVersion {
+  id             String                     @id @default(uuid())
+  packId         String
+  majorVersion   Int
+  minorVersion   Int
+  patchVersion   Int
+  releaseStatus  KnowledgePackReleaseStatus @default(DRAFT)
+  changelog      String
+  checksumSha256 String // Integrity verification
+  publishedAt    DateTime?                  @db.Timestamptz(3)
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
+
+  pack         ClinicalKnowledgePack     @relation(fields: [packId], references: [id], onDelete: Restrict)
+  authorUserId String?                   // Relational link to User who authored version (Nullable for legacy safety; fails closed in governance if null)
+  author       User?                     @relation("KnowledgePackAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  conditions   ClinicalCondition[]
+  redFlagRules RedFlagRule[]
+  sources      ClinicalSourceReference[]
+  approvals        ClinicalReviewApproval[]
+  releases         KnowledgePackRelease[]
+  governanceAudits KnowledgePackGovernanceAudit[]
+  attestationNonces GovernanceAttestationNonce[]
+
+  @@unique([packId, majorVersion, minorVersion, patchVersion])
+  @@index([packId, releaseStatus])
+  @@index([authorUserId])
+  @@map("knowledge_pack_versions")
+}
+
+/// Clinical condition within a pack version.
+model ClinicalCondition {
+  id            String   @id @default(uuid())
+  versionId     String
+  conditionCode String // e.g. "COND-PNEUMONIA-CAP"
+  displayName   String // e.g. "Community-Acquired Pneumonia"
+  icd10Guidance String? // Informational reference only
+  description   String
+  category      String // e.g. "Infectious Disease"
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  version KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  rules   DifferentialRule[]
+
+  @@unique([versionId, conditionCode])
+  @@index([versionId, category])
+  @@map("clinical_conditions")
+}
+
+/// Deterministic differential diagnosis rule.
+model DifferentialRule {
+  id                   String   @id @default(uuid())
+  conditionId          String
+  ruleCode             String // e.g. "RULE-CAP-PRIMARY-001"
+  ruleTitle            String
+  minMajorCount        Int      @default(1)
+  applicabilityJson    Json // Age range, gender, encounter type
+  mandatoryAstJson     Json // Mandatory predicates (ALL)
+  majorSupportingJson  Json // Major supporting predicates list
+  minorSupportingJson  Json? // Minor supporting predicates list
+  contradictionsJson   Json? // Contradiction predicates list
+  missingDataRulesJson Json? // Required vitals/exam alerts
+  investigationsJson   Json? // Suggested lab/imaging tests
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+
+  condition        ClinicalCondition   @relation(fields: [conditionId], references: [id], onDelete: Cascade)
+  sourceReferences RuleSourceMapping[]
+
+  @@unique([conditionId, ruleCode])
+  @@map("differential_rules")
+}
+
+/// High-acuity emergency red flag rule.
+model RedFlagRule {
+  id             String   @id @default(uuid())
+  versionId      String
+  flagCode       String // e.g. "RF-QSOFA-SEPSIS"
+  title          String
+  urgencyLevel   String // e.g. "IMMEDIATE"
+  clinicalAction String
+  ruleAstJson    Json // Evaluated allowlisted AST
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  version KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, flagCode])
+  @@map("red_flag_rules")
+}
+
+/// Authoritative clinical guideline source reference.
+model ClinicalSourceReference {
+  id                 String   @id @default(uuid())
+  versionId          String
+  sourceOrganization String // e.g. "ICMR", "WHO", "NICE"
+  sourceTitle        String
+  publicationDate    String
+  sectionIdentifier  String
+  sourceUrlOrDoi     String
+  licensingStatus    String
+  evidenceScope      String
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+
+  version      KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  ruleMappings RuleSourceMapping[]
+
+  @@map("clinical_source_references")
+}
+
+/// Many-to-many join between rules and sources.
+model RuleSourceMapping {
+  id       String @id @default(uuid())
+  ruleId   String
+  sourceId String
+
+  rule   DifferentialRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  source ClinicalSourceReference @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, sourceId])
+  @@map("rule_source_mappings")
+}
+
+/// Formal clinician review attestation record.
+model ClinicalReviewApproval {
+  id                  String    @id @default(uuid())
+  versionId           String
+  reviewerUserId      String?   // Relational link to authenticated User (verified reviewer identity)
+  clinicianName       String
+  medicalRegistration String    // State Medical Council or NMC reg
+  stateMedicalCouncil String?   // e.g. "Delhi Medical Council"
+  qualification       String?   // e.g. "MBBS, MD (General Medicine)"
+  specialty           String
+  checksumSha256      String?   // Explicit 64-char SHA-256 binding. Nullable for legacy safety; resolver rejects if null.
+  approvalVerdict     String    // "APPROVED", "REJECTED"
+  reviewNotes         String    @db.Text
+  coiDeclared         Boolean   @default(false)
+  coiDetails          String?   @db.Text
+  digitalSignature    String?   @db.Text
+  expiresAt           DateTime? @db.Timestamptz(3)
+  signedAt            DateTime  @default(now()) @db.Timestamptz(3)
+
+  version  KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  reviewer User?                @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([versionId, approvalVerdict])
+  @@index([checksumSha256])
+  @@index([reviewerUserId])
+  @@map("clinical_review_approvals")
+}
+
+/// Tenant-specific knowledge pack release. Null clinicId = Global baseline release.
+model KnowledgePackRelease {
+  id                 String              @id @default(uuid())
+  clinicId           String?             // Null = Global Baseline; Non-null = Tenant override
+  versionId          String
+  domain             KnowledgePackDomain @default(GENERAL_MEDICINE) // Domain for active release scoping
+  isActive           Boolean             @default(true)
+  releasedByUserId   String?             // Relational link to Release Officer
+  releaseNotes       String?             @db.Text
+  activatedAt        DateTime            @default(now()) @db.Timestamptz(3)
+  deactivatedAt      DateTime?           @db.Timestamptz(3)
+  deactivationReason String?
+
+  clinic     Clinic?              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  version    KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  releasedBy User?                @relation(fields: [releasedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, versionId])
+  @@index([clinicId, isActive])
+  @@index([releasedByUserId])
+  @@map("knowledge_pack_releases")
+}
+
+/// Dedicated audit ledger for knowledge pack governance actions.
+model KnowledgePackGovernanceAudit {
+  id             String   @id @default(uuid())
+  versionId      String
+  action         String   // "STATUS_TRANSITIONED", "APPROVAL_SIGNED", "RELEASE_ACTIVATED", "EMERGENCY_ROLLBACK"
+  fromStatus     String?
+  toStatus       String?
+  actorUserId    String
+  checksumSha256 String   // Exact SHA-256 at the moment of action
+  metadataJson   Json?    // Structured event parameters
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  version KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  actor   User                 @relation("GovernanceAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([versionId, createdAt(sort: Desc)])
+  @@index([action])
+  @@index([actorUserId])
+  @@map("knowledge_pack_governance_audits")
+}
+
+/// Consultation-scoped execution audit log.
+model DifferentialDiagnosisAudit {
+  id                    String   @id @default(uuid())
+  clinicId              String
+  consultationId        String
+  patientId             String
+  clinicianId           String
+  knowledgePackVerId    String
+  matchedCandidatesJson Json // Sanitized candidate output
+  redFlagsTriggeredJson Json? // Any red flags fired
+  doctorDecisionsJson   Json? // Accepted/rejected choices
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+
+  clinic       Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consultation Consultation     @relation(fields: [consultationId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  patient      Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  clinician    ClinicMembership @relation("ClinicianDifferentialAudits", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+
+  @@unique([id, clinicId])
+  @@index([clinicId, consultationId])
+  @@index([clinicId, patientId])
+  @@map("differential_diagnosis_audits")
+}
+
+/// Independent medical reviewer credential record.
+model ReviewerCredential {
+  id                     String                     @id @default(uuid())
+  userId                 String                     @unique
+  clinicianName          String
+  medicalRegistration    String                     @unique
+  stateMedicalCouncil    String
+  registrationYear       Int
+  primaryQualification   String
+  specialtyQualification String
+  specialty              KnowledgePackDomain
+  yearsOfExperience      Int
+  isSeniorReviewer       Boolean                    @default(false)
+  verificationStatus     ReviewerVerificationStatus @default(PENDING)
+  verificationEvidence   String?                    @db.Text
+  verifiedByUserId       String?
+  verifiedAt             DateTime?                  @db.Timestamptz(3)
+  rejectionReason        String?                    @db.Text
+  credentialsExpiresAt   DateTime?                  @db.Timestamptz(3)
+  isActive               Boolean                    @default(true)
+  createdAt              DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                   @updatedAt @db.Timestamptz(3)
+
+  user           User                          @relation("ReviewerCredentialUser", fields: [userId], references: [id], onDelete: Restrict)
+  verifiedBy     User?                         @relation("ReviewerCredentialVerifier", fields: [verifiedByUserId], references: [id], onDelete: Restrict)
+  historyRecords ReviewerVerificationHistory[]
+
+  @@index([verificationStatus, isActive])
+  @@index([specialty, verificationStatus])
+  @@map("reviewer_credentials")
+}
+
+/// Append-only history of credential verification, rejection, and revocation decisions.
+model ReviewerVerificationHistory {
+  id           String                     @id @default(uuid())
+  credentialId String
+  action       String                     // "SUBMITTED", "VERIFIED", "REJECTED", "REVOKED", "EXPIRED"
+  fromStatus   ReviewerVerificationStatus
+  toStatus     ReviewerVerificationStatus
+  actorUserId  String
+  evidence     String?                    @db.Text
+  reason       String?                    @db.Text
+  createdAt    DateTime                   @default(now()) @db.Timestamptz(3)
+
+  credential ReviewerCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  actor      User               @relation("VerificationHistoryActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([credentialId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+  @@map("reviewer_verification_history")
+}
+
+enum PublicKeyStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+  EXPIRED
+}
+
+/// Registered Ed25519 public keys for clinical reviewers.
+model ReviewerPublicKey {
+  id               String          @id @default(uuid())
+  reviewerUserId   String
+  publicKeyPem     String          @db.Text
+  keyAlgorithm     String          @default("ed25519")
+  keyFingerprint   String          @unique // SHA-256 fingerprint of the public key
+  status           PublicKeyStatus @default(ACTIVE)
+  expiresAt        DateTime        @db.Timestamptz(3)
+  revokedAt        DateTime?       @db.Timestamptz(3)
+  revocationReason String?         @db.Text
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+
+  reviewer User @relation("ReviewerPublicKeys", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([reviewerUserId, status])
+  @@map("reviewer_public_keys")
+}
+
+/// Persistent replay protection for Ed25519 cryptographic attestation nonces.
+model GovernanceAttestationNonce {
+  id             String   @id @default(uuid())
+  nonce          String   @unique @db.VarChar(64)
+  versionId      String   @map("version_id")
+  reviewerUserId String   @map("reviewer_user_id")
+  consumedAt     DateTime @default(now()) @map("consumed_at") @db.Timestamptz(3)
+
+  version  KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  reviewer User                 @relation("ReviewerNonces", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([versionId])
+  @@index([reviewerUserId])
+  @@map("governance_attestation_nonces")
+}
+
+
+

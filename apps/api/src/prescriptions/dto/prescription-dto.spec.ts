@@ -1,7 +1,12 @@
 import 'reflect-metadata';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { DosageForm, MedicationRoute, MedicationTiming, PrescriptionStatus } from '@prisma/client';
+import {
+  DosageForm,
+  MedicationRoute,
+  MedicationTiming,
+  PrescriptionStatus,
+} from '@prisma/client';
 import { CreatePrescriptionItemDto } from './create-prescription-item.dto';
 import { CreatePrescriptionDto } from './create-prescription.dto';
 import { UpdatePrescriptionDto } from './update-prescription.dto';

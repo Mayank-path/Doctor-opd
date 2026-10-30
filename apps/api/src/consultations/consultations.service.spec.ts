@@ -97,8 +97,8 @@ describe('ConsultationsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-      cb(mockPrismaService),
+    mockPrismaService.$transaction.mockImplementation(
+      (cb: (tx: any) => Promise<any>) => cb(mockPrismaService),
     );
     mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(null);
     mockPrismaService.opdQueueEntry.updateMany.mockResolvedValue({ count: 0 });
@@ -158,7 +158,9 @@ describe('ConsultationsService', () => {
           deletedAt: null,
         },
       });
-      expect(mockPrismaService.clinicMembership.findUnique).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.clinicMembership.findUnique,
+      ).toHaveBeenCalledWith({
         where: {
           userId_clinicId: {
             userId: mockDoctorUserId,
@@ -270,7 +272,12 @@ describe('ConsultationsService', () => {
 
     it('throws BadRequestException if no fields are provided for update', async () => {
       await expect(
-        service.updateDraft(mockClinicId, mockConsultationId, mockClinicianId, {}),
+        service.updateDraft(
+          mockClinicId,
+          mockConsultationId,
+          mockClinicianId,
+          {},
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -420,8 +427,12 @@ describe('ConsultationsService', () => {
         status: 'IN_CONSULTATION',
       };
 
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(mockWalkInEntry);
-      mockPrismaService.opdQueueEntry.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(
+        mockWalkInEntry,
+      );
+      mockPrismaService.opdQueueEntry.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.finalize(
         mockClinicId,
@@ -462,11 +473,7 @@ describe('ConsultationsService', () => {
       );
       mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(null);
 
-      await service.finalize(
-        mockClinicId,
-        mockConsultationId,
-        mockClinicianId,
-      );
+      await service.finalize(mockClinicId, mockConsultationId, mockClinicianId);
 
       expect(mockPrismaService.opdQueueEntry.updateMany).not.toHaveBeenCalled();
     });

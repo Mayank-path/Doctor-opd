@@ -99,4 +99,3 @@ export class PatientsController {
     return this.patientsService.update(clinicId, id, dto);
   }
 }
-

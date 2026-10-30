@@ -36,4 +36,3 @@ export class CreatePrescriptionDto {
   @Type(() => CreatePrescriptionItemDto)
   items!: CreatePrescriptionItemDto[];
 }
-

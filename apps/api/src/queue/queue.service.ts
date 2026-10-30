@@ -364,15 +364,11 @@ export class QueueService {
           include: QUEUE_ENTRY_INCLUDE,
         });
       }
-      throw new ConflictException(
-        'Completed queue entry cannot change status',
-      );
+      throw new ConflictException('Completed queue entry cannot change status');
     }
 
     if (entry.status === QueueStatus.CANCELLED) {
-      throw new ConflictException(
-        'Cancelled queue entry cannot change status',
-      );
+      throw new ConflictException('Cancelled queue entry cannot change status');
     }
 
     // 2. Doctor ownership validation for clinical states

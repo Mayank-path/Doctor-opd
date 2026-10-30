@@ -10,7 +10,10 @@ import {
   ClinicRole,
   MembershipStatus,
 } from '@prisma/client';
-import { AppointmentsService, APPOINTMENT_INCLUDE } from './appointments.service';
+import {
+  AppointmentsService,
+  APPOINTMENT_INCLUDE,
+} from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto';
@@ -244,7 +247,9 @@ describe('AppointmentsService', () => {
   describe('findAll', () => {
     it('returns paginated appointments with required serviceDate', async () => {
       mockPrismaService.appointment.count.mockResolvedValue(1);
-      mockPrismaService.appointment.findMany.mockResolvedValue([mockAppointment]);
+      mockPrismaService.appointment.findMany.mockResolvedValue([
+        mockAppointment,
+      ]);
 
       const query: ListAppointmentsQueryDto = {
         serviceDate: '2026-10-30',
@@ -307,7 +312,9 @@ describe('AppointmentsService', () => {
 
   describe('findOne', () => {
     it('returns appointment when found in active clinic', async () => {
-      mockPrismaService.appointment.findFirst.mockResolvedValue(mockAppointment);
+      mockPrismaService.appointment.findFirst.mockResolvedValue(
+        mockAppointment,
+      );
 
       const result = await service.findOne(mockClinicId, mockAppointmentId);
 
@@ -353,8 +360,8 @@ describe('AppointmentsService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const result = await service.reschedule(
@@ -455,8 +462,8 @@ describe('AppointmentsService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const result = await service.reschedule(
@@ -478,8 +485,8 @@ describe('AppointmentsService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       await expect(
@@ -498,8 +505,8 @@ describe('AppointmentsService', () => {
           findFirst: jest.fn().mockResolvedValue(checkedInMock),
         },
       };
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       await expect(
@@ -518,8 +525,8 @@ describe('AppointmentsService', () => {
           findFirst: jest.fn().mockResolvedValue(cancelledMock),
         },
       };
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       await expect(
@@ -540,8 +547,8 @@ describe('AppointmentsService', () => {
           updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
       };
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       await expect(
@@ -611,7 +618,9 @@ describe('AppointmentsService', () => {
     });
 
     it('throws ConflictException if concurrent CAS update count is 0', async () => {
-      mockPrismaService.appointment.findFirst.mockResolvedValue(mockAppointment);
+      mockPrismaService.appointment.findFirst.mockResolvedValue(
+        mockAppointment,
+      );
       mockPrismaService.appointment.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(

@@ -11,4 +11,3 @@ import { PatientsService } from './patients.service';
   exports: [PatientsService],
 })
 export class PatientsModule {}
-

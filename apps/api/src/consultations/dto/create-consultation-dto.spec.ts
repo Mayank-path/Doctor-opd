@@ -3,7 +3,6 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { CreateConsultationDto } from './create-consultation.dto';
 
-
 describe('CreateConsultationDto Validation', () => {
   const validUuid = '11111111-1111-4111-a111-111111111111';
 

@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "bootstrap:admin": "ts-node -r tsconfig-paths/register src/scripts/bootstrap-admin.ts",
-    "bootstrap:doctor": "ts-node -r tsconfig-paths/register src/scripts/bootstrap-doctor.ts"
+    "bootstrap:doctor": "ts-node -r tsconfig-paths/register src/scripts/bootstrap-doctor.ts",
+    "seed:knowledge-pack": "ts-node -r tsconfig-paths/register prisma/seeds/bootstrap-knowledge-pack.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -48,6 +49,7 @@
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
+    "eslint-plugin-regexp": "^3.3.2",
     "globals": "^17.0.0",
     "jest": "^30.0.0",
     "prettier": "^3.4.2",

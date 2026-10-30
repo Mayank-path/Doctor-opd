@@ -81,7 +81,6 @@ describe('AppointmentsController', () => {
     });
 
     it('reschedule should allow ADMIN, DOCTOR, and RECEPTIONIST', () => {
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       const roles = reflector.get<ClinicRole[]>(
         ROLES_KEY,
         controller.reschedule,

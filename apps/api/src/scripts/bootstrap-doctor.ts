@@ -9,10 +9,7 @@ import {
   validateDatabaseEnvironment,
 } from '../auth/bootstrap/bootstrap-target.util';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  promptHidden,
-  promptText,
-} from './bootstrap-admin';
+import { promptHidden, promptText } from './bootstrap-admin';
 
 export function validateDoctorBootstrapDatabase(
   databaseName: string,
@@ -47,8 +44,7 @@ export async function runDoctorBootstrap(): Promise<void> {
   let phone = process.env.BOOTSTRAP_DOCTOR_PHONE;
   let clinicId = process.env.BOOTSTRAP_DOCTOR_CLINIC_ID;
 
-  const isInteractive =
-    !email || !password || !fullName || !phone || !clinicId;
+  const isInteractive = !email || !password || !fullName || !phone || !clinicId;
 
   const prisma = new PrismaClient() as unknown as PrismaService;
   const bootstrapService = new BootstrapService(prisma);
@@ -106,11 +102,7 @@ export async function runDoctorBootstrap(): Promise<void> {
           const effectiveSelection =
             !selection && activeClinics.length === 1 ? '1' : selection;
           const index = parseInt(effectiveSelection, 10);
-          if (
-            !isNaN(index) &&
-            index >= 1 &&
-            index <= activeClinics.length
-          ) {
+          if (!isNaN(index) && index >= 1 && index <= activeClinics.length) {
             clinicId = activeClinics[index - 1].id;
           } else {
             clinicId = effectiveSelection.trim();

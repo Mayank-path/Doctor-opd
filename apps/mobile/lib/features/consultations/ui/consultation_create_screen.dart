@@ -9,6 +9,10 @@ import '../services/consultations_service.dart';
 import 'components/patient_search_selector.dart';
 import 'components/vitals_input_grid.dart';
 import 'consultation_details_screen.dart';
+import '../../clinical_assist/screens/voice_symptom_capture_screen.dart';
+import '../../clinical_assist/models/doctor_extraction_review.dart';
+import '../../clinical_assist/models/differential_evaluation_models.dart';
+import '../../clinical_assist/screens/differential_diagnosis_screen.dart';
 
 /// Screen for creating a new consultation draft for a patient.
 ///
@@ -46,10 +50,10 @@ class ConsultationCreateScreen extends StatefulWidget {
 
   @override
   State<ConsultationCreateScreen> createState() =>
-      _ConsultationCreateScreenState();
+      ConsultationCreateScreenState();
 }
 
-class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
+class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
   final _formKey = GlobalKey<FormState>();
 
   late final ConsultationsService _consultationsService;
@@ -222,6 +226,176 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
     final text = controller.text.trim();
     if (text.isEmpty) return null;
     return double.tryParse(text);
+  }
+
+  Future<void> _openVoiceSymptomCapture() async {
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute(
+        builder: (_) => VoiceSymptomCaptureScreen(
+          initialPatient: _selectedPatient,
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    if (result is ClinicalExtractionFormattingResult) {
+      _applyStructuredExtraction(result);
+    } else if (result is String && result.trim().isNotEmpty) {
+      final current = _symptomsController.text.trim();
+      setState(() {
+        if (current.isEmpty) {
+          _symptomsController.text = result.trim();
+        } else {
+          _symptomsController.text = '$current\n${result.trim()}';
+        }
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  void _applyStructuredExtraction(ClinicalExtractionFormattingResult result) {
+    final newSymptoms = result.formattedSymptoms.trim();
+    final newExam = result.formattedExamination.trim();
+    final newDiagnosis = result.formattedDiagnosis?.trim();
+
+    final currentSymptoms = _symptomsController.text.trim();
+    final currentExam = _examinationController.text.trim();
+    final currentDiagnosis = _diagnosisController.text.trim();
+
+    setState(() {
+      if (newSymptoms.isNotEmpty) {
+        if (currentSymptoms.isEmpty) {
+          _symptomsController.text = newSymptoms;
+        } else if (!currentSymptoms.contains(newSymptoms)) {
+          _symptomsController.text = '$currentSymptoms\n\n$newSymptoms';
+        }
+      }
+
+      if (newExam.isNotEmpty) {
+        if (currentExam.isEmpty) {
+          _examinationController.text = newExam;
+        } else if (!currentExam.contains(newExam)) {
+          _examinationController.text = '$currentExam\n\n$newExam';
+        }
+      }
+
+      if (newDiagnosis != null && newDiagnosis.isNotEmpty) {
+        if (currentDiagnosis.isEmpty) {
+          _diagnosisController.text = newDiagnosis;
+        } else if (!currentDiagnosis.contains(newDiagnosis)) {
+          _diagnosisController.text = '$currentDiagnosis\n$newDiagnosis';
+        }
+      }
+
+      _hasUnsavedChanges = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Structured findings inserted into consultation draft'),
+        backgroundColor: AppTheme.accentTeal,
+      ),
+    );
+  }
+
+  Future<void> _openDifferentialDiagnosis() async {
+    if (_selectedPatient == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a patient before evaluating differential diagnosis.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+      return;
+    }
+
+    final findings = <DifferentialFindingInput>[];
+    final symptomsText = _symptomsController.text.trim();
+    if (symptomsText.isNotEmpty) {
+      final lines = symptomsText
+          .split(RegExp(r'[\n\r;]+'))
+          .map((s) => s.replaceAll(RegExp(r'^[•\-\*]\s*'), '').trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      for (final line in lines) {
+        findings.add(
+          DifferentialFindingInput(
+            canonicalTerm: line,
+            status: EvaluationFindingStatus.present,
+          ),
+        );
+      }
+    }
+
+    if (findings.isEmpty && _chiefComplaintController.text.trim().isNotEmpty) {
+      findings.add(
+        DifferentialFindingInput(
+          canonicalTerm: _chiefComplaintController.text.trim(),
+          status: EvaluationFindingStatus.present,
+        ),
+      );
+    }
+
+    final vitals = DifferentialVitalsInput(
+      temperatureC: _parseDouble(_temperatureController),
+      systolicBp: _parseInt(_bpSystolicController),
+      diastolicBp: _parseInt(_bpDiastolicController),
+      pulse: _parseInt(_pulseController),
+      spO2: _parseInt(_spo2Controller),
+      respiratoryRate: _parseInt(_respiratoryRateController),
+    );
+
+    final assessments = <DifferentialAssessmentInput>[];
+    final examText = _examinationController.text.trim();
+    if (examText.isNotEmpty) {
+      assessments.add(
+        DifferentialAssessmentInput(
+          examination: examText,
+          status: AssessmentStatus.performed,
+        ),
+      );
+    }
+
+    final result = await Navigator.of(context).push<DoctorDifferentialReviewResult>(
+      MaterialPageRoute(
+        builder: (_) => DifferentialDiagnosisScreen(
+          patient: _selectedPatient!,
+          initialFindings: findings,
+          initialVitals: !vitals.isEmpty ? vitals : null,
+          initialInfectionSuspicion: InfectionSuspicionState.unknown,
+          initialAssessments: assessments.isNotEmpty ? assessments : null,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      final diagText = result.formatForConsultationDiagnosis();
+      if (diagText.isNotEmpty) {
+        setState(() {
+          final current = _diagnosisController.text.trim();
+          if (current.isEmpty) {
+            _diagnosisController.text = diagText;
+          } else if (!current.contains(diagText)) {
+            _diagnosisController.text = '$current\n$diagText';
+          }
+          _hasUnsavedChanges = true;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Selected differential diagnosis applied to draft'),
+            backgroundColor: AppTheme.accentTeal,
+          ),
+        );
+      }
+    }
+  }
+
+  @visibleForTesting
+  void applyStructuredExtractionForTest(ClinicalExtractionFormattingResult result) {
+    _applyStructuredExtraction(result);
   }
 
   Future<void> _submitCreateDraft() async {
@@ -558,10 +732,15 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                       TextFormField(
                         controller: _symptomsController,
                         maxLines: 2,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Symptoms / History of Present Illness',
                           hintText: 'e.g. Chills, sore throat, fatigue...',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.mic_rounded, color: AppTheme.accentTeal),
+                            tooltip: 'Capture Voice Symptoms',
+                            onPressed: _openVoiceSymptomCapture,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -578,10 +757,15 @@ class _ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                       TextFormField(
                         controller: _diagnosisController,
                         maxLines: 2,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Clinical Diagnosis / Impression',
                           hintText: 'e.g. Upper Respiratory Tract Infection (URTI)...',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.biotech_outlined, color: AppTheme.accentTeal),
+                            tooltip: 'Assistive Differential Diagnosis',
+                            onPressed: _openDifferentialDiagnosis,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),

@@ -167,7 +167,8 @@ export class ConsultationsService {
     // 4. Assemble partial update payload
     const data: Prisma.ConsultationUpdateManyMutationInput = {};
 
-    if (dto.chiefComplaint !== undefined) data.chiefComplaint = dto.chiefComplaint;
+    if (dto.chiefComplaint !== undefined)
+      data.chiefComplaint = dto.chiefComplaint;
     if (dto.symptoms !== undefined) data.symptoms = dto.symptoms;
     if (dto.examination !== undefined) data.examination = dto.examination;
     if (dto.diagnosis !== undefined) data.diagnosis = dto.diagnosis;

@@ -67,7 +67,6 @@ describe('QueueController', () => {
     });
 
     it('updateStatus allows ADMIN, DOCTOR, and RECEPTIONIST at route level', () => {
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       const roles = reflector.get<ClinicRole[]>(
         ROLES_KEY,
         controller.updateStatus,

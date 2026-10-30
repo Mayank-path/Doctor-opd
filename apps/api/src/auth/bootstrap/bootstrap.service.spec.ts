@@ -318,9 +318,7 @@ describe('BootstrapService', () => {
     it('should reject if target clinic does not exist', async () => {
       prisma.clinic.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.bootstrapDoctor(validDoctorInput),
-      ).rejects.toThrow(
+      await expect(service.bootstrapDoctor(validDoctorInput)).rejects.toThrow(
         'Bootstrap failed: Target clinic with ID "clinic-1" not found.',
       );
       expect(prisma.user.create).not.toHaveBeenCalled();
@@ -334,9 +332,7 @@ describe('BootstrapService', () => {
         isActive: false,
       });
 
-      await expect(
-        service.bootstrapDoctor(validDoctorInput),
-      ).rejects.toThrow(
+      await expect(service.bootstrapDoctor(validDoctorInput)).rejects.toThrow(
         'Bootstrap failed: Target clinic "Suspended Clinic" (clinic-1) is inactive.',
       );
       expect(prisma.user.create).not.toHaveBeenCalled();
@@ -357,9 +353,7 @@ describe('BootstrapService', () => {
         },
       );
 
-      await expect(
-        service.bootstrapDoctor(validDoctorInput),
-      ).rejects.toThrow(
+      await expect(service.bootstrapDoctor(validDoctorInput)).rejects.toThrow(
         'Bootstrap failed: A user with email "dr.sharma@clinic.com" already exists.',
       );
       expect(prisma.user.create).not.toHaveBeenCalled();
@@ -380,9 +374,7 @@ describe('BootstrapService', () => {
         },
       );
 
-      await expect(
-        service.bootstrapDoctor(validDoctorInput),
-      ).rejects.toThrow(
+      await expect(service.bootstrapDoctor(validDoctorInput)).rejects.toThrow(
         'Bootstrap failed: A user with phone number "+919876500001" already exists.',
       );
       expect(prisma.user.create).not.toHaveBeenCalled();
@@ -430,7 +422,16 @@ describe('BootstrapService', () => {
       // Verify DOCTOR membership was created for the existing clinic
       const membershipCreateCalls = prisma.clinicMembership.create.mock
         .calls as Array<
-        [{ data: { userId: string; clinicId: string; role: ClinicRole; status: MembershipStatus } }]
+        [
+          {
+            data: {
+              userId: string;
+              clinicId: string;
+              role: ClinicRole;
+              status: MembershipStatus;
+            };
+          },
+        ]
       >;
       expect(membershipCreateCalls[0][0].data).toEqual({
         userId: 'doc-user-id',
@@ -451,9 +452,9 @@ describe('BootstrapService', () => {
         new Error('Database foreign key violation'),
       );
 
-      await expect(
-        service.bootstrapDoctor(validDoctorInput),
-      ).rejects.toThrow('Database foreign key violation');
+      await expect(service.bootstrapDoctor(validDoctorInput)).rejects.toThrow(
+        'Database foreign key violation',
+      );
 
       // Verify transaction caught error
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);

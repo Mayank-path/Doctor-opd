@@ -9,6 +9,9 @@ import '../services/consultations_service.dart';
 import 'components/consultation_finalize_dialog.dart';
 import 'components/vitals_input_grid.dart';
 import '../../prescriptions/ui/prescription_create_screen.dart';
+import '../../patients/models/patient.dart';
+import '../../clinical_assist/models/differential_evaluation_models.dart';
+import '../../clinical_assist/screens/differential_diagnosis_screen.dart';
 
 /// Screen displaying and managing a clinical consultation record.
 ///
@@ -301,6 +304,108 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
           _isSaving = false;
           _errorMessage = 'Failed to save draft: $e';
         });
+      }
+    }
+  }
+
+  Future<void> _openDifferentialDiagnosis() async {
+    final c = _consultation;
+    if (c == null) return;
+
+    final patientSummary = c.patient;
+    final patient = Patient(
+      id: c.patientId,
+      clinicId: c.clinicId,
+      uhid: patientSummary?.uhid ?? '',
+      fullName: patientSummary?.fullName ?? (c.patientName ?? 'Patient'),
+      gender: patientSummary?.gender ?? 'OTHER',
+      dateOfBirth: patientSummary?.dateOfBirth,
+      phone: patientSummary?.phone ?? '',
+      isActive: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final findings = <DifferentialFindingInput>[];
+    final symptomsText = _symptomsController.text.trim();
+    if (symptomsText.isNotEmpty) {
+      final lines = symptomsText
+          .split(RegExp(r'[\n\r;]+'))
+          .map((s) => s.replaceAll(RegExp(r'^[•\-\*]\s*'), '').trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      for (final line in lines) {
+        findings.add(
+          DifferentialFindingInput(
+            canonicalTerm: line,
+            status: EvaluationFindingStatus.present,
+          ),
+        );
+      }
+    }
+
+    if (findings.isEmpty && _chiefComplaintController.text.trim().isNotEmpty) {
+      findings.add(
+        DifferentialFindingInput(
+          canonicalTerm: _chiefComplaintController.text.trim(),
+          status: EvaluationFindingStatus.present,
+        ),
+      );
+    }
+
+    final vitals = DifferentialVitalsInput(
+      temperatureC: double.tryParse(_temperatureController.text.trim()),
+      systolicBp: int.tryParse(_bpSystolicController.text.trim()),
+      diastolicBp: int.tryParse(_bpDiastolicController.text.trim()),
+      pulse: int.tryParse(_pulseController.text.trim()),
+      spO2: int.tryParse(_spo2Controller.text.trim()),
+      respiratoryRate: int.tryParse(_respiratoryRateController.text.trim()),
+    );
+
+    final assessments = <DifferentialAssessmentInput>[];
+    final examText = _examinationController.text.trim();
+    if (examText.isNotEmpty) {
+      assessments.add(
+        DifferentialAssessmentInput(
+          examination: examText,
+          status: AssessmentStatus.performed,
+        ),
+      );
+    }
+
+    final result = await Navigator.of(context).push<DoctorDifferentialReviewResult>(
+      MaterialPageRoute(
+        builder: (_) => DifferentialDiagnosisScreen(
+          patient: patient,
+          consultationId: c.id,
+          initialFindings: findings,
+          initialVitals: !vitals.isEmpty ? vitals : null,
+          initialInfectionSuspicion: InfectionSuspicionState.unknown,
+          initialAssessments: assessments.isNotEmpty ? assessments : null,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      final diagText = result.formatForConsultationDiagnosis();
+      if (diagText.isNotEmpty) {
+        setState(() {
+          final current = _diagnosisController.text.trim();
+          if (current.isEmpty) {
+            _diagnosisController.text = diagText;
+          } else if (!current.contains(diagText)) {
+            _diagnosisController.text = '$current\n$diagText';
+          }
+          _hasUnsavedChanges = true;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Selected differential diagnosis applied to draft'),
+            backgroundColor: AppTheme.accentTeal,
+          ),
+        );
       }
     }
   }
@@ -760,6 +865,14 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                   text: c.diagnosis,
                   isEditable: isEditable,
                   hintText: 'Working / definitive diagnosis...',
+                  suffixIcon: isEditable
+                      ? IconButton(
+                          icon: const Icon(Icons.biotech_outlined,
+                              color: AppTheme.accentTeal),
+                          tooltip: 'Assistive Differential Diagnosis',
+                          onPressed: _openDifferentialDiagnosis,
+                        )
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 _buildClinicalTextField(
@@ -1039,6 +1152,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     required String? text,
     required bool isEditable,
     required String hintText,
+    Widget? suffixIcon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1058,6 +1172,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
             maxLines: 3,
             decoration: InputDecoration(
               hintText: hintText,
+              suffixIcon: suffixIcon,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),

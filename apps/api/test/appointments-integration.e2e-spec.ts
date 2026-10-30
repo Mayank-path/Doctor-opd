@@ -443,7 +443,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         .send(payload);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Patient not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Patient not found',
+      );
     });
 
     it('rejects creation for patient belonging to another clinic (404)', async () => {
@@ -462,7 +464,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         .send(payload);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Patient not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Patient not found',
+      );
     });
 
     it('rejects creation for doctor from another clinic (404)', async () => {
@@ -481,7 +485,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         .send(payload);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Doctor not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Doctor not found',
+      );
     });
 
     it('rejects creation when endTime is before or equal to startTime (400)', async () => {
@@ -537,7 +543,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         .send(payload);
 
       expect(res.status).toBe(400);
-      expect((res.body as { message: string }).message).toContain('does not match serviceDate');
+      expect((res.body as { message: string }).message).toContain(
+        'does not match serviceDate',
+      );
     });
   });
 
@@ -627,7 +635,12 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
       const body = res.body as {
         data: AppointmentResponse[];
         items: AppointmentResponse[];
-        meta: { page: number; limit: number; total: number; totalPages: number };
+        meta: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
       };
 
       expect(body.data).toBeDefined();
@@ -679,7 +692,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
 
     it('filters appointments by doctorId', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/appointments?serviceDate=${testDate}&doctorId=${doctorUserId}`)
+        .get(
+          `/api/v1/appointments?serviceDate=${testDate}&doctorId=${doctorUserId}`,
+        )
         .set('Authorization', `Bearer ${adminToken}`)
         .set('x-clinic-id', clinic1Id);
 
@@ -852,7 +867,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         .send(payload);
 
       expect(res.status).toBe(409);
-      expect((res.body as { message: string }).message).toContain('cannot be rescheduled');
+      expect((res.body as { message: string }).message).toContain(
+        'cannot be rescheduled',
+      );
     });
 
     it('rejects reschedule of a cancelled appointment (409)', async () => {
@@ -952,7 +969,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         });
 
       expect(res2.status).toBe(409);
-      expect((res2.body as { message: string }).message).toContain('conflicting parameters');
+      expect((res2.body as { message: string }).message).toContain(
+        'conflicting parameters',
+      );
     });
 
     it('concurrent rescheduling: both requests succeed idempotently returning same replacement', async () => {
@@ -1010,7 +1029,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         });
 
       expect(res.status).toBe(409);
-      expect((res.body as { message: string }).message).toContain('soft-deleted');
+      expect((res.body as { message: string }).message).toContain(
+        'soft-deleted',
+      );
     });
 
     it('rejects rescheduling when startTime date does not match serviceDate (400 Bad Request)', async () => {
@@ -1024,7 +1045,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         });
 
       expect(res.status).toBe(400);
-      expect((res.body as { message: string }).message).toContain('does not match serviceDate');
+      expect((res.body as { message: string }).message).toContain(
+        'does not match serviceDate',
+      );
     });
   });
 
@@ -1093,7 +1116,9 @@ describe('Appointment Management API (PostgreSQL Integration)', () => {
         .send({ cancellationReason: 'Duplicate cancellation attempt' });
 
       expect(res.status).toBe(409);
-      expect((res.body as { message: string }).message).toContain('already cancelled');
+      expect((res.body as { message: string }).message).toContain(
+        'already cancelled',
+      );
     });
 
     it('rejects cancellation of checked-in appointment (409)', async () => {

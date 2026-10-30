@@ -8,6 +8,7 @@ import { ConsultationsModule } from './consultations/consultations.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { QueueModule } from './queue/queue.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
+import { ClinicalAssistModule } from './clinical-assist/clinical-assist.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PrescriptionsModule } from './prescriptions/prescriptions.module';
     AppointmentsModule,
     QueueModule,
     PrescriptionsModule,
+    ClinicalAssistModule,
   ],
   controllers: [AppController],
   providers: [AppService],

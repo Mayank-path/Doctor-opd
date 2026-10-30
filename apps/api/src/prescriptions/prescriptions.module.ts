@@ -12,4 +12,3 @@ import { PdfGeneratorService } from './services/pdf-generator.service';
   exports: [PrescriptionsService, PdfGeneratorService],
 })
 export class PrescriptionsModule {}
-

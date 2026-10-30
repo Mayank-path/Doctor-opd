@@ -203,6 +203,8 @@ describe('CancelAppointmentDto', () => {
     });
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors.find((e) => e.property === 'cancellationReason')).toBeDefined();
+    expect(
+      errors.find((e) => e.property === 'cancellationReason'),
+    ).toBeDefined();
   });
 });

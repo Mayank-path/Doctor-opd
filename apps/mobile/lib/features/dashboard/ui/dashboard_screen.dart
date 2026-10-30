@@ -24,6 +24,7 @@ import '../../consultations/services/consultations_service.dart';
 import '../../consultations/ui/consultation_list_screen.dart';
 import '../../prescriptions/services/prescriptions_service.dart';
 import '../../prescriptions/ui/prescription_list_screen.dart';
+import '../../clinical_assist/screens/voice_symptom_capture_screen.dart';
 
 /// Production-ready Clinic Dashboard Screen
 /// Integrates real backend OPD endpoints, tenant isolation, and role boundaries.
@@ -305,6 +306,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_activeClinicId != null && mounted) {
       await _loadDashboardData(_activeClinicId!);
     }
+  }
+
+  Future<void> _navigateToVoiceSymptoms() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const VoiceSymptomCaptureScreen(),
+      ),
+    );
   }
 
   void _confirmLogout() {
@@ -851,6 +860,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: () {
                 Navigator.of(context).pop();
                 _navigateToPrescriptions();
+              },
+            ),
+          if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+            ListTile(
+              leading: const Icon(Icons.mic_rounded, color: Colors.deepOrange),
+              title: const Text('Voice Symptoms'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _navigateToVoiceSymptoms();
               },
             ),
           const Divider(),

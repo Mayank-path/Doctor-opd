@@ -404,7 +404,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         .send({ appointmentId: testAppointmentId });
 
       expect(secondRes.status).toBe(409);
-      expect((secondRes.body as { message: string }).message).toContain('already checked in');
+      expect((secondRes.body as { message: string }).message).toContain(
+        'already checked in',
+      );
     });
 
     it('checks in a walk-in patient directly and allocates next sequential token', async () => {
@@ -494,7 +496,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         });
 
       expect(res2.status).toBe(409);
-      expect((res2.body as { message: string }).message).toContain('conflicting');
+      expect((res2.body as { message: string }).message).toContain(
+        'conflicting',
+      );
     });
 
     it('concurrent walk-in check-ins allocate consecutive unique token numbers without collision', async () => {
@@ -540,7 +544,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         });
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Patient not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Patient not found',
+      );
     });
 
     it('rejects check-in for patient from another clinic (404)', async () => {
@@ -750,7 +756,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         .send({ status: QueueStatus.IN_CONSULTATION });
 
       expect(res.status).toBe(403);
-      expect((res.body as { message: string }).message).toContain('assigned doctor');
+      expect((res.body as { message: string }).message).toContain(
+        'assigned doctor',
+      );
     });
 
     it('rejects IN_CONSULTATION transition if attempted by receptionist (403 Forbidden)', async () => {
@@ -802,7 +810,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         .send({ status: QueueStatus.COMPLETED });
 
       expect(res.status).toBe(409);
-      expect((res.body as { message: string }).message).toContain('Invalid queue status transition');
+      expect((res.body as { message: string }).message).toContain(
+        'Invalid queue status transition',
+      );
     });
 
     it('rejects transitions out of terminal COMPLETED state (409 Conflict)', async () => {
@@ -818,7 +828,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         .send({ status: QueueStatus.CALLED });
 
       expect(res.status).toBe(409);
-      expect((res.body as { message: string }).message).toContain('Completed queue entry cannot change status');
+      expect((res.body as { message: string }).message).toContain(
+        'Completed queue entry cannot change status',
+      );
     });
 
     it('preserves initial calledAt timestamp on repeated CALLED transitions', async () => {
@@ -888,7 +900,9 @@ describe('OPD Queue & Token Management API (PostgreSQL Integration)', () => {
         .send({ status: QueueStatus.CANCELLED });
 
       expect(res.status).toBe(200);
-      expect((res.body as QueueEntryResponse).status).toBe(QueueStatus.CANCELLED);
+      expect((res.body as QueueEntryResponse).status).toBe(
+        QueueStatus.CANCELLED,
+      );
     });
 
     it('rejects repeated cancellation of already CANCELLED queue entry (409 Conflict)', async () => {

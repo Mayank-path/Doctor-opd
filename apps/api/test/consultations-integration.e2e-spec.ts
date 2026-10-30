@@ -447,9 +447,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         });
 
       expect(res.status).toBe(400);
-      expect((res.body as { message: string[] }).message.length).toBeGreaterThan(
-        0,
-      );
+      expect(
+        (res.body as { message: string[] }).message.length,
+      ).toBeGreaterThan(0);
     });
 
     it('Missing chiefComplaint returns 400 Bad Request', async () => {
@@ -847,9 +847,18 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
 
       expect(res.status).toBe(200);
       const body = res.body as {
-        data: Array<ConsultationResponse & { patient: { fullName: string; uhid: string } }>;
-        items: Array<ConsultationResponse & { patient: { fullName: string; uhid: string } }>;
-        meta: { page: number; limit: number; total: number; totalPages: number };
+        data: Array<
+          ConsultationResponse & { patient: { fullName: string; uhid: string } }
+        >;
+        items: Array<
+          ConsultationResponse & { patient: { fullName: string; uhid: string } }
+        >;
+        meta: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
       };
 
       expect(body.data).toBeDefined();
@@ -874,7 +883,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
       }
 
       // Verify Clinic 2 consultation is completely absent
-      const foundClinic2 = body.data.some((item) => item.id === clinic2ConsultationId);
+      const foundClinic2 = body.data.some(
+        (item) => item.id === clinic2ConsultationId,
+      );
       expect(foundClinic2).toBe(false);
     });
 
@@ -885,7 +896,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         .set('x-clinic-id', clinic1Id);
 
       expect(res.status).toBe(200);
-      const items = (res.body as { data: Array<{ id: string; encounterDate: string }> }).data;
+      const items = (
+        res.body as { data: Array<{ id: string; encounterDate: string }> }
+      ).data;
 
       // Verify encounterDate descending order
       for (let i = 0; i < items.length - 1; i++) {
@@ -912,7 +925,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
       for (const item of body.data) {
         expect(item.status).toBe(ConsultationStatus.DRAFT);
       }
-      expect(body.data.some((item) => item.id === listTestConsultation3FinalizedId)).toBe(false);
+      expect(
+        body.data.some((item) => item.id === listTestConsultation3FinalizedId),
+      ).toBe(false);
     });
 
     it('supports status filter to return only FINALIZED consultations', async () => {
@@ -927,7 +942,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
       for (const item of body.data) {
         expect(item.status).toBe(ConsultationStatus.FINALIZED);
       }
-      expect(body.data.some((item) => item.id === listTestConsultation3FinalizedId)).toBe(true);
+      expect(
+        body.data.some((item) => item.id === listTestConsultation3FinalizedId),
+      ).toBe(true);
     });
 
     it('supports patientId filter to return consultations for specific patient', async () => {
@@ -955,7 +972,12 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
       const body = res.body as {
         data: ConsultationResponse[];
         items: ConsultationResponse[];
-        meta: { page: number; limit: number; total: number; totalPages: number };
+        meta: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
       };
       expect(body.data).toEqual([]);
       expect(body.items).toEqual([]);
@@ -1066,7 +1088,13 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
 
       expect(res.status).toBe(200);
       const body = res.body as ConsultationResponse & {
-        patient: { id: string; fullName: string; uhid: string; gender: string; phone: string };
+        patient: {
+          id: string;
+          fullName: string;
+          uhid: string;
+          gender: string;
+          phone: string;
+        };
       };
 
       expect(body.id).toBe(detailDraftId);
@@ -1105,7 +1133,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         .set('x-clinic-id', clinic1Id);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Consultation not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Consultation not found',
+      );
     });
 
     it('cross-clinic access returns 404 Not Found without leaking existence', async () => {
@@ -1116,7 +1146,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         .set('x-clinic-id', clinic2Id);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Consultation not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Consultation not found',
+      );
     });
 
     it('RECEPTIONIST role is denied access to details endpoint (403)', async () => {
@@ -1195,7 +1227,12 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
       const body = res.body as {
         data: ConsultationResponse[];
         items: ConsultationResponse[];
-        meta: { page: number; limit: number; total: number; totalPages: number };
+        meta: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
       };
 
       expect(body.data).toBeDefined();
@@ -1230,7 +1267,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
 
     it('supports status filter on patient history (e.g. status=FINALIZED)', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/patients/${historyPatientId}/consultations?status=FINALIZED`)
+        .get(
+          `/api/v1/patients/${historyPatientId}/consultations?status=FINALIZED`,
+        )
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinic1Id);
 
@@ -1258,7 +1297,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         .set('x-clinic-id', clinic1Id);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Patient not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Patient not found',
+      );
     });
 
     it('returns 404 Not Found for soft-deleted patient', async () => {
@@ -1268,7 +1309,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         .set('x-clinic-id', clinic1Id);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Patient not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Patient not found',
+      );
     });
 
     it('returns 404 Not Found when patient belongs to another clinic (tenant isolation)', async () => {
@@ -1279,7 +1322,9 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         .set('x-clinic-id', clinic1Id);
 
       expect(res.status).toBe(404);
-      expect((res.body as { message: string }).message).toContain('Patient not found');
+      expect((res.body as { message: string }).message).toContain(
+        'Patient not found',
+      );
     });
 
     it('verifies that read endpoints do not mutate database records', async () => {
@@ -1302,10 +1347,11 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         where: { id: historyConsultation1Id },
       });
 
-      expect(afterRecord?.updatedAt.getTime()).toBe(beforeRecord?.updatedAt.getTime());
+      expect(afterRecord?.updatedAt.getTime()).toBe(
+        beforeRecord?.updatedAt.getTime(),
+      );
       expect(afterRecord?.status).toBe(beforeRecord?.status);
       expect(afterRecord?.chiefComplaint).toBe(beforeRecord?.chiefComplaint);
     });
   });
 });
-

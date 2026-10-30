@@ -115,7 +115,9 @@ describe('QueueService', () => {
 
   describe('checkIn', () => {
     it('checks in a scheduled appointment and allocates token atomically', async () => {
-      mockPrismaService.appointment.findFirst.mockResolvedValue(mockAppointment);
+      mockPrismaService.appointment.findFirst.mockResolvedValue(
+        mockAppointment,
+      );
       mockPrismaService.patient.findFirst.mockResolvedValue(mockPatient);
       mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
         mockDoctorMembership,
@@ -134,8 +136,8 @@ describe('QueueService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const dto: CheckInDto = { appointmentId: mockAppointmentId };
@@ -182,8 +184,8 @@ describe('QueueService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const dto: CheckInDto = {
@@ -237,7 +239,9 @@ describe('QueueService', () => {
         ...mockQueueEntry,
         idempotencyKey: 'key-abc',
       };
-      mockPrismaService.appointment.findFirst.mockResolvedValue(mockAppointment);
+      mockPrismaService.appointment.findFirst.mockResolvedValue(
+        mockAppointment,
+      );
       mockPrismaService.opdQueueEntry.findUnique.mockResolvedValue(
         existingEntry,
       );
@@ -257,7 +261,9 @@ describe('QueueService', () => {
         patientId: 'different-patient-uuid',
         idempotencyKey: 'key-abc',
       };
-      mockPrismaService.appointment.findFirst.mockResolvedValue(mockAppointment);
+      mockPrismaService.appointment.findFirst.mockResolvedValue(
+        mockAppointment,
+      );
       mockPrismaService.opdQueueEntry.findUnique.mockResolvedValue(
         existingEntry,
       );
@@ -273,7 +279,9 @@ describe('QueueService', () => {
 
   describe('findAll', () => {
     it('returns queue entries sorted by priority desc, tokenNumber asc', async () => {
-      mockPrismaService.opdQueueEntry.findMany.mockResolvedValue([mockQueueEntry]);
+      mockPrismaService.opdQueueEntry.findMany.mockResolvedValue([
+        mockQueueEntry,
+      ]);
 
       const query: ListQueueQueryDto = { serviceDate: '2026-10-30' };
       const result = await service.findAll(mockClinicId, query);
@@ -293,7 +301,9 @@ describe('QueueService', () => {
 
   describe('updateStatus', () => {
     it('receptionist successfully transitions WAITING to CALLED and stamps calledAt', async () => {
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(mockQueueEntry);
+      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(
+        mockQueueEntry,
+      );
 
       const mockTx = {
         opdQueueEntry: {
@@ -309,8 +319,8 @@ describe('QueueService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const result = await service.updateStatus(
@@ -356,8 +366,8 @@ describe('QueueService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const result = await service.updateStatus(
@@ -412,7 +422,9 @@ describe('QueueService', () => {
     });
 
     it('rejects invalid state transition from WAITING directly to COMPLETED (Conflict)', async () => {
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(mockQueueEntry);
+      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(
+        mockQueueEntry,
+      );
 
       await expect(
         service.updateStatus(
@@ -448,7 +460,9 @@ describe('QueueService', () => {
         status: QueueStatus.COMPLETED,
         consultationEndTime: new Date(),
       };
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(completedEntry);
+      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(
+        completedEntry,
+      );
       mockPrismaService.opdQueueEntry.findUniqueOrThrow.mockResolvedValue(
         completedEntry,
       );
@@ -481,8 +495,8 @@ describe('QueueService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const result = await service.updateStatus(
@@ -507,7 +521,9 @@ describe('QueueService', () => {
     });
 
     it('cancelling a linked queue entry transitions linked appointment to CANCELLED', async () => {
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(mockQueueEntry);
+      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(
+        mockQueueEntry,
+      );
 
       const mockTx = {
         opdQueueEntry: {
@@ -522,8 +538,8 @@ describe('QueueService', () => {
         },
       };
 
-      mockPrismaService.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) =>
-        cb(mockTx),
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (tx: any) => Promise<any>) => cb(mockTx),
       );
 
       const result = await service.updateStatus(
