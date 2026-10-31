@@ -425,6 +425,21 @@ void main() {
       // Consultations action should display 'Doctor visits' instead of 'Protected'
       expect(find.text('Doctor visits'), findsOneWidget);
       expect(find.text('Protected'), findsNothing);
+
+      // Prescriptions, Differential Dx, and Voice Symptoms quick actions are exposed
+      expect(find.text('Prescriptions'), findsOneWidget);
+      expect(find.text('Differential Dx'), findsOneWidget);
+      expect(find.text('Voice Symptoms'), findsOneWidget);
+
+      // Open drawer and verify clinical assist routes
+      final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
+      scaffoldState.openDrawer();
+      await tester.pumpAndSettle();
+
+      final drawerFinder = find.byType(Drawer);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Differential Diagnosis')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Voice Symptoms')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Prescriptions')), findsOneWidget);
     });
 
     testWidgets('profile badge shows PENDING instead of ADMIN fallback when role is not yet established',

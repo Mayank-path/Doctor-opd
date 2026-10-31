@@ -337,6 +337,104 @@ describe('ClinicalGovernanceController & Governance Guards — Role & Tenant Bou
         validDoctorUserId,
       );
     });
+
+    it('should activate knowledge-pack release via POST /releases/activate', async () => {
+      const dto = {
+        versionId: 'ver-1',
+        scope: 'GLOBAL' as const,
+        reason: 'Official baseline release rollout',
+      };
+      const mockReq = {
+        clinic: { clinicId, role: ClinicRole.ADMIN },
+      } as any;
+
+      const res = await controller.activateRelease(
+        dto,
+        { id: 'officer-uuid' } as any,
+        mockReq,
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data.id).toBe('rel-1');
+      expect(mockReleaseAuthorityService.activateRelease).toHaveBeenCalledWith(
+        dto,
+        'officer-uuid',
+        { clinicId, isPlatformAdmin: true },
+      );
+    });
+
+    it('should emergency deactivate release via POST /releases/:id/deactivate', async () => {
+      const dto = {
+        reason: 'Urgent recall: critical clinical safety anomaly detected',
+      };
+      const mockReq = {
+        clinic: { clinicId, role: ClinicRole.ADMIN },
+      } as any;
+
+      const res = await controller.emergencyDeactivateRelease(
+        'rel-1',
+        dto,
+        { id: 'officer-uuid' } as any,
+        mockReq,
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data.isActive).toBe(false);
+      expect(mockReleaseAuthorityService.emergencyDeactivate).toHaveBeenCalledWith(
+        'rel-1',
+        dto,
+        'officer-uuid',
+        { clinicId, isPlatformAdmin: true },
+      );
+    });
+
+    it('should rollback release via POST /releases/:id/rollback', async () => {
+      const dto = {
+        targetVersionId: 'ver-target',
+        reason: 'Rolling back to stable prior version',
+      };
+      const mockReq = {
+        clinic: { clinicId, role: ClinicRole.ADMIN },
+      } as any;
+
+      const res = await controller.rollbackRelease(
+        'rel-1',
+        dto,
+        { id: 'officer-uuid' } as any,
+        mockReq,
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data.versionId).toBe('ver-target');
+      expect(mockReleaseAuthorityService.rollbackRelease).toHaveBeenCalledWith(
+        'rel-1',
+        dto,
+        'officer-uuid',
+        { clinicId, isPlatformAdmin: true },
+      );
+    });
+
+    it('should query active release via GET /releases/active', async () => {
+      const res = await controller.getActiveRelease(
+        KnowledgePackDomain.GENERAL_MEDICINE,
+        clinicId,
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data.id).toBe('rel-1');
+      expect(mockReleaseAuthorityService.getActiveRelease).toHaveBeenCalledWith(
+        KnowledgePackDomain.GENERAL_MEDICINE,
+        clinicId,
+      );
+    });
+
+    it('should retrieve release by ID via GET /releases/:id', async () => {
+      const res = await controller.getReleaseById('rel-1');
+
+      expect(res.success).toBe(true);
+      expect(res.data.id).toBe('rel-1');
+      expect(mockReleaseAuthorityService.getReleaseById).toHaveBeenCalledWith('rel-1');
+    });
   });
 
   describe('GovernanceReviewerGuard (DOCTOR != Governance Authority)', () => {
@@ -446,6 +544,64 @@ describe('ClinicalGovernanceController & Governance Guards — Role & Tenant Bou
       await expect(adminGuard.canActivate(context)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('GovernanceReleaseAuthorityGuard (Four-Eyes & DOCTOR Exclusions)', () => {
+    const createMockReleaseContext = (
+      user?: any,
+      clinicRole?: ClinicRole,
+    ) =>
+      ({
+        switchToHttp: () => ({
+          getRequest: () => ({
+            user,
+            clinic: clinicRole ? { clinicId, role: clinicRole } : undefined,
+          }),
+        }),
+      }) as any;
+
+    it('should throw UnauthorizedException if caller is unauthenticated', async () => {
+      const context = createMockReleaseContext(undefined);
+      await expect(releaseGuard.canActivate(context)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should strictly reject ClinicRole.DOCTOR from exercising release authority (DOCTOR != Governance Officer)', async () => {
+      const context = createMockReleaseContext(
+        { id: validDoctorUserId },
+        ClinicRole.DOCTOR,
+      );
+      await expect(releaseGuard.canActivate(context)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should reject non-admin roles such as STAFF/NURSE', async () => {
+      const context = createMockReleaseContext(
+        { id: 'nurse-uuid' },
+        ClinicRole.STAFF,
+      );
+      await expect(releaseGuard.canActivate(context)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should reject when clinic tenant context is absent', async () => {
+      const context = createMockReleaseContext({ id: 'officer-uuid' }, undefined);
+      await expect(releaseGuard.canActivate(context)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should permit authorized governance release officer with ClinicRole.ADMIN', async () => {
+      const context = createMockReleaseContext(
+        { id: 'officer-uuid' },
+        ClinicRole.ADMIN,
+      );
+      const allowed = await releaseGuard.canActivate(context);
+      expect(allowed).toBe(true);
     });
   });
 });

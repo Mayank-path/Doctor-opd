@@ -16,6 +16,7 @@ void main() {
     await tester.pumpWidget(DoctorOpdApp(authService: mockAuth));
 
     expect(find.text('DOCTOR-OPD'), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('Sign In'), findsNWidgets(2));
+    expect(find.text('Create Clinic Account'), findsOneWidget);
   });
 }

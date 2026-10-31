@@ -22,3 +22,4 @@ export class EmergencyDeactivateReleaseDto {
   @IsUUID(4)
   deactivatedByUserId?: string;
 }
+

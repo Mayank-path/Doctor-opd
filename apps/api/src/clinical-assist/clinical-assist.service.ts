@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import { ClinicRole, MembershipStatus } from '@prisma/client';
@@ -108,6 +109,12 @@ export class ClinicalAssistService {
           patientConsentVerified: dto.patientConsentVerified,
         },
       );
+
+      if (!result.transcript || result.transcript.trim().length === 0) {
+        throw new UnprocessableEntityException(
+          'Speech-to-text provider returned an empty transcript. Please ensure speech was recorded clearly.',
+        );
+      }
 
       const executionDurationMs = Date.now() - startTime;
 

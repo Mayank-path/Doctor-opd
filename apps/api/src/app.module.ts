@@ -1,3 +1,8 @@
+import { loadEnvironment } from './config/env.loader';
+
+// Ensure environment is initialized if AppModule is loaded directly
+loadEnvironment();
+
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';

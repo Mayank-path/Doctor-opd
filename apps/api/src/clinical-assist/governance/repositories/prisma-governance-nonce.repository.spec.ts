@@ -126,3 +126,4 @@ describe('PrismaGovernanceNonceRepository — Persistent Replay Protection', () 
     expect(isConsumed).toBe(false);
   });
 });
+

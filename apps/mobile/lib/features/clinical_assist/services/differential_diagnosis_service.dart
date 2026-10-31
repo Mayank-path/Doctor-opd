@@ -63,5 +63,82 @@ class DifferentialDiagnosisService {
       );
     }
   }
+
+  /// Retrieves an existing differential diagnosis evaluation audit record by ID.
+  Future<Map<String, dynamic>> getDifferentialEvaluation(String id) async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/clinical-assist/differential-diagnosis/$id',
+      );
+      return response.data ?? {};
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Failed to retrieve differential diagnosis audit: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Submits doctor review decisions on candidate differential diagnoses for an evaluation audit.
+  Future<Map<String, dynamic>> submitDifferentialReview({
+    required String id,
+    required List<Map<String, dynamic>> decisions,
+    String? reviewNotes,
+    String? consultationId,
+    String? patientId,
+  }) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/clinical-assist/differential-diagnosis/$id/review',
+        data: {
+          'decisions': decisions,
+          if (reviewNotes != null && reviewNotes.isNotEmpty)
+            'reviewNotes': reviewNotes,
+          if (consultationId != null) 'consultationId': consultationId,
+          if (patientId != null) 'patientId': patientId,
+        },
+      );
+      return response.data ?? {};
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Failed to record differential diagnosis review: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Lists available clinical knowledge packs for the active clinic.
+  Future<List<dynamic>> listKnowledgePacks() async {
+    try {
+      final response = await _apiClient.get<List<dynamic>>(
+        '/clinical-assist/knowledge-packs',
+      );
+      return response.data ?? [];
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Failed to list clinical knowledge packs: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Retrieves version metadata for a specified knowledge pack.
+  Future<Map<String, dynamic>> getKnowledgePackVersion(String id) async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/clinical-assist/knowledge-packs/$id/version',
+      );
+      return response.data ?? {};
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Failed to retrieve knowledge pack version: ${e.toString()}',
+      );
+    }
+  }
 }
 

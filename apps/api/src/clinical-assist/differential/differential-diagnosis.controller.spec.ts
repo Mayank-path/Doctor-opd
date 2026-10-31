@@ -58,6 +58,8 @@ describe('DifferentialDiagnosisController — Endpoint Guards & Dispatch', () =>
           provide: DifferentialDiagnosisService,
           useValue: {
             evaluate: jest.fn().mockResolvedValue(mockResponse),
+            getEvaluationById: jest.fn().mockResolvedValue({ id: 'audit-1', clinicId: 'clinic-alpha' }),
+            reviewEvaluation: jest.fn().mockResolvedValue({ id: 'audit-1', status: 'REVIEWED' }),
           },
         },
       ],
@@ -116,5 +118,56 @@ describe('DifferentialDiagnosisController — Endpoint Guards & Dispatch', () =>
 
     expect(service.evaluate).toHaveBeenCalledWith(clinicId, clinicianId, dto);
     expect(result).toBe(mockResponse);
+  });
+
+  it('should forward clinicId, clinicianId and DTO on evaluateDirect handler', async () => {
+    const clinicId = 'clinic-alpha';
+    const clinicianId = 'doc-beta';
+    const dto: EvaluateDifferentialDto = {
+      patientId: 'c8b417e9-4e4c-47b2-850d-82b5e2a22538',
+      findings: [
+        {
+          canonicalTerm: 'Fever',
+          status: EvaluationFindingStatus.PRESENT,
+        },
+      ],
+    };
+
+    const result = await controller.evaluateDirect(clinicId, clinicianId, dto);
+
+    expect(service.evaluate).toHaveBeenCalledWith(clinicId, clinicianId, dto);
+    expect(result).toBe(mockResponse);
+  });
+
+  it('should forward request to service.getEvaluationById', async () => {
+    const clinicId = 'clinic-alpha';
+    const clinicianId = 'doc-beta';
+    const auditId = 'audit-123';
+
+    const result = await controller.getEvaluationById(clinicId, clinicianId, auditId);
+
+    expect(service.getEvaluationById).toHaveBeenCalledWith(clinicId, clinicianId, auditId);
+    expect(result).toEqual({ id: 'audit-1', clinicId: 'clinic-alpha' });
+  });
+
+  it('should forward review DTO to service.reviewEvaluation', async () => {
+    const clinicId = 'clinic-alpha';
+    const clinicianId = 'doc-beta';
+    const auditId = 'audit-123';
+    const reviewDto = {
+      decisions: [
+        {
+          conditionCode: 'COND-PNEUMONIA-CAP',
+          decision: 'ACCEPTED_AS_PRIMARY' as any,
+          reason: 'Focal crepitations',
+        },
+      ],
+      reviewNotes: 'Reviewed and confirmed.',
+    };
+
+    const result = await controller.reviewEvaluation(clinicId, clinicianId, auditId, reviewDto);
+
+    expect(service.reviewEvaluation).toHaveBeenCalledWith(clinicId, clinicianId, auditId, reviewDto);
+    expect(result).toEqual({ id: 'audit-1', status: 'REVIEWED' });
   });
 });

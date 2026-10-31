@@ -23,3 +23,4 @@ FOREIGN KEY ("version_id") REFERENCES "knowledge_pack_versions"("id") ON DELETE 
 -- AddForeignKey: Bind nonce consumption to Reviewer User (RESTRICT prevents accidental reviewer deletion)
 ALTER TABLE "governance_attestation_nonces" ADD CONSTRAINT "governance_attestation_nonces_reviewer_user_id_fkey" 
 FOREIGN KEY ("reviewer_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+

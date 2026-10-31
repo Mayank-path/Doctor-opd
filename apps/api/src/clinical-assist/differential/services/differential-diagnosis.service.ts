@@ -16,6 +16,7 @@ import {
   DifferentialEvaluationResponseDto,
 } from '../dto/differential-response.dto';
 import { EvaluateDifferentialDto } from '../dto/evaluate-differential.dto';
+import { ReviewDifferentialDto } from '../dto/review-differential.dto';
 import { KnowledgePackResolverService } from './knowledge-pack-resolver.service';
 
 @Injectable()
@@ -188,6 +189,164 @@ export class DifferentialDiagnosisService {
       requiresDoctorReview: true,
       disclaimer: DIFFERENTIAL_DIAGNOSIS_DISCLAIMER,
     };
+  }
+
+  /**
+   * Retrieves an audit log record of a differential diagnosis evaluation by its ID
+   * or associated consultation ID, enforcing strict tenant isolation.
+   */
+  async getEvaluationById(
+    clinicId: string,
+    clinicianId: string,
+    id: string,
+  ): Promise<any> {
+    const audit = await this.prisma.differentialDiagnosisAudit.findFirst({
+      where: {
+        id,
+        clinicId,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            fullName: true,
+            uhid: true,
+            gender: true,
+            dateOfBirth: true,
+          },
+        },
+        consultation: {
+          select: {
+            id: true,
+            status: true,
+            chiefComplaint: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (audit) {
+      return audit;
+    }
+
+    // Secondary fallback: lookup by consultationId within active clinic
+    const auditByConsultation =
+      await this.prisma.differentialDiagnosisAudit.findFirst({
+        where: {
+          consultationId: id,
+          clinicId,
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              fullName: true,
+              uhid: true,
+              gender: true,
+              dateOfBirth: true,
+            },
+          },
+          consultation: {
+            select: {
+              id: true,
+              status: true,
+              chiefComplaint: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+
+    if (auditByConsultation) {
+      return auditByConsultation;
+    }
+
+    throw new NotFoundException(
+      'Differential diagnosis evaluation record not found',
+    );
+  }
+
+  /**
+   * Records or updates attending clinician candidate decisions and review notes
+   * in the consultation differential diagnosis audit ledger.
+   *
+   * Enforces:
+   * - Strict tenant isolation (clinicId matching)
+   * - Attending clinician authorization (DOCTOR role)
+   * - Human-in-the-loop: Never autonomously alters clinical diagnosis or prescription records.
+   */
+  async reviewEvaluation(
+    clinicId: string,
+    clinicianId: string,
+    id: string,
+    dto: ReviewDifferentialDto,
+  ): Promise<any> {
+    const existingAudit =
+      await this.prisma.differentialDiagnosisAudit.findFirst({
+        where: {
+          id,
+          clinicId,
+        },
+      });
+
+    const decisionsPayload = {
+      reviewedBy: clinicianId,
+      reviewedAt: new Date().toISOString(),
+      decisions: dto.decisions,
+      reviewNotes: dto.reviewNotes ?? null,
+    };
+
+    if (existingAudit) {
+      return this.prisma.differentialDiagnosisAudit.update({
+        where: { id: existingAudit.id },
+        data: {
+          doctorDecisionsJson: decisionsPayload as any,
+        },
+      });
+    }
+
+    // If id represents a consultationId, persist a new audit record for that encounter
+    const consultation = await this.prisma.consultation.findFirst({
+      where: {
+        id,
+        clinicId,
+      },
+    });
+
+    if (consultation) {
+      return this.prisma.differentialDiagnosisAudit.create({
+        data: {
+          clinicId,
+          consultationId: consultation.id,
+          patientId: dto.patientId || consultation.patientId,
+          clinicianId,
+          knowledgePackVerId: dto.knowledgePackVerId || '1.0.0',
+          matchedCandidatesJson: (dto.matchedCandidates || []) as any,
+          redFlagsTriggeredJson: (dto.redFlagsTriggered || []) as any,
+          doctorDecisionsJson: decisionsPayload as any,
+        },
+      });
+    }
+
+    throw new NotFoundException(
+      'Differential diagnosis evaluation record or consultation not found',
+    );
+  }
+
+  /**
+   * Lists available clinical knowledge packs for the active clinic tenant.
+   */
+  async listKnowledgePacks(clinicId: string): Promise<any[]> {
+    return this.knowledgePackResolver.listKnowledgePacks(clinicId);
+  }
+
+  /**
+   * Retrieves version details for a specified knowledge pack or domain.
+   */
+  async getKnowledgePackVersion(clinicId: string, id: string): Promise<any> {
+    return this.knowledgePackResolver.getKnowledgePackVersion(clinicId, id);
   }
 
   /**

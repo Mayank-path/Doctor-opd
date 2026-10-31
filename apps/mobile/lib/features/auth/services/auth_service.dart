@@ -5,6 +5,7 @@ import '../../../core/storage/secure_storage_service.dart';
 import '../models/auth_user.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/register_clinic_request.dart';
 
 /// Authentication Service managing session state and API coordination.
 class AuthService extends ChangeNotifier {
@@ -103,6 +104,59 @@ class AuthService extends ChangeNotifier {
       return false;
     } catch (e) {
       _errorMessage = 'An unexpected error occurred during login.';
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Executes clinic owner registration against backend POST /api/v1/auth/register-clinic.
+  Future<bool> registerClinic(RegisterClinicRequest request) async {
+    final validationError = request.validate();
+    if (validationError != null) {
+      _errorMessage = validationError;
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.post(
+        '/auth/register-clinic',
+        data: request.toJson(),
+      );
+
+      final loginResponse = LoginResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      // Securely persist token and user metadata
+      await _storageService.saveAccessToken(loginResponse.accessToken);
+      await _storageService.saveUser(loginResponse.user);
+
+      _currentUser = loginResponse.user;
+
+      // Restore previously persisted active clinic context if present
+      try {
+        _activeClinicId = await _storageService.getActiveClinicId();
+      } catch (_) {
+        _activeClinicId = null;
+      }
+
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'An unexpected error occurred during clinic registration.';
       notifyListeners();
       return false;
     } finally {

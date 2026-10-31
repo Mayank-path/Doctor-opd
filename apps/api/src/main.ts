@@ -1,3 +1,8 @@
+import { loadEnvironment } from './config/env.loader';
+
+// Ensure environment variables from apps/api/.env are loaded before NestJS bootstrapping
+loadEnvironment();
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { json, urlencoded } from 'express';

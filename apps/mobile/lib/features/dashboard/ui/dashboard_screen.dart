@@ -25,6 +25,7 @@ import '../../consultations/ui/consultation_list_screen.dart';
 import '../../prescriptions/services/prescriptions_service.dart';
 import '../../prescriptions/ui/prescription_list_screen.dart';
 import '../../clinical_assist/screens/voice_symptom_capture_screen.dart';
+import '../../clinical_assist/screens/differential_diagnosis_screen.dart';
 
 /// Production-ready Clinic Dashboard Screen
 /// Integrates real backend OPD endpoints, tenant isolation, and role boundaries.
@@ -316,6 +317,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Future<void> _navigateToDifferentialDiagnosis() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DifferentialDiagnosisScreen(),
+      ),
+    );
+  }
+
   void _confirmLogout() {
     showDialog(
       context: context,
@@ -517,6 +526,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onQueueTap: _navigateToQueue,
                       onConsultationsTap: _navigateToConsultations,
                       onPrescriptionsTap: _navigateToPrescriptions,
+                      onDifferentialTap: _navigateToDifferentialDiagnosis,
+                      onVoiceSymptomsTap: _navigateToVoiceSymptoms,
                     ),
                     const SizedBox(height: 16),
 
@@ -778,122 +789,138 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Drawer(
       child: Column(
         children: [
-          UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryNavy,
-            ),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: AppTheme.accentTeal,
-              child: Text(
-                widget.user.fullName.isNotEmpty
-                    ? widget.user.fullName[0].toUpperCase()
-                    : 'U',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  UserAccountsDrawerHeader(
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primaryNavy,
+                    ),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundColor: AppTheme.accentTeal,
+                      child: Text(
+                        widget.user.fullName.isNotEmpty
+                            ? widget.user.fullName[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    accountName: Text(
+                      widget.user.fullName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    accountEmail: Text(
+                      effectiveRole != null
+                          ? '${widget.user.email ?? "No email"} • $effectiveRole'
+                          : (widget.user.email ?? "No email"),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.dashboard_rounded, color: AppTheme.primaryNavy),
+                    title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _scrollToDashboard();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.confirmation_number_rounded, color: AppTheme.accentTeal),
+                    title: const Text('OPD Queue'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _navigateToQueue();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.edit_calendar_rounded, color: AppTheme.accentTeal),
+                    title: const Text('Appointments'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _navigateToAppointments();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.people_alt_rounded, color: AppTheme.accentTeal),
+                    title: const Text('Patients'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _navigateToPatients();
+                    },
+                  ),
+                  if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+                    ListTile(
+                      leading: const Icon(Icons.medical_services_rounded, color: Colors.purple),
+                      title: const Text('Consultations'),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _navigateToConsultations();
+                      },
+                    ),
+                  if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+                    ListTile(
+                      leading: const Icon(Icons.receipt_long_rounded, color: Colors.teal),
+                      title: const Text('Prescriptions'),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _navigateToPrescriptions();
+                      },
+                    ),
+                  if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+                    ListTile(
+                      leading: const Icon(Icons.mic_rounded, color: Colors.deepOrange),
+                      title: const Text('Voice Symptoms'),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _navigateToVoiceSymptoms();
+                      },
+                    ),
+                  if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
+                    ListTile(
+                      leading: const Icon(Icons.psychology_rounded, color: Colors.indigo),
+                      title: const Text('Differential Diagnosis'),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _navigateToDifferentialDiagnosis();
+                      },
+                    ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.apartment_rounded, color: AppTheme.textSecondary),
+                    title: const Text('Active Clinic Context'),
+                    subtitle: Text(
+                      hasActiveClinic ? _activeClinicId! : 'No clinic configured',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                    ),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
-            accountName: Text(
-              widget.user.fullName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-            accountEmail: Text(
-              effectiveRole != null
-                  ? '${widget.user.email ?? "No email"} • $effectiveRole'
-                  : (widget.user.email ?? "No email"),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white70,
-              ),
-            ),
           ),
-          ListTile(
-            leading: const Icon(Icons.dashboard_rounded, color: AppTheme.primaryNavy),
-            title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
-            onTap: () {
-              Navigator.of(context).pop();
-              _scrollToDashboard();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.confirmation_number_rounded, color: AppTheme.accentTeal),
-            title: const Text('OPD Queue'),
-            onTap: () {
-              Navigator.of(context).pop();
-              _navigateToQueue();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.edit_calendar_rounded, color: AppTheme.accentTeal),
-            title: const Text('Appointments'),
-            onTap: () {
-              Navigator.of(context).pop();
-              _navigateToAppointments();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people_alt_rounded, color: AppTheme.accentTeal),
-            title: const Text('Patients'),
-            onTap: () {
-              Navigator.of(context).pop();
-              _navigateToPatients();
-            },
-          ),
-          if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
-            ListTile(
-              leading: const Icon(Icons.medical_services_rounded, color: Colors.purple),
-              title: const Text('Consultations'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _navigateToConsultations();
-              },
-            ),
-          if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
-            ListTile(
-              leading: const Icon(Icons.receipt_long_rounded, color: Colors.teal),
-              title: const Text('Prescriptions'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _navigateToPrescriptions();
-              },
-            ),
-          if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
-            ListTile(
-              leading: const Icon(Icons.mic_rounded, color: Colors.deepOrange),
-              title: const Text('Voice Symptoms'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _navigateToVoiceSymptoms();
-              },
-            ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.apartment_rounded, color: AppTheme.textSecondary),
-            title: const Text('Active Clinic Context'),
-            subtitle: Text(
-              hasActiveClinic ? _activeClinicId! : 'No clinic configured',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-            ),
-            onTap: () {
-              Navigator.of(context).pop();
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            },
-          ),
-          const Spacer(),
-          const Divider(),
+          const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: AppTheme.errorRed),
             title: const Text(

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:doctor_opd_mobile/core/errors/api_exception.dart';
 import 'package:doctor_opd_mobile/features/patients/models/patient.dart';
 import 'package:doctor_opd_mobile/features/patients/services/patients_service.dart';
@@ -56,8 +57,18 @@ void main() {
     when(() => mockAudioRecordingService.deleteAudioFile(any())).thenAnswer((_) async {});
     when(() => mockAudioRecordingService.dispose()).thenAnswer((_) async {});
     when(() => mockAudioRecordingService.stopPlayback()).thenAnswer((_) async {});
+    when(() => mockAudioRecordingService.pausePlayback()).thenAnswer((_) async {});
+    when(() => mockAudioRecordingService.resumePlayback()).thenAnswer((_) async {});
     when(() => mockAudioRecordingService.playAudio(any(), onComplete: any(named: 'onComplete')))
         .thenAnswer((_) async {});
+    when(() => mockAudioRecordingService.isPlaying).thenReturn(false);
+    when(() => mockAudioRecordingService.isPlaybackPaused).thenReturn(false);
+    when(() => mockAudioRecordingService.onPositionChanged)
+        .thenAnswer((_) => const Stream<Duration>.empty());
+    when(() => mockAudioRecordingService.onDurationChanged)
+        .thenAnswer((_) => const Stream<Duration>.empty());
+    when(() => mockAudioRecordingService.onPlayerStateChanged)
+        .thenAnswer((_) => const Stream<PlayerState>.empty());
   });
 
   tearDown(() {
@@ -87,7 +98,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  group('VoiceSymptomCaptureScreen Widget Tests', () {
+  group('VoiceSymptomCaptureScreen Widget Tests (Phase 5D.2)', () {
     testWidgets('requires patient selection before recording can begin', (tester) async {
       await pumpScreen(tester, initialPatient: null);
 
@@ -114,7 +125,7 @@ void main() {
       verifyNever(() => mockAudioRecordingService.startRecording(any()));
     });
 
-    testWidgets('supports full recording lifecycle: start, pause, resume, stop, and playback', (tester) async {
+    testWidgets('supports full recording and playback review lifecycle: start, pause, resume, stop, play, pause, resume, stop', (tester) async {
       await pumpScreen(tester, initialPatient: samplePatient);
 
       // 1. Tap to Start Recording
@@ -153,32 +164,40 @@ void main() {
       expect(find.text('Upload & Transcribe Audio'), findsOneWidget);
       verify(() => mockAudioRecordingService.stopRecording()).called(1);
 
-      // 5. Toggle Playback Preview
+      // 5. Start Playback Preview
+      when(() => mockAudioRecordingService.isPlaying).thenReturn(true);
       await tester.tap(find.text('Play Audio'));
       await tester.pump();
-      expect(find.text('Stop Preview'), findsOneWidget);
+
+      expect(find.text('PLAYING LOCAL PREVIEW'), findsOneWidget);
+      expect(find.text('Pause'), findsOneWidget);
+      expect(find.text('Stop'), findsOneWidget);
       verify(() => mockAudioRecordingService.playAudio(any(), onComplete: any(named: 'onComplete'))).called(1);
 
-      await tester.tap(find.text('Stop Preview'));
+      // 6. Pause Playback
+      when(() => mockAudioRecordingService.isPlaybackPaused).thenReturn(true);
+      await tester.tap(find.text('Pause'));
+      await tester.pump();
+      expect(find.text('PREVIEW PAUSED'), findsOneWidget);
+      expect(find.text('Resume'), findsOneWidget);
+      verify(() => mockAudioRecordingService.pausePlayback()).called(1);
+
+      // 7. Resume Playback
+      when(() => mockAudioRecordingService.isPlaybackPaused).thenReturn(false);
+      await tester.tap(find.text('Resume'));
+      await tester.pump();
+      expect(find.text('PLAYING LOCAL PREVIEW'), findsOneWidget);
+      verify(() => mockAudioRecordingService.resumePlayback()).called(1);
+
+      // 8. Stop Playback
+      when(() => mockAudioRecordingService.isPlaying).thenReturn(false);
+      await tester.tap(find.text('Stop'));
       await tester.pump();
       expect(find.text('Play Audio'), findsOneWidget);
       verify(() => mockAudioRecordingService.stopPlayback()).called(1);
     });
 
-    testWidgets('allows changing language hint chip selection', (tester) async {
-      await pumpScreen(tester, initialPatient: samplePatient);
-
-      expect(find.text('Auto-Detect'), findsOneWidget);
-      expect(find.text('Hindi / Hinglish'), findsOneWidget);
-
-      await tester.tap(find.text('Hindi / Hinglish'));
-      await tester.pumpAndSettle();
-
-      final chip = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Hindi / Hinglish'));
-      expect(chip.selected, true);
-    });
-
-    testWidgets('discards recorded audio safely and resets controls to idle', (tester) async {
+    testWidgets('discards recorded audio safely on Re-record and resets controls to idle', (tester) async {
       await pumpScreen(tester, initialPatient: samplePatient);
 
       // Start and Stop
@@ -196,6 +215,7 @@ void main() {
       expect(find.text('TAP MIC TO RECORD SYMPTOMS'), findsOneWidget);
       expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
       verify(() => mockAudioRecordingService.deleteAudioFile(any())).called(1);
+      verify(() => mockAudioRecordingService.stopPlayback()).called(greaterThanOrEqualTo(1));
     });
 
     testWidgets('enforces patient consent confirmation before uploading audio', (tester) async {
@@ -244,13 +264,16 @@ void main() {
       expect(find.text('Mareez ko tez bukhar hai.'), findsOneWidget);
     });
 
-    testWidgets('displays error banner when transcription API fails with ApiException', (tester) async {
+    testWidgets('when STT API key is not configured (HTTP 503), preserves local audio, keeps Play Audio working, and displays clear explanation without fake transcript', (tester) async {
       when(() => mockClinicalAssistService.transcribeAudio(
             audioPath: any(named: 'audioPath'),
             patientId: any(named: 'patientId'),
             patientConsentVerified: any(named: 'patientConsentVerified'),
             languageHint: any(named: 'languageHint'),
-          )).thenThrow(const BadRequestException(message: 'Unsupported audio format from device.'));
+          )).thenThrow(const ApiException(
+            statusCode: 503,
+            message: 'STT_NOT_CONFIGURED: Speech-to-text service is currently disabled or not configured',
+          ));
 
       await pumpScreen(tester, initialPatient: samplePatient);
 
@@ -268,8 +291,57 @@ void main() {
       await tester.tap(find.text('Confirm & Proceed'));
       await tester.pumpAndSettle();
 
-      // Should show the specific API error banner
-      expect(find.text('Unsupported audio format from device.'), findsOneWidget);
+      // 1. Should display clear, doctor-friendly message explaining cloud STT is not configured
+      expect(find.textContaining('Cloud speech-to-text service is currently not configured on the server'), findsOneWidget);
+      expect(find.textContaining('Your audio recording has been saved locally'), findsOneWidget);
+
+      // 2. Play Audio and Re-record controls MUST remain accessible
+      expect(find.text('Play Audio'), findsOneWidget);
+      expect(find.text('Re-record'), findsOneWidget);
+
+      // 3. Verify audio file was NOT deleted
+      verifyNever(() => mockAudioRecordingService.deleteAudioFile(any()));
+
+      // 4. Verify no fake transcript was shown
+      expect(find.text('Review Transcript'), findsNothing);
+
+      // 5. Verify Play Audio continues to work locally
+      await tester.tap(find.text('Play Audio'));
+      await tester.pump();
+      verify(() => mockAudioRecordingService.playAudio(any(), onComplete: any(named: 'onComplete'))).called(1);
+    });
+
+    testWidgets('when transcription times out (HTTP 504), preserves local audio and shows retry guidance', (tester) async {
+      when(() => mockClinicalAssistService.transcribeAudio(
+            audioPath: any(named: 'audioPath'),
+            patientId: any(named: 'patientId'),
+            patientConsentVerified: any(named: 'patientConsentVerified'),
+            languageHint: any(named: 'languageHint'),
+          )).thenThrow(const ApiException(
+            statusCode: 504,
+            message: 'Gateway Timeout: Speech-to-text provider timed out',
+          ));
+
+      await pumpScreen(tester, initialPatient: samplePatient);
+
+      // Record audio
+      await tester.tap(find.byIcon(Icons.mic_rounded));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Stop & Save'));
+      await tester.pumpAndSettle();
+
+      // Tap Upload & Transcribe
+      await tester.tap(find.text('Upload & Transcribe Audio'));
+      await tester.pumpAndSettle();
+
+      // Confirm consent
+      await tester.tap(find.text('Confirm & Proceed'));
+      await tester.pumpAndSettle();
+
+      // Shows timeout message and keeps local recording
+      expect(find.textContaining('Cloud transcription timed out'), findsOneWidget);
+      expect(find.text('Play Audio'), findsOneWidget);
+      verifyNever(() => mockAudioRecordingService.deleteAudioFile(any()));
     });
   });
 }

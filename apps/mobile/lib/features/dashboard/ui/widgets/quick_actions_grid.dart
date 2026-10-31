@@ -11,6 +11,8 @@ class QuickActionsGrid extends StatelessWidget {
   final VoidCallback? onQueueTap;
   final VoidCallback? onConsultationsTap;
   final VoidCallback? onPrescriptionsTap;
+  final VoidCallback? onDifferentialTap;
+  final VoidCallback? onVoiceSymptomsTap;
 
   const QuickActionsGrid({
     super.key,
@@ -21,6 +23,8 @@ class QuickActionsGrid extends StatelessWidget {
     this.onQueueTap,
     this.onConsultationsTap,
     this.onPrescriptionsTap,
+    this.onDifferentialTap,
+    this.onVoiceSymptomsTap,
   });
 
   void _showComingSoonSheet(
@@ -228,7 +232,7 @@ class QuickActionsGrid extends StatelessWidget {
             ),
           ],
         ),
-        if (isDoctor || onPrescriptionsTap != null) ...[
+        if (isDoctor || onPrescriptionsTap != null || onDifferentialTap != null) ...[
           const SizedBox(height: 10),
           Row(
             children: [
@@ -248,6 +252,52 @@ class QuickActionsGrid extends StatelessWidget {
                             description: isDoctor
                                 ? 'Clinician-reviewed prescription builder, digital approvals, and authenticated PDF printing.'
                                 : 'Prescription creation is restricted to DOCTOR memberships.',
+                          ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildActionCard(
+                  context,
+                  title: 'Differential Dx',
+                  subtitle: isDoctor ? 'Decision support' : 'Protected',
+                  icon: Icons.psychology_rounded,
+                  color: Colors.indigo.shade700,
+                  onTap: (isDoctor && onDifferentialTap != null)
+                      ? onDifferentialTap!
+                      : () => _showComingSoonSheet(
+                            context,
+                            title: 'Differential Diagnosis',
+                            icon: Icons.psychology_rounded,
+                            description: isDoctor
+                                ? 'Clinical decision support: deterministic AST evaluation and differential diagnosis candidate review.'
+                                : 'Differential diagnosis is restricted to DOCTOR memberships.',
+                          ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (isDoctor || onVoiceSymptomsTap != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionCard(
+                  context,
+                  title: 'Voice Symptoms',
+                  subtitle: isDoctor ? 'Capture & Extract' : 'Protected',
+                  icon: Icons.mic_rounded,
+                  color: Colors.deepOrange.shade700,
+                  onTap: (isDoctor && onVoiceSymptomsTap != null)
+                      ? onVoiceSymptomsTap!
+                      : () => _showComingSoonSheet(
+                            context,
+                            title: 'Voice Symptoms',
+                            icon: Icons.mic_rounded,
+                            description: isDoctor
+                                ? 'Record and review voice symptom notes with AI-assisted clinical concept extraction.'
+                                : 'Voice clinical notes are restricted to DOCTOR memberships.',
                           ),
                 ),
               ),

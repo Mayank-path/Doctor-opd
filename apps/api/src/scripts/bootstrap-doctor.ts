@@ -1,3 +1,6 @@
+import { loadEnvironment } from '../config/env.loader';
+loadEnvironment();
+
 import * as readline from 'readline';
 import { PrismaClient } from '@prisma/client';
 import {

@@ -17,6 +17,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EvaluationFindingStatus, InfectionSuspicionState } from '../evaluator/ast-evaluator.types';
 import { AuthService } from '../../auth/auth.service';
 import { DifferentialDiagnosisController } from './differential-diagnosis.controller';
+import { KnowledgePacksController } from './knowledge-packs.controller';
 import { DifferentialDiagnosisService } from './services/differential-diagnosis.service';
 import { KnowledgePackResolverService } from './services/knowledge-pack-resolver.service';
 
@@ -43,8 +44,10 @@ describe('Differential Diagnosis API Integration (HTTP Pipeline & RBAC)', () => 
     clinicMembership: { findUnique: jest.Mock };
     patient: { findFirst: jest.Mock };
     consultation: { findFirst: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
-    differentialDiagnosisAudit: { create: jest.Mock };
+    differentialDiagnosisAudit: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     knowledgePackRelease: { findFirst: jest.Mock };
+    clinicalKnowledgePack?: { findMany: jest.Mock };
+    knowledgePackVersion?: { findFirst: jest.Mock };
   };
 
   const sampleResolvedPack = {
@@ -146,12 +149,18 @@ describe('Differential Diagnosis API Integration (HTTP Pipeline & RBAC)', () => 
         update: jest.fn(),
         updateMany: jest.fn(),
       },
-      differentialDiagnosisAudit: { create: jest.fn() },
+      differentialDiagnosisAudit: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
       knowledgePackRelease: { findFirst: jest.fn() },
+      clinicalKnowledgePack: { findMany: jest.fn().mockResolvedValue([]) },
+      knowledgePackVersion: { findFirst: jest.fn().mockResolvedValue(null) },
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [DifferentialDiagnosisController],
+      controllers: [DifferentialDiagnosisController, KnowledgePacksController],
       providers: [
         DifferentialDiagnosisService,
         KnowledgePackResolverService,
@@ -591,5 +600,103 @@ describe('Differential Diagnosis API Integration (HTTP Pipeline & RBAC)', () => 
 
     expect(res.status).toBe(HttpStatus.OK);
     expect(res.body.status).toBe('UNAVAILABLE');
+  });
+
+  it('15. Direct Route: POST /api/v1/clinical-assist/differential-diagnosis evaluates correctly', async () => {
+    prismaMock.patient.findFirst.mockResolvedValueOnce({
+      id: patientId,
+      clinicId,
+      gender: 'MALE',
+    });
+    prismaMock.knowledgePackRelease.findFirst.mockResolvedValue(null);
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/clinical-assist/differential-diagnosis')
+      .set('Authorization', `Bearer ${doctorToken}`)
+      .set('x-clinic-id', clinicId)
+      .send({
+        patientId,
+        findings: [{ canonicalTerm: 'Fever', status: 'PRESENT' }],
+      });
+
+    expect(res.status).toBe(HttpStatus.OK);
+    expect(res.body.status).toBe('UNAVAILABLE');
+  });
+
+  it('16. Audit Log: GET /api/v1/clinical-assist/differential-diagnosis/:id retrieves audit record', async () => {
+    const mockAudit = {
+      id: 'audit-abc-123',
+      clinicId,
+      consultationId,
+      patientId,
+      clinicianId: doctorUserId,
+      knowledgePackVerId: '1.0.0',
+      matchedCandidatesJson: [],
+    };
+    prismaMock.differentialDiagnosisAudit.findFirst.mockResolvedValueOnce(mockAudit);
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/clinical-assist/differential-diagnosis/${mockAudit.id}`)
+      .set('Authorization', `Bearer ${doctorToken}`)
+      .set('x-clinic-id', clinicId);
+
+    expect(res.status).toBe(HttpStatus.OK);
+    expect(res.body.id).toBe(mockAudit.id);
+  });
+
+  it('17. Decision Review: POST /api/v1/clinical-assist/differential-diagnosis/:id/review persists doctor choices', async () => {
+    const existingAudit = { id: 'audit-abc-123', clinicId };
+    prismaMock.differentialDiagnosisAudit.findFirst.mockResolvedValueOnce(existingAudit);
+    prismaMock.differentialDiagnosisAudit.update.mockResolvedValueOnce({
+      id: 'audit-abc-123',
+      clinicId,
+      doctorDecisionsJson: {
+        reviewedBy: doctorUserId,
+        decisions: [
+          {
+            conditionCode: 'COND-PNEUMONIA-CAP',
+            decision: 'ACCEPTED_AS_PRIMARY',
+          },
+        ],
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/clinical-assist/differential-diagnosis/${existingAudit.id}/review`)
+      .set('Authorization', `Bearer ${doctorToken}`)
+      .set('x-clinic-id', clinicId)
+      .send({
+        decisions: [
+          {
+            conditionCode: 'COND-PNEUMONIA-CAP',
+            decision: 'ACCEPTED_AS_PRIMARY',
+          },
+        ],
+        reviewNotes: 'Verified diagnosis based on bilateral rales.',
+      });
+
+    expect(res.status).toBe(HttpStatus.OK);
+    expect(res.body.id).toBe(existingAudit.id);
+  });
+
+  it('18. Knowledge Packs: GET /api/v1/clinical-assist/knowledge-packs returns pack list', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/clinical-assist/knowledge-packs')
+      .set('Authorization', `Bearer ${doctorToken}`)
+      .set('x-clinic-id', clinicId);
+
+    expect(res.status).toBe(HttpStatus.OK);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body[0].domain).toBe('GENERAL_MEDICINE');
+  });
+
+  it('19. Knowledge Packs: GET /api/v1/clinical-assist/knowledge-packs/:id/version returns version info', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/clinical-assist/knowledge-packs/GENERAL_MEDICINE/version')
+      .set('Authorization', `Bearer ${doctorToken}`)
+      .set('x-clinic-id', clinicId);
+
+    expect(res.status).toBe(HttpStatus.OK);
+    expect(res.body.domain).toBe('GENERAL_MEDICINE');
   });
 });

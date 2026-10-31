@@ -3,20 +3,26 @@ import '../../../core/theme/app_theme.dart';
 
 /// Interactive clinical audio recorder controls.
 ///
-/// Supports Start, Pause, Resume, Stop, Preview Playback, Discard, and Transcribe.
+/// Supports Start, Pause, Resume, Stop, Preview Playback (Play, Pause, Resume, Stop, Scrubber), Discard, and Transcribe.
 class AudioRecorderControls extends StatelessWidget {
   final bool isRecording;
   final bool isPaused;
   final bool hasRecordedAudio;
   final bool isPlayingPreview;
+  final bool isPlaybackPaused;
   final bool isUploading;
   final int elapsedSeconds;
   final int maxDurationSeconds; // 180 seconds target
+  final Duration playbackPosition;
+  final Duration playbackDuration;
   final VoidCallback onStartRecording;
   final VoidCallback onPauseRecording;
   final VoidCallback onResumeRecording;
   final VoidCallback onStopRecording;
   final VoidCallback onTogglePlayback;
+  final VoidCallback? onPausePlayback;
+  final VoidCallback? onResumePlayback;
+  final VoidCallback? onStopPlayback;
   final VoidCallback onDiscardRecording;
   final VoidCallback onUploadAndTranscribe;
 
@@ -26,14 +32,20 @@ class AudioRecorderControls extends StatelessWidget {
     required this.isPaused,
     required this.hasRecordedAudio,
     required this.isPlayingPreview,
+    this.isPlaybackPaused = false,
     required this.isUploading,
     required this.elapsedSeconds,
     this.maxDurationSeconds = 180,
+    this.playbackPosition = Duration.zero,
+    this.playbackDuration = Duration.zero,
     required this.onStartRecording,
     required this.onPauseRecording,
     required this.onResumeRecording,
     required this.onStopRecording,
     required this.onTogglePlayback,
+    this.onPausePlayback,
+    this.onResumePlayback,
+    this.onStopPlayback,
     required this.onDiscardRecording,
     required this.onUploadAndTranscribe,
   });
@@ -44,9 +56,14 @@ class AudioRecorderControls extends StatelessWidget {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
+  String _formatDurationFromDuration(Duration duration) {
+    final seconds = duration.inSeconds;
+    return _formatDuration(seconds);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final progress = (elapsedSeconds / maxDurationSeconds).clamp(0.0, 1.0);
+    final recordingProgress = (elapsedSeconds / maxDurationSeconds).clamp(0.0, 1.0);
     final remainingSeconds = maxDurationSeconds - elapsedSeconds;
 
     return Column(
@@ -78,17 +95,43 @@ class AudioRecorderControls extends StatelessWidget {
                     ),
                   ),
                 ] else if (hasRecordedAudio) ...[
-                  const Icon(Icons.check_circle_rounded, size: 14, color: AppTheme.accentTeal),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'RECORDING READY FOR REVIEW',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: AppTheme.accentTeal,
+                  if (isPlayingPreview && !isPlaybackPaused) ...[
+                    const Icon(Icons.play_circle_fill_rounded, size: 14, color: AppTheme.accentTeal),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'PLAYING LOCAL PREVIEW',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppTheme.accentTeal,
+                      ),
                     ),
-                  ),
+                  ] else if (isPlaybackPaused) ...[
+                    const Icon(Icons.pause_circle_filled_rounded, size: 14, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'PREVIEW PAUSED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ] else ...[
+                    const Icon(Icons.check_circle_rounded, size: 14, color: AppTheme.accentTeal),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'RECORDING READY FOR REVIEW',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppTheme.accentTeal,
+                      ),
+                    ),
+                  ],
                 ] else ...[
                   const Icon(Icons.mic_none_rounded, size: 14, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
@@ -104,15 +147,27 @@ class AudioRecorderControls extends StatelessWidget {
                 ],
               ],
             ),
-            Text(
-              '${_formatDuration(elapsedSeconds)} / ${_formatDuration(maxDurationSeconds)}',
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: AppTheme.primaryNavy,
+            if (hasRecordedAudio && (isPlayingPreview || isPlaybackPaused)) ...[
+              Text(
+                '${_formatDurationFromDuration(playbackPosition)} / ${_formatDurationFromDuration(playbackDuration > Duration.zero ? playbackDuration : Duration(seconds: elapsedSeconds))}',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppTheme.primaryNavy,
+                ),
               ),
-            ),
+            ] else ...[
+              Text(
+                '${_formatDuration(elapsedSeconds)} / ${_formatDuration(maxDurationSeconds)}',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppTheme.primaryNavy,
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 6),
@@ -120,16 +175,27 @@ class AudioRecorderControls extends StatelessWidget {
         // Linear Progress Bar
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 5,
-            backgroundColor: AppTheme.borderGray.withValues(alpha: 0.5),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              remainingSeconds <= 15
-                  ? Colors.red
-                  : (isRecording ? AppTheme.accentTeal : AppTheme.primaryNavy),
-            ),
-          ),
+          child: hasRecordedAudio && (isPlayingPreview || isPlaybackPaused)
+              ? LinearProgressIndicator(
+                  value: playbackDuration.inMilliseconds > 0
+                      ? (playbackPosition.inMilliseconds / playbackDuration.inMilliseconds).clamp(0.0, 1.0)
+                      : (elapsedSeconds > 0
+                          ? (playbackPosition.inSeconds / elapsedSeconds).clamp(0.0, 1.0)
+                          : 0.0),
+                  minHeight: 5,
+                  backgroundColor: AppTheme.borderGray.withValues(alpha: 0.5),
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accentTeal),
+                )
+              : LinearProgressIndicator(
+                  value: recordingProgress,
+                  minHeight: 5,
+                  backgroundColor: AppTheme.borderGray.withValues(alpha: 0.5),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    remainingSeconds <= 15
+                        ? Colors.red
+                        : (isRecording ? AppTheme.accentTeal : AppTheme.primaryNavy),
+                  ),
+                ),
         ),
         const SizedBox(height: 18),
 
@@ -208,24 +274,87 @@ class AudioRecorderControls extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Audio Preview Button
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primaryNavy,
-                        side: const BorderSide(color: AppTheme.primaryNavy),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  // Playback Controls (Play / Pause / Resume / Stop)
+                  if (isPlayingPreview && !isPlaybackPaused) ...[
+                    // Playing -> Pause Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                          side: const BorderSide(color: Colors.orange),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: onPausePlayback ?? onTogglePlayback,
+                        icon: const Icon(Icons.pause_rounded, size: 20),
+                        label: const Text('Pause'),
                       ),
-                      onPressed: onTogglePlayback,
-                      icon: Icon(
-                        isPlayingPreview ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                        color: isPlayingPreview ? Colors.red : AppTheme.accentTeal,
-                      ),
-                      label: Text(isPlayingPreview ? 'Stop Preview' : 'Play Audio'),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    // Playing -> Stop Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: onStopPlayback ?? onTogglePlayback,
+                        icon: const Icon(Icons.stop_rounded, size: 20),
+                        label: const Text('Stop'),
+                      ),
+                    ),
+                  ] else if (isPlaybackPaused) ...[
+                    // Paused -> Resume Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.accentTeal,
+                          side: const BorderSide(color: AppTheme.accentTeal),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: onResumePlayback ?? onTogglePlayback,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: const Text('Resume'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Paused -> Stop Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: onStopPlayback ?? onTogglePlayback,
+                        icon: const Icon(Icons.stop_rounded, size: 20),
+                        label: const Text('Stop'),
+                      ),
+                    ),
+                  ] else ...[
+                    // Stopped / Idle -> Play Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryNavy,
+                          side: const BorderSide(color: AppTheme.primaryNavy),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        onPressed: onTogglePlayback,
+                        icon: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: AppTheme.accentTeal,
+                        ),
+                        label: const Text('Play Audio'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
 
                   // Discard & Re-record Button
                   Expanded(
@@ -234,10 +363,10 @@ class AudioRecorderControls extends StatelessWidget {
                         foregroundColor: AppTheme.errorRed,
                         side: const BorderSide(color: AppTheme.errorRed),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       onPressed: onDiscardRecording,
-                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
                       label: const Text('Re-record'),
                     ),
                   ),

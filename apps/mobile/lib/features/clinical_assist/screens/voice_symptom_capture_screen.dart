@@ -15,7 +15,7 @@ import '../widgets/consent_confirmation_dialog.dart';
 import 'transcript_review_screen.dart';
 
 /// Screen allowing doctors to capture clinical voice symptoms, record audio,
-/// request cloud transcription, and review transcripts.
+/// preview recorded audio reliably, request cloud transcription, and review transcripts.
 class VoiceSymptomCaptureScreen extends StatefulWidget {
   final Patient? initialPatient;
   final PatientsService? patientsService;
@@ -45,16 +45,23 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
   bool _consentVerified = false;
   String _selectedLanguageHint = 'auto'; // 'auto', 'hi-IN', 'en-IN', 'hi', 'en'
 
-  // Recording State
+  // Recording & Playback State
   bool _isRecording = false;
   bool _isPaused = false;
   bool _isPlayingPreview = false;
+  bool _isPlaybackPaused = false;
   bool _isUploading = false;
   String? _recordedAudioPath;
   int _elapsedSeconds = 0;
   double _currentAmplitude = 0.0;
+  Duration _playbackPosition = Duration.zero;
+  Duration _playbackDuration = Duration.zero;
+
   Timer? _recordingTimer;
   Timer? _amplitudeTimer;
+  StreamSubscription<Duration>? _posSub;
+  StreamSubscription<Duration>? _durSub;
+  StreamSubscription<dynamic>? _stateSub;
   String? _errorMessage;
 
   static const int _maxDurationSeconds = 180; // 3 minutes limit
@@ -66,12 +73,41 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
     _clinicalAssistService = widget.clinicalAssistService ?? ClinicalAssistService();
     _audioRecordingService = widget.audioRecordingService ?? DefaultAudioRecordingService();
     _selectedPatient = widget.initialPatient;
+
+    // Listen to real-time playback position and duration
+    _posSub = _audioRecordingService.onPositionChanged.listen((pos) {
+      if (mounted) {
+        setState(() {
+          _playbackPosition = pos;
+        });
+      }
+    });
+
+    _durSub = _audioRecordingService.onDurationChanged.listen((dur) {
+      if (mounted) {
+        setState(() {
+          _playbackDuration = dur;
+        });
+      }
+    });
+
+    _stateSub = _audioRecordingService.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlayingPreview = _audioRecordingService.isPlaying;
+          _isPlaybackPaused = _audioRecordingService.isPlaybackPaused;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _recordingTimer?.cancel();
     _amplitudeTimer?.cancel();
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _stateSub?.cancel();
     _cleanupAudioFile();
     _audioRecordingService.dispose();
     super.dispose();
@@ -122,6 +158,9 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
         _isRecording = true;
         _isPaused = false;
         _isPlayingPreview = false;
+        _isPlaybackPaused = false;
+        _playbackPosition = Duration.zero;
+        _playbackDuration = Duration.zero;
         _elapsedSeconds = 0;
         _currentAmplitude = 0.1;
         _errorMessage = null;
@@ -202,22 +241,60 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
       await _audioRecordingService.stopPlayback();
       setState(() {
         _isPlayingPreview = false;
+        _isPlaybackPaused = false;
+        _playbackPosition = Duration.zero;
       });
     } else {
-      await _audioRecordingService.playAudio(
-        path,
-        onComplete: () {
-          if (mounted) {
-            setState(() {
-              _isPlayingPreview = false;
-            });
-          }
-        },
-      );
-      setState(() {
-        _isPlayingPreview = true;
-      });
+      try {
+        await _audioRecordingService.playAudio(
+          path,
+          onComplete: () {
+            if (mounted) {
+              setState(() {
+                _isPlayingPreview = false;
+                _isPlaybackPaused = false;
+                _playbackPosition = Duration.zero;
+              });
+            }
+          },
+        );
+        setState(() {
+          _isPlayingPreview = true;
+          _isPlaybackPaused = false;
+          _errorMessage = null;
+        });
+      } catch (err) {
+        setState(() {
+          _errorMessage = 'Failed to play recorded audio: ${err.toString()}';
+          _isPlayingPreview = false;
+          _isPlaybackPaused = false;
+        });
+      }
     }
+  }
+
+  Future<void> _onPausePlayback() async {
+    await _audioRecordingService.pausePlayback();
+    setState(() {
+      _isPlaybackPaused = true;
+    });
+  }
+
+  Future<void> _onResumePlayback() async {
+    await _audioRecordingService.resumePlayback();
+    setState(() {
+      _isPlaybackPaused = false;
+      _isPlayingPreview = true;
+    });
+  }
+
+  Future<void> _onStopPlayback() async {
+    await _audioRecordingService.stopPlayback();
+    setState(() {
+      _isPlayingPreview = false;
+      _isPlaybackPaused = false;
+      _playbackPosition = Duration.zero;
+    });
   }
 
   Future<void> _onDiscardRecording() async {
@@ -228,6 +305,9 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
       _isRecording = false;
       _isPaused = false;
       _isPlayingPreview = false;
+      _isPlaybackPaused = false;
+      _playbackPosition = Duration.zero;
+      _playbackDuration = Duration.zero;
       _elapsedSeconds = 0;
       _currentAmplitude = 0.0;
       _recordedAudioPath = null;
@@ -310,13 +390,25 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
       if (!mounted) return;
       setState(() {
         _isUploading = false;
-        _errorMessage = apiErr.message;
+        // Map STT configuration and network errors gracefully while preserving local audio
+        if (apiErr.statusCode == 503 ||
+            apiErr.message.contains('STT_NOT_CONFIGURED') ||
+            apiErr.message.toLowerCase().contains('disabled or not configured')) {
+          _errorMessage =
+              'Cloud speech-to-text service is currently not configured on the server. Your audio recording has been saved locally — you can review audio playback above or re-record.';
+        } else if (apiErr.statusCode == 504 ||
+            apiErr.message.toLowerCase().contains('timed out')) {
+          _errorMessage =
+              'Cloud transcription timed out. Your audio recording has been preserved locally — you can retry uploading.';
+        } else {
+          _errorMessage = apiErr.message;
+        }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isUploading = false;
-        _errorMessage = 'Unexpected upload failure: ${e.toString()}';
+        _errorMessage = 'Unexpected upload failure: ${e.toString()}. Your local audio recording is preserved.';
       });
     }
   }
@@ -344,21 +436,16 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
             children: [
               // 1. Patient Selection Section
               Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: AppTheme.borderGray),
-                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.person_search_rounded, color: AppTheme.primaryNavy, size: 20),
-                          SizedBox(width: 8),
-                          Text(
+                          const Icon(Icons.person_outline_rounded, size: 20, color: AppTheme.primaryNavy),
+                          const SizedBox(width: 8),
+                          const Text(
                             'Target Patient',
                             style: TextStyle(
                               fontSize: 15,
@@ -366,16 +453,66 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
                               color: AppTheme.primaryNavy,
                             ),
                           ),
+                          const Spacer(),
+                          if (_selectedPatient != null && !isPatientLocked && !_isRecording && !_isUploading)
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(50, 30),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () => _onPatientSelected(null),
+                              icon: const Icon(Icons.close_rounded, size: 16),
+                              label: const Text('Change', style: TextStyle(fontSize: 12)),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      PatientSearchSelector(
-                        patientsService: _patientsService,
-                        selectedPatient: _selectedPatient,
-                        onPatientSelected: _onPatientSelected,
-                        isLocked: isPatientLocked,
-                        lockReason: isPatientLocked ? 'Locked from active consultation context' : null,
-                      ),
+                      if (_selectedPatient == null)
+                        PatientSearchSelector(
+                          patientsService: _patientsService,
+                          selectedPatient: _selectedPatient,
+                          onPatientSelected: _onPatientSelected,
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceMuted,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.borderGray),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: AppTheme.primaryNavy,
+                                radius: 18,
+                                child: Text(
+                                  _selectedPatient!.fullName.isNotEmpty
+                                      ? _selectedPatient!.fullName[0].toUpperCase()
+                                      : 'P',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _selectedPatient!.fullName,
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ),
+                                    Text(
+                                      'UHID: ${_selectedPatient!.uhid} • ${_selectedPatient!.gender}${_selectedPatient!.age != null ? ' • ${_selectedPatient!.age} yrs' : ''}',
+                                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -384,22 +521,17 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
 
               // 2. Language Hint Selector
               Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: AppTheme.borderGray),
-                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.language_rounded, color: AppTheme.primaryNavy, size: 20),
+                          Icon(Icons.translate_rounded, size: 18, color: AppTheme.primaryNavy),
                           SizedBox(width: 8),
                           Text(
-                            'Speech Language Hint',
+                            'Spoken Speech Language',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -412,11 +544,9 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
                       Wrap(
                         spacing: 8,
                         children: [
-                          _buildLanguageChip('auto', 'Auto-Detect'),
+                          _buildLanguageChip('auto', 'Auto-detect'),
                           _buildLanguageChip('hi-IN', 'Hindi / Hinglish'),
                           _buildLanguageChip('en-IN', 'Indian English'),
-                          _buildLanguageChip('hi', 'Hindi'),
-                          _buildLanguageChip('en', 'English'),
                         ],
                       ),
                     ],
@@ -425,28 +555,24 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
               ),
               const SizedBox(height: 14),
 
-              // 3. Error Banner (if any)
+              // 3. Error Banner if present
               if (_errorMessage != null) ...[
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.errorRed.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTheme.errorRed.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.error_outline_rounded, color: AppTheme.errorRed, size: 20),
-                      const SizedBox(width: 10),
+                      const Icon(Icons.error_outline_rounded, color: AppTheme.errorRed, size: 18),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.errorRed,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(color: AppTheme.errorRed, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
@@ -455,21 +581,12 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
                 const SizedBox(height: 14),
               ],
 
-              // 4. Voice Recording Area
+              // 4. Audio Waveform & Recording Canvas
               Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: _isRecording ? AppTheme.accentTeal : AppTheme.borderGray,
-                    width: _isRecording ? 1.5 : 1.0,
-                  ),
-                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // Animated Waveform
                       AudioRecordingWaveform(
                         isRecording: _isRecording,
                         isPaused: _isPaused,
@@ -483,14 +600,20 @@ class _VoiceSymptomCaptureScreenState extends State<VoiceSymptomCaptureScreen> {
                         isPaused: _isPaused,
                         hasRecordedAudio: hasAudio,
                         isPlayingPreview: _isPlayingPreview,
+                        isPlaybackPaused: _isPlaybackPaused,
                         isUploading: _isUploading,
                         elapsedSeconds: _elapsedSeconds,
                         maxDurationSeconds: _maxDurationSeconds,
+                        playbackPosition: _playbackPosition,
+                        playbackDuration: _playbackDuration,
                         onStartRecording: _onStartRecording,
                         onPauseRecording: _onPauseRecording,
                         onResumeRecording: _onResumeRecording,
                         onStopRecording: _onStopRecording,
                         onTogglePlayback: _onTogglePlayback,
+                        onPausePlayback: _onPausePlayback,
+                        onResumePlayback: _onResumePlayback,
+                        onStopPlayback: _onStopPlayback,
                         onDiscardRecording: _onDiscardRecording,
                         onUploadAndTranscribe: _onUploadAndTranscribe,
                       ),

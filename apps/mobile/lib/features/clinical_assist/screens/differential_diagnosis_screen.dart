@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../consultations/ui/components/patient_search_selector.dart';
 import '../../patients/models/patient.dart';
+import '../../patients/services/patients_service.dart';
 import '../models/differential_evaluation_models.dart';
 import '../services/differential_diagnosis_service.dart';
 import '../widgets/differential_candidate_card.dart';
@@ -16,23 +18,25 @@ import '../widgets/differential_red_flags_banner.dart';
 /// - Requires explicit doctor review and selection of primary or differential candidates.
 /// - Strictly respects knowledge-pack availability (`UNAVAILABLE` displays transparently).
 class DifferentialDiagnosisScreen extends StatefulWidget {
-  final Patient patient;
+  final Patient? patient;
   final String? consultationId;
   final List<DifferentialFindingInput> initialFindings;
   final DifferentialVitalsInput? initialVitals;
   final InfectionSuspicionState initialInfectionSuspicion;
   final List<DifferentialAssessmentInput>? initialAssessments;
   final DifferentialDiagnosisService? service;
+  final PatientsService? patientsService;
 
   const DifferentialDiagnosisScreen({
     super.key,
-    required this.patient,
+    this.patient,
     this.consultationId,
-    required this.initialFindings,
+    this.initialFindings = const [],
     this.initialVitals,
     this.initialInfectionSuspicion = InfectionSuspicionState.unknown,
     this.initialAssessments,
     this.service,
+    this.patientsService,
   });
 
   @override
@@ -43,12 +47,22 @@ class DifferentialDiagnosisScreen extends StatefulWidget {
 class _DifferentialDiagnosisScreenState
     extends State<DifferentialDiagnosisScreen> {
   late final DifferentialDiagnosisService _service;
+  late final PatientsService _patientsService;
 
+  Patient? _selectedPatient;
   late InfectionSuspicionState _infectionSuspicion;
   late List<DifferentialFindingInput> _findings;
   late DifferentialVitalsInput? _vitals;
   late List<DifferentialAssessmentInput>? _assessments;
 
+  final TextEditingController _manualSymptomController = TextEditingController();
+  final TextEditingController _tempController = TextEditingController();
+  final TextEditingController _bpSysController = TextEditingController();
+  final TextEditingController _bpDiaController = TextEditingController();
+  final TextEditingController _pulseController = TextEditingController();
+  final TextEditingController _spO2Controller = TextEditingController();
+
+  bool _showManualEntry = false;
   bool _isLoading = false;
   String? _errorMessage;
   DifferentialEvaluationResponse? _response;
@@ -63,6 +77,8 @@ class _DifferentialDiagnosisScreenState
   void initState() {
     super.initState();
     _service = widget.service ?? DifferentialDiagnosisService();
+    _patientsService = widget.patientsService ?? PatientsService();
+    _selectedPatient = widget.patient;
     _infectionSuspicion = widget.initialInfectionSuspicion;
     _findings = List.from(widget.initialFindings);
     _vitals = widget.initialVitals;
@@ -70,13 +86,92 @@ class _DifferentialDiagnosisScreenState
         ? List.from(widget.initialAssessments!)
         : null;
 
-    // Trigger initial evaluation on screen load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _evaluateDifferential();
-    });
+    if (_vitals != null) {
+      if (_vitals!.temperatureC != null) {
+        _tempController.text = _vitals!.temperatureC.toString();
+      }
+      if (_vitals!.systolicBp != null) {
+        _bpSysController.text = _vitals!.systolicBp.toString();
+      }
+      if (_vitals!.diastolicBp != null) {
+        _bpDiaController.text = _vitals!.diastolicBp.toString();
+      }
+      if (_vitals!.pulse != null) {
+        _pulseController.text = _vitals!.pulse.toString();
+      }
+      if (_vitals!.spO2 != null) {
+        _spO2Controller.text = _vitals!.spO2.toString();
+      }
+    }
+
+    _showManualEntry = _findings.isEmpty;
+
+    // Trigger initial evaluation on screen load if patient is pre-populated
+    if (_selectedPatient != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _evaluateDifferential();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _manualSymptomController.dispose();
+    _tempController.dispose();
+    _bpSysController.dispose();
+    _bpDiaController.dispose();
+    _pulseController.dispose();
+    _spO2Controller.dispose();
+    super.dispose();
   }
 
   Future<void> _evaluateDifferential() async {
+    final patient = _selectedPatient;
+    if (patient == null) {
+      setState(() {
+        _errorMessage = 'Please select a registered patient before generating differential diagnosis.';
+      });
+      return;
+    }
+
+    final effectiveFindings = List<DifferentialFindingInput>.from(_findings);
+    final manualText = _manualSymptomController.text.trim();
+    if (manualText.isNotEmpty) {
+      final lines = manualText
+          .split(RegExp(r'[\n\r;]+'))
+          .map((s) => s.replaceAll(RegExp(r'^[•\-\*]\s*'), '').trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      for (final line in lines) {
+        if (!effectiveFindings.any((f) => f.canonicalTerm.toLowerCase() == line.toLowerCase())) {
+          effectiveFindings.add(
+            DifferentialFindingInput(
+              canonicalTerm: line,
+              status: EvaluationFindingStatus.present,
+            ),
+          );
+        }
+      }
+    }
+
+    final temp = double.tryParse(_tempController.text.trim());
+    final sys = int.tryParse(_bpSysController.text.trim());
+    final dia = int.tryParse(_bpDiaController.text.trim());
+    final pulse = int.tryParse(_pulseController.text.trim());
+    final spo2 = int.tryParse(_spO2Controller.text.trim());
+
+    final effectiveVitals = (temp != null || sys != null || dia != null || pulse != null || spo2 != null)
+        ? DifferentialVitalsInput(
+            temperatureC: temp ?? _vitals?.temperatureC,
+            systolicBp: sys ?? _vitals?.systolicBp,
+            diastolicBp: dia ?? _vitals?.diastolicBp,
+            pulse: pulse ?? _vitals?.pulse,
+            spO2: spo2 ?? _vitals?.spO2,
+            respiratoryRate: _vitals?.respiratoryRate,
+          )
+        : _vitals;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -84,14 +179,14 @@ class _DifferentialDiagnosisScreenState
 
     try {
       final req = EvaluateDifferentialRequest(
-        patientId: widget.patient.id,
+        patientId: patient.id,
         consultationId: widget.consultationId,
         domain: 'GENERAL_MEDICINE',
-        findings: _findings,
-        vitals: _vitals,
+        findings: effectiveFindings,
+        vitals: effectiveVitals,
         demographics: DifferentialDemographicsInput(
-          ageYears: widget.patient.age,
-          gender: widget.patient.gender,
+          ageYears: patient.age,
+          gender: patient.gender,
         ),
         infectionSuspicion: _infectionSuspicion,
         assessments: _assessments,
@@ -341,6 +436,11 @@ class _DifferentialDiagnosisScreenState
   }
 
   Widget _buildPatientContextBar() {
+    final patient = _selectedPatient;
+    if (patient == null) return const SizedBox.shrink();
+
+    final isPatientLocked = widget.patient != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       color: AppTheme.surfaceWhite,
@@ -352,7 +452,7 @@ class _DifferentialDiagnosisScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${widget.patient.fullName} (${widget.patient.uhid}) • ${widget.patient.age ?? 'Age N/A'} y/o ${widget.patient.gender}',
+                  '${patient.fullName} (${patient.uhid}) • ${patient.age ?? 'Age N/A'} y/o ${patient.gender}',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -360,6 +460,21 @@ class _DifferentialDiagnosisScreenState
                   ),
                 ),
               ),
+              if (!isPatientLocked)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _selectedPatient = null;
+                      _response = null;
+                    });
+                  },
+                  child: const Text('Change', style: TextStyle(fontSize: 12)),
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -418,6 +533,29 @@ class _DifferentialDiagnosisScreenState
   }
 
   Widget _buildBody() {
+    if (_selectedPatient == null) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PatientSearchSelector(
+              patientsService: _patientsService,
+              selectedPatient: _selectedPatient,
+              onPatientSelected: (p) {
+                setState(() {
+                  _selectedPatient = p;
+                  _errorMessage = null;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            const DifferentialDisclaimerCard(),
+          ],
+        ),
+      );
+    }
+
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -473,7 +611,17 @@ class _DifferentialDiagnosisScreenState
 
     final resp = _response;
     if (resp == null) {
-      return const SizedBox.shrink();
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildManualFindingsSection(),
+            const SizedBox(height: 12),
+            const DifferentialDisclaimerCard(),
+          ],
+        ),
+      );
     }
 
     // 1. UNAVAILABLE State Handling
@@ -552,6 +700,9 @@ class _DifferentialDiagnosisScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildManualFindingsSection(),
+          const SizedBox(height: 12),
+
           // Decision Support Disclaimer
           DifferentialDisclaimerCard(customText: resp.disclaimer),
           const SizedBox(height: 12),
@@ -632,6 +783,123 @@ class _DifferentialDiagnosisScreenState
   ) {
     if (_selectedTierFilter == null) return all;
     return all.where((c) => c.tier == _selectedTierFilter).toList();
+  }
+
+  Widget _buildManualFindingsSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderSubtle),
+      ),
+      child: Material(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(10),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: _showManualEntry,
+            title: Text(
+              _findings.isNotEmpty
+                  ? 'Clinical Findings & Vitals (${_findings.length} findings recorded)'
+                  : 'Enter Symptoms & Vitals (Manual Workflow 2)',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            subtitle: const Text(
+              'Attending clinician manual entry for deterministic AST evaluation',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+            childrenPadding: const EdgeInsets.all(12),
+            children: [
+              TextField(
+                controller: _manualSymptomController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Symptoms & Complaints',
+                  hintText: 'e.g. Cough, Fever, Chest pain, Dyspnea',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _tempController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Temp (°C)',
+                        hintText: '38.5',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _bpSysController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'BP Sys',
+                        hintText: '120',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _pulseController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Pulse',
+                        hintText: '82',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _spO2Controller,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'SpO2 (%)',
+                        hintText: '98',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryNavy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: _isLoading ? null : _evaluateDifferential,
+                  icon: const Icon(Icons.psychology_rounded, size: 18),
+                  label: const Text(
+                    'Generate Differential Diagnosis',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildTierFilterChips(DifferentialEvaluationResponse resp) {

@@ -56,11 +56,17 @@ describe('DifferentialDiagnosisService — API Integration & Clinical Safety', (
         update: jest.fn(),
         updateMany: jest.fn(),
       },
-      differentialDiagnosisAudit: { create: jest.fn() },
+      differentialDiagnosisAudit: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
     };
 
     resolver = {
       resolveActiveRelease: jest.fn(),
+      listKnowledgePacks: jest.fn(),
+      getKnowledgePackVersion: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -391,6 +397,152 @@ describe('DifferentialDiagnosisService — API Integration & Clinical Safety', (
       expect(result1.candidateMatches.length).toBe(result2.candidateMatches.length);
       expect(result1.candidateMatches[0].tier).toBe(result2.candidateMatches[0].tier);
       expect(result1.redFlags.length).toBe(result2.redFlags.length);
+    });
+  });
+
+  // =========================================================================
+  // 5. AUDIT RETRIEVAL, REVIEW RECORDING & KNOWLEDGE PACK METADATA
+  // =========================================================================
+  describe('5. Audit Retrieval, Review Recording & Knowledge Pack Metadata', () => {
+    it('getEvaluationById: returns audit record when found by audit id in active clinic', async () => {
+      const mockAudit = {
+        id: 'audit-001',
+        clinicId,
+        consultationId,
+        patientId,
+        clinicianId,
+        knowledgePackVerId: '1.0.0',
+        matchedCandidatesJson: [],
+      };
+      prisma.differentialDiagnosisAudit.findFirst.mockResolvedValueOnce(mockAudit);
+
+      const res = await service.getEvaluationById(clinicId, clinicianId, 'audit-001');
+
+      expect(res).toBe(mockAudit);
+      expect(prisma.differentialDiagnosisAudit.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'audit-001', clinicId },
+        }),
+      );
+    });
+
+    it('getEvaluationById: falls back to consultationId when audit id not matched directly', async () => {
+      const mockAudit = {
+        id: 'audit-002',
+        clinicId,
+        consultationId,
+        patientId,
+        clinicianId,
+      };
+      prisma.differentialDiagnosisAudit.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockAudit);
+
+      const res = await service.getEvaluationById(clinicId, clinicianId, consultationId);
+
+      expect(res).toBe(mockAudit);
+      expect(prisma.differentialDiagnosisAudit.findFirst).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { consultationId, clinicId },
+        }),
+      );
+    });
+
+    it('getEvaluationById: throws NotFoundException when no record exists', async () => {
+      prisma.differentialDiagnosisAudit.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getEvaluationById(clinicId, clinicianId, 'missing-id'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('reviewEvaluation: updates existing audit record with clinician decisions', async () => {
+      const mockExisting = { id: 'audit-001', clinicId };
+      prisma.differentialDiagnosisAudit.findFirst.mockResolvedValueOnce(mockExisting);
+      prisma.differentialDiagnosisAudit.update.mockResolvedValueOnce({
+        id: 'audit-001',
+        doctorDecisionsJson: { reviewedBy: clinicianId },
+      });
+
+      const res = await service.reviewEvaluation(clinicId, clinicianId, 'audit-001', {
+        decisions: [
+          {
+            conditionCode: 'COND-PNEUMONIA-CAP',
+            decision: 'ACCEPTED_AS_PRIMARY' as any,
+          },
+        ],
+        reviewNotes: 'Verified with vitals',
+      });
+
+      expect(prisma.differentialDiagnosisAudit.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'audit-001' },
+          data: expect.objectContaining({
+            doctorDecisionsJson: expect.objectContaining({
+              reviewedBy: clinicianId,
+              reviewNotes: 'Verified with vitals',
+            }),
+          }),
+        }),
+      );
+      expect(res.id).toBe('audit-001');
+    });
+
+    it('reviewEvaluation: creates new audit record when id matches consultation', async () => {
+      prisma.differentialDiagnosisAudit.findFirst.mockResolvedValueOnce(null);
+      prisma.consultation.findFirst.mockResolvedValueOnce({
+        id: consultationId,
+        clinicId,
+        patientId,
+      });
+      prisma.differentialDiagnosisAudit.create.mockResolvedValueOnce({
+        id: 'new-audit-id',
+        consultationId,
+      });
+
+      const res = await service.reviewEvaluation(clinicId, clinicianId, consultationId, {
+        decisions: [
+          {
+            conditionCode: 'COND-ACUTE-BRONCHITIS',
+            decision: 'REJECTED' as any,
+          },
+        ],
+      });
+
+      expect(prisma.differentialDiagnosisAudit.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clinicId,
+            consultationId,
+            clinicianId,
+          }),
+        }),
+      );
+      expect(res.id).toBe('new-audit-id');
+    });
+
+    it('reviewEvaluation: throws NotFoundException when neither audit nor consultation found', async () => {
+      prisma.differentialDiagnosisAudit.findFirst.mockResolvedValueOnce(null);
+      prisma.consultation.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.reviewEvaluation(clinicId, clinicianId, 'invalid-id', { decisions: [] }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('listKnowledgePacks delegates to knowledgePackResolver', async () => {
+      resolver.listKnowledgePacks.mockResolvedValueOnce([{ id: 'GENERAL_MEDICINE' }]);
+      const res = await service.listKnowledgePacks(clinicId);
+      expect(resolver.listKnowledgePacks).toHaveBeenCalledWith(clinicId);
+      expect(res).toEqual([{ id: 'GENERAL_MEDICINE' }]);
+    });
+
+    it('getKnowledgePackVersion delegates to knowledgePackResolver', async () => {
+      resolver.getKnowledgePackVersion.mockResolvedValueOnce({ domain: 'GENERAL_MEDICINE' });
+      const res = await service.getKnowledgePackVersion(clinicId, 'GENERAL_MEDICINE');
+      expect(resolver.getKnowledgePackVersion).toHaveBeenCalledWith(clinicId, 'GENERAL_MEDICINE');
+      expect(res).toEqual({ domain: 'GENERAL_MEDICINE' });
     });
   });
 });

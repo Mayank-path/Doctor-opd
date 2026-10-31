@@ -72,121 +72,262 @@ export class KnowledgePackResolverService {
     // DRAFT, IN_REVIEW, DEPRECATED, ROLLED_BACK are never eligible.
     const eligibleReleaseStatus = KnowledgePackReleaseStatus.RELEASED;
 
-    // Priority 1: Check for active clinic-specific release
-    const clinicRelease = await this.prisma.knowledgePackRelease.findFirst({
-      where: {
-        clinicId,
-        isActive: true,
-        version: {
-          pack: { domain },
-          releaseStatus: eligibleReleaseStatus,
+    try {
+      // Priority 1: Check for active clinic-specific release
+      const clinicRelease = await this.prisma.knowledgePackRelease.findFirst({
+        where: {
+          clinicId,
+          isActive: true,
+          version: {
+            pack: { domain },
+            releaseStatus: eligibleReleaseStatus,
+          },
         },
-      },
-      include: {
-        version: {
-          include: {
-            pack: true,
-            conditions: {
-              include: {
-                rules: {
-                  include: {
-                    sourceReferences: {
-                      include: {
-                        source: true,
+        include: {
+          version: {
+            include: {
+              pack: true,
+              conditions: {
+                include: {
+                  rules: {
+                    include: {
+                      sourceReferences: {
+                        include: {
+                          source: true,
+                        },
                       },
                     },
                   },
                 },
               },
+              redFlagRules: true,
+              sources: true,
+              approvals: true,
             },
-            redFlagRules: true,
-            sources: true,
-            approvals: true,
           },
         },
-      },
-      orderBy: [
-        { activatedAt: 'desc' },
-        { version: { majorVersion: 'desc' } },
-        { version: { minorVersion: 'desc' } },
-        { version: { patchVersion: 'desc' } },
-      ],
-    });
+        orderBy: [
+          { activatedAt: 'desc' },
+          { version: { majorVersion: 'desc' } },
+          { version: { minorVersion: 'desc' } },
+          { version: { patchVersion: 'desc' } },
+        ],
+      });
 
-    if (clinicRelease) {
-      if (!this.verifyReleaseIntegrity(clinicRelease)) {
-        this.logger.warn(
-          `Clinic-specific release for clinic ${clinicId}, domain ${domain} failed integrity verification. Rejecting evaluation.`,
+      if (clinicRelease) {
+        if (!this.verifyReleaseIntegrity(clinicRelease)) {
+          this.logger.warn(
+            `Clinic-specific release for clinic ${clinicId}, domain ${domain} failed integrity verification. Rejecting evaluation.`,
+          );
+          return null;
+        }
+
+        this.logger.log(
+          `Resolved clinic-specific release for clinic ${clinicId}, domain ${domain}: version ${clinicRelease.version.majorVersion}.${clinicRelease.version.minorVersion}.${clinicRelease.version.patchVersion} (${clinicRelease.version.releaseStatus})`,
         );
-        return null;
+        return this.mapToResolvedPack(clinicRelease, 'CLINIC');
       }
 
-      this.logger.log(
-        `Resolved clinic-specific release for clinic ${clinicId}, domain ${domain}: version ${clinicRelease.version.majorVersion}.${clinicRelease.version.minorVersion}.${clinicRelease.version.patchVersion} (${clinicRelease.version.releaseStatus})`,
-      );
-      return this.mapToResolvedPack(clinicRelease, 'CLINIC');
-    }
-
-    // Priority 2: Check for active global baseline release
-    const globalRelease = await this.prisma.knowledgePackRelease.findFirst({
-      where: {
-        clinicId: null,
-        isActive: true,
-        version: {
-          pack: { domain },
-          releaseStatus: eligibleReleaseStatus,
+      // Priority 2: Check for active global baseline release
+      const globalRelease = await this.prisma.knowledgePackRelease.findFirst({
+        where: {
+          clinicId: null,
+          isActive: true,
+          version: {
+            pack: { domain },
+            releaseStatus: eligibleReleaseStatus,
+          },
         },
-      },
-      include: {
-        version: {
-          include: {
-            pack: true,
-            conditions: {
-              include: {
-                rules: {
-                  include: {
-                    sourceReferences: {
-                      include: {
-                        source: true,
+        include: {
+          version: {
+            include: {
+              pack: true,
+              conditions: {
+                include: {
+                  rules: {
+                    include: {
+                      sourceReferences: {
+                        include: {
+                          source: true,
+                        },
                       },
                     },
                   },
                 },
               },
+              redFlagRules: true,
+              sources: true,
+              approvals: true,
             },
-            redFlagRules: true,
-            sources: true,
-            approvals: true,
           },
         },
-      },
-      orderBy: [
-        { activatedAt: 'desc' },
-        { version: { majorVersion: 'desc' } },
-        { version: { minorVersion: 'desc' } },
-        { version: { patchVersion: 'desc' } },
-      ],
-    });
+        orderBy: [
+          { activatedAt: 'desc' },
+          { version: { majorVersion: 'desc' } },
+          { version: { minorVersion: 'desc' } },
+          { version: { patchVersion: 'desc' } },
+        ],
+      });
 
-    if (globalRelease) {
-      if (!this.verifyReleaseIntegrity(globalRelease)) {
-        this.logger.warn(
-          `Global baseline release for domain ${domain} failed integrity verification. Rejecting evaluation.`,
+      if (globalRelease) {
+        if (!this.verifyReleaseIntegrity(globalRelease)) {
+          this.logger.warn(
+            `Global baseline release for domain ${domain} failed integrity verification. Rejecting evaluation.`,
+          );
+          return null;
+        }
+
+        this.logger.log(
+          `Resolved global baseline release for domain ${domain}: version ${globalRelease.version.majorVersion}.${globalRelease.version.minorVersion}.${globalRelease.version.patchVersion} (${globalRelease.version.releaseStatus})`,
         );
-        return null;
+        return this.mapToResolvedPack(globalRelease, 'GLOBAL');
       }
 
-      this.logger.log(
-        `Resolved global baseline release for domain ${domain}: version ${globalRelease.version.majorVersion}.${globalRelease.version.minorVersion}.${globalRelease.version.patchVersion} (${globalRelease.version.releaseStatus})`,
+      // Safe Failure: No eligible released pack exists
+      this.logger.warn(
+        `No eligible RELEASED knowledge pack found for clinic ${clinicId}, domain ${domain}.`,
       );
-      return this.mapToResolvedPack(globalRelease, 'GLOBAL');
+      return null;
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to query active knowledge pack release from database: ${err?.message || err}. Failing closed.`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Lists available clinical knowledge packs for the active clinic tenant.
+   * Fails closed safely if governance migrations have not been applied.
+   */
+  async listKnowledgePacks(clinicId: string): Promise<any[]> {
+    try {
+      const activePacks = await this.prisma.clinicalKnowledgePack.findMany({
+        include: {
+          versions: {
+            where: {
+              releaseStatus: KnowledgePackReleaseStatus.RELEASED,
+            },
+            include: {
+              releases: {
+                where: {
+                  isActive: true,
+                  OR: [{ clinicId }, { clinicId: null }],
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (activePacks && activePacks.length > 0) {
+        return activePacks.map((pack) => {
+          const releasedVersion = pack.versions.find((v) =>
+            v.releases.some((r) => r.isActive),
+          );
+          return {
+            id: pack.id,
+            domain: pack.domain,
+            name: pack.name,
+            description: pack.description,
+            activeVersion: releasedVersion
+              ? `${releasedVersion.majorVersion}.${releasedVersion.minorVersion}.${releasedVersion.patchVersion}`
+              : null,
+            status: releasedVersion ? 'AVAILABLE' : 'UNAVAILABLE',
+            requiresDoctorReview: true,
+          };
+        });
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Unable to query clinicalKnowledgePack table: ${err?.message || err}. Reporting baseline configuration.`,
+      );
     }
 
-    // Safe Failure: No eligible released pack exists
-    this.logger.warn(
-      `No eligible RELEASED knowledge pack found for clinic ${clinicId}, domain ${domain}.`,
-    );
-    return null;
+    // Default baseline domain fallback when unmigrated / unapproved
+    return [
+      {
+        id: KnowledgePackDomain.GENERAL_MEDICINE,
+        domain: KnowledgePackDomain.GENERAL_MEDICINE,
+        name: 'ICMR-WHO General Medicine OPD Clinical Decision Support',
+        description:
+          'Deterministic clinical decision support rules for primary care OPD encounters conforming to ICMR and WHO guidelines.',
+        activeVersion: null,
+        status: 'UNAVAILABLE',
+        requiresDoctorReview: true,
+        message:
+          'No approved knowledge-pack release is currently active. Production clinical evaluation remains blocked pending clinical review approval and migration deployment.',
+      },
+    ];
+  }
+
+  /**
+   * Retrieves version details for a specified knowledge pack or domain.
+   */
+  async getKnowledgePackVersion(
+    clinicId: string,
+    idOrDomain: string,
+  ): Promise<any> {
+    try {
+      const isDomainEnum = Object.values(KnowledgePackDomain).includes(
+        idOrDomain as KnowledgePackDomain,
+      );
+
+      const version = await this.prisma.knowledgePackVersion.findFirst({
+        where: {
+          releaseStatus: KnowledgePackReleaseStatus.RELEASED,
+          pack: isDomainEnum
+            ? { domain: idOrDomain as KnowledgePackDomain }
+            : { id: idOrDomain },
+          releases: {
+            some: {
+              isActive: true,
+              OR: [{ clinicId }, { clinicId: null }],
+            },
+          },
+        },
+        include: {
+          pack: true,
+          conditions: true,
+          redFlagRules: true,
+          sources: true,
+          approvals: true,
+        },
+      });
+
+      if (version) {
+        return {
+          id: version.id,
+          packId: version.packId,
+          domain: version.pack.domain,
+          name: version.pack.name,
+          version: `${version.majorVersion}.${version.minorVersion}.${version.patchVersion}`,
+          releaseStatus: version.releaseStatus,
+          checksumSha256: version.checksumSha256,
+          changelog: version.changelog,
+          publishedAt: version.publishedAt,
+          conditionsCount: version.conditions.length,
+          redFlagRulesCount: version.redFlagRules.length,
+          sourcesCount: version.sources.length,
+          approvalsCount: version.approvals.length,
+          requiresDoctorReview: true,
+        };
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Unable to query knowledgePackVersion: ${err?.message || err}.`,
+      );
+    }
+
+    // Fails closed if not found or unmigrated
+    return {
+      domain: idOrDomain,
+      version: null,
+      status: 'UNAVAILABLE',
+      requiresDoctorReview: true,
+      message:
+        'Knowledge pack version details are currently unavailable for this clinic tenant.',
+    };
   }
 
   /**

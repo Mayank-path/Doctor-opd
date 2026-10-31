@@ -35,3 +35,4 @@ export class ActivateReleaseDto {
   @IsUUID(4)
   releasedByUserId?: string;
 }
+

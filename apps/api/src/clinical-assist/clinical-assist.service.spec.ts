@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as fs from 'fs/promises';
@@ -222,6 +223,39 @@ describe('ClinicalAssistService', () => {
         action: 'STT_TRANSCRIPTION_FAILED',
         status: 'FAILED',
         errorCode: 'GatewayTimeoutException',
+      }),
+    );
+  });
+
+  it('throws UnprocessableEntityException when STT provider returns an empty or whitespace transcript', async () => {
+    (prisma.clinicMembership.findUnique as jest.Mock).mockResolvedValue({
+      userId: mockDoctorId,
+      clinicId: mockClinicId,
+      status: MembershipStatus.ACTIVE,
+      role: ClinicRole.DOCTOR,
+    });
+    (prisma.patient.findFirst as jest.Mock).mockResolvedValue({
+      id: mockPatientId,
+      clinicId: mockClinicId,
+    });
+    (sttProvider.transcribe as jest.Mock).mockResolvedValue({
+      transcript: '   ',
+      provider: 'openai',
+      model: 'gpt-4o-transcribe',
+    });
+
+    await expect(
+      service.transcribeAudio(mockClinicId, mockDoctorId, mockFile, mockDto),
+    ).rejects.toThrow(UnprocessableEntityException);
+
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clinicId: mockClinicId,
+        userId: mockDoctorId,
+        patientId: mockPatientId,
+        action: 'STT_TRANSCRIPTION_FAILED',
+        status: 'FAILED',
+        errorCode: 'UnprocessableEntityException',
       }),
     );
   });
