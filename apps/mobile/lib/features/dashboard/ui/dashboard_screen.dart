@@ -5,27 +5,18 @@ import '../../auth/models/auth_user.dart';
 import '../../auth/services/auth_service.dart';
 import '../models/clinic_dashboard_stats.dart';
 import '../services/dashboard_service.dart';
-import 'widgets/appointments_overview_card.dart';
 import 'widgets/clinic_selector_card.dart';
 import 'widgets/clinical_privacy_card.dart';
-import 'widgets/opd_queue_overview_card.dart';
 import 'widgets/patients_overview_card.dart';
 import 'widgets/quick_actions_grid.dart';
 import 'widgets/system_status_card.dart';
 import '../../patients/ui/patient_list_screen.dart';
 import '../../patients/ui/patient_details_screen.dart';
 import '../../patients/services/patients_service.dart';
-import '../../appointments/ui/appointment_list_screen.dart';
-import '../../appointments/ui/appointment_details_screen.dart';
-import '../../appointments/services/appointments_service.dart';
-import '../../queue/services/queue_service.dart';
-import '../../queue/ui/queue_screen.dart';
 import '../../consultations/services/consultations_service.dart';
 import '../../consultations/ui/consultation_list_screen.dart';
 import '../../prescriptions/services/prescriptions_service.dart';
 import '../../prescriptions/ui/prescription_list_screen.dart';
-import '../../clinical_assist/screens/voice_symptom_capture_screen.dart';
-import '../../clinical_assist/screens/differential_diagnosis_screen.dart';
 
 /// Production-ready Clinic Dashboard Screen
 /// Integrates real backend OPD endpoints, tenant isolation, and role boundaries.
@@ -34,8 +25,6 @@ class DashboardScreen extends StatefulWidget {
   final AuthUser user;
   final DashboardService? dashboardService;
   final PatientsService? patientsService;
-  final AppointmentsService? appointmentsService;
-  final QueueService? queueService;
   final ConsultationsService? consultationsService;
   final PrescriptionsService? prescriptionsService;
 
@@ -45,8 +34,6 @@ class DashboardScreen extends StatefulWidget {
     required this.user,
     this.dashboardService,
     this.patientsService,
-    this.appointmentsService,
-    this.queueService,
     this.consultationsService,
     this.prescriptionsService,
   });
@@ -239,50 +226,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _navigateToAppointments() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AppointmentListScreen(
-          appointmentsService: widget.appointmentsService,
-          patientsService: widget.patientsService,
-        ),
-      ),
-    );
-    if (_activeClinicId != null && mounted) {
-      await _loadDashboardData(_activeClinicId!);
-    }
-  }
-
-  Future<void> _navigateToAppointmentDetails(String appointmentId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AppointmentDetailsScreen(
-          appointmentId: appointmentId,
-          appointmentsService: widget.appointmentsService,
-          patientsService: widget.patientsService,
-        ),
-      ),
-    );
-    if (_activeClinicId != null && mounted) {
-      await _loadDashboardData(_activeClinicId!);
-    }
-  }
-
-  Future<void> _navigateToQueue() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => QueueScreen(
-          queueService: widget.queueService,
-          appointmentsService: widget.appointmentsService,
-          patientsService: widget.patientsService,
-        ),
-      ),
-    );
-    if (_activeClinicId != null && mounted) {
-      await _loadDashboardData(_activeClinicId!);
-    }
-  }
-
   Future<void> _navigateToConsultations() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -307,22 +250,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_activeClinicId != null && mounted) {
       await _loadDashboardData(_activeClinicId!);
     }
-  }
-
-  Future<void> _navigateToVoiceSymptoms() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const VoiceSymptomCaptureScreen(),
-      ),
-    );
-  }
-
-  Future<void> _navigateToDifferentialDiagnosis() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const DifferentialDiagnosisScreen(),
-      ),
-    );
   }
 
   void _confirmLogout() {
@@ -522,12 +449,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       activeClinicId: _activeClinicId,
                       isDoctor: isDoctor,
                       onPatientsTap: _navigateToPatients,
-                      onAppointmentsTap: _navigateToAppointments,
-                      onQueueTap: _navigateToQueue,
                       onConsultationsTap: _navigateToConsultations,
                       onPrescriptionsTap: _navigateToPrescriptions,
-                      onDifferentialTap: _navigateToDifferentialDiagnosis,
-                      onVoiceSymptomsTap: _navigateToVoiceSymptoms,
                     ),
                     const SizedBox(height: 16),
 
@@ -539,22 +462,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _buildLoadingPlaceholder(),
                       const SizedBox(height: 16),
                     ] else if (_stats != null) ...[
-                      // Real OPD Queue Overview
-                      OpdQueueOverviewCard(
-                        stats: _stats!,
-                        isLoading: _isLoading,
-                        onViewAllTap: _navigateToQueue,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Real Appointments Overview
-                      AppointmentsOverviewCard(
-                        stats: _stats!,
-                        isLoading: _isLoading,
-                        onViewAllTap: _navigateToAppointments,
-                        onAppointmentTap: _navigateToAppointmentDetails,
-                      ),
-                      const SizedBox(height: 16),
 
                       // Real Patients Overview
                       PatientsOverviewCard(
@@ -751,7 +658,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'To load real OPD Queue, Appointments, and Patient data, please enter and save your Clinic UUID in the section above.',
+            'To load real clinic and patient data, please enter and save your Clinic UUID in the section above.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
           ),
@@ -775,7 +682,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           SizedBox(height: 16),
           Text(
-            'Loading clinic metrics & OPD queue...',
+            'Loading clinic metrics...',
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
         ],
@@ -836,22 +743,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.confirmation_number_rounded, color: AppTheme.accentTeal),
-                    title: const Text('OPD Queue'),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _navigateToQueue();
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.edit_calendar_rounded, color: AppTheme.accentTeal),
-                    title: const Text('Appointments'),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _navigateToAppointments();
-                    },
-                  ),
-                  ListTile(
                     leading: const Icon(Icons.people_alt_rounded, color: AppTheme.accentTeal),
                     title: const Text('Patients'),
                     onTap: () {
@@ -875,24 +766,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onTap: () {
                         Navigator.of(context).pop();
                         _navigateToPrescriptions();
-                      },
-                    ),
-                  if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
-                    ListTile(
-                      leading: const Icon(Icons.mic_rounded, color: Colors.deepOrange),
-                      title: const Text('Voice Symptoms'),
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        _navigateToVoiceSymptoms();
-                      },
-                    ),
-                  if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
-                    ListTile(
-                      leading: const Icon(Icons.psychology_rounded, color: Colors.indigo),
-                      title: const Text('Differential Diagnosis'),
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        _navigateToDifferentialDiagnosis();
                       },
                     ),
                   const Divider(),

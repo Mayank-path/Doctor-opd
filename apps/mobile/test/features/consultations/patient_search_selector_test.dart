@@ -356,12 +356,12 @@ void main() {
       await tester.pumpWidget(buildTestWidget(
         selectedPatient: testPatient1,
         isLocked: true,
-        lockReason: 'Active OPD Queue Encounter',
+        lockReason: 'Active Clinical Encounter',
       ));
       await tester.pumpAndSettle();
 
       expect(find.text('Pathania Jii'), findsOneWidget);
-      expect(find.text('Active OPD Queue Encounter'), findsOneWidget);
+      expect(find.text('Active Clinical Encounter'), findsOneWidget);
       expect(find.byKey(const Key('changePatientButton')), findsNothing);
     });
   });

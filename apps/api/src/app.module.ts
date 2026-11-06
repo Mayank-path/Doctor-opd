@@ -10,8 +10,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { PatientsModule } from './patients/patients.module';
 import { ConsultationsModule } from './consultations/consultations.module';
-import { AppointmentsModule } from './appointments/appointments.module';
-import { QueueModule } from './queue/queue.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { ClinicalAssistModule } from './clinical-assist/clinical-assist.module';
 
@@ -21,8 +19,6 @@ import { ClinicalAssistModule } from './clinical-assist/clinical-assist.module';
     AuthModule,
     PatientsModule,
     ConsultationsModule,
-    AppointmentsModule,
-    QueueModule,
     PrescriptionsModule,
     ClinicalAssistModule,
   ],

@@ -88,10 +88,6 @@ describe('ConsultationsService', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
-    opdQueueEntry: {
-      findFirst: jest.fn(),
-      updateMany: jest.fn(),
-    },
     $transaction: jest.fn(),
   };
 
@@ -100,8 +96,6 @@ describe('ConsultationsService', () => {
     mockPrismaService.$transaction.mockImplementation(
       (cb: (tx: any) => Promise<any>) => cb(mockPrismaService),
     );
-    mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(null);
-    mockPrismaService.opdQueueEntry.updateMany.mockResolvedValue({ count: 0 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -409,74 +403,6 @@ describe('ConsultationsService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('automatically transitions matching walk-in queue entry from IN_CONSULTATION to COMPLETED', async () => {
-      mockPrismaService.consultation.findFirst.mockResolvedValue(
-        mockDraftConsultation,
-      );
-      mockPrismaService.consultation.updateMany.mockResolvedValue({ count: 1 });
-      mockPrismaService.consultation.findUniqueOrThrow.mockResolvedValue(
-        mockFinalizedConsultation,
-      );
-
-      const mockWalkInEntry = {
-        id: 'queue-entry-walk-in-1',
-        clinicId: mockClinicId,
-        patientId: mockPatientId,
-        doctorId: mockClinicianId,
-        appointmentId: null,
-        status: 'IN_CONSULTATION',
-      };
-
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(
-        mockWalkInEntry,
-      );
-      mockPrismaService.opdQueueEntry.updateMany.mockResolvedValue({
-        count: 1,
-      });
-
-      const result = await service.finalize(
-        mockClinicId,
-        mockConsultationId,
-        mockClinicianId,
-      );
-
-      expect(result).toEqual(mockFinalizedConsultation);
-      expect(mockPrismaService.opdQueueEntry.findFirst).toHaveBeenCalledWith({
-        where: {
-          clinicId: mockClinicId,
-          patientId: mockPatientId,
-          doctorId: mockClinicianId,
-          appointmentId: null,
-          status: 'IN_CONSULTATION',
-        },
-      });
-      expect(mockPrismaService.opdQueueEntry.updateMany).toHaveBeenCalledWith({
-        where: {
-          id: mockWalkInEntry.id,
-          clinicId: mockClinicId,
-          status: 'IN_CONSULTATION',
-        },
-        data: {
-          status: 'COMPLETED',
-          consultationEndTime: expect.any(Date),
-        },
-      });
-    });
-
-    it('does not touch queue entry if no active walk-in IN_CONSULTATION entry exists', async () => {
-      mockPrismaService.consultation.findFirst.mockResolvedValue(
-        mockDraftConsultation,
-      );
-      mockPrismaService.consultation.updateMany.mockResolvedValue({ count: 1 });
-      mockPrismaService.consultation.findUniqueOrThrow.mockResolvedValue(
-        mockFinalizedConsultation,
-      );
-      mockPrismaService.opdQueueEntry.findFirst.mockResolvedValue(null);
-
-      await service.finalize(mockClinicId, mockConsultationId, mockClinicianId);
-
-      expect(mockPrismaService.opdQueueEntry.updateMany).not.toHaveBeenCalled();
-    });
   });
 
   describe('findAll', () => {

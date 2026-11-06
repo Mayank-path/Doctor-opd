@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { KnowledgePackResolverService } from '../differential/services/knowledge-pack-resolver.service';
+import { KnowledgePackResolverService } from './services/knowledge-pack-resolver.service';
 import { ClinicalGovernanceController } from './clinical-governance.controller';
 import { GovernanceAdminGuard } from './guards/governance-admin.guard';
 import { GovernanceReleaseAuthorityGuard } from './guards/governance-release-authority.guard';

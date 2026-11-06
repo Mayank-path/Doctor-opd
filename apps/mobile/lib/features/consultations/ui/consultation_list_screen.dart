@@ -339,7 +339,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
               const SizedBox(height: 8),
               Text(
                 _selectedStatusFilter == null
-                    ? 'Start a new consultation or select a patient from OPD queue.'
+                    ? 'Start a new consultation.'
                     : 'No consultations match the selected status filter.',
                 textAlign: TextAlign.center,
                 style: TextStyle(

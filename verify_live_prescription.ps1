@@ -197,12 +197,6 @@ Write-Host "`n[STEP 14] Core OPD Workflows Non-Regression Check"
 $patientsCheck = Invoke-RestMethod -Uri "http://localhost:3000/api/v1/patients" -Method Get -Headers $headers
 Write-Host "PASS: GET /patients: 200 OK (Total: $($patientsCheck.meta.total))"
 
-$appointmentsCheck = Invoke-RestMethod -Uri "http://localhost:3000/api/v1/appointments?serviceDate=2026-10-30" -Method Get -Headers $headers
-Write-Host "PASS: GET /appointments: 200 OK (Total: $($appointmentsCheck.meta.total))"
-
-$queueCheck = Invoke-RestMethod -Uri "http://localhost:3000/api/v1/queue?serviceDate=2026-10-30" -Method Get -Headers $headers
-Write-Host "PASS: GET /queue: 200 OK"
-
 $consultationsCheck = Invoke-RestMethod -Uri "http://localhost:3000/api/v1/consultations" -Method Get -Headers $headers
 Write-Host "PASS: GET /consultations: 200 OK (Total: $($consultationsCheck.meta.total))"
 

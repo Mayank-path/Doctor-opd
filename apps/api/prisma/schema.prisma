@@ -70,33 +70,6 @@ enum MedicationTiming {
   AS_NEEDED
 }
 
-enum AppointmentType {
-  SCHEDULED
-  WALK_IN
-  FOLLOW_UP
-  EMERGENCY
-}
-
-enum AppointmentStatus {
-  SCHEDULED
-  CONFIRMED
-  CHECKED_IN
-  IN_CONSULTATION
-  COMPLETED
-  CANCELLED
-  RESCHEDULED
-  NO_SHOW
-}
-
-enum QueueStatus {
-  WAITING
-  CALLED
-  IN_CONSULTATION
-  COMPLETED
-  SKIPPED
-  CANCELLED
-}
-
 model User {
   id           String               @id @default(uuid())
   phone        String               @unique
@@ -139,13 +112,9 @@ model Clinic {
   memberships           ClinicMembership[]
   patients              Patient[]
   uhidCounter           PatientUhidCounter?
-  appointments          Appointment[]
-  queueEntries          OpdQueueEntry[]
-  dailyCounters         OpdDailyCounter[]
   consultations         Consultation[]
   prescriptions         Prescription[]
   auditEvents           ClinicalAuditEvent[]
-  differentialAudits    DifferentialDiagnosisAudit[]
   knowledgePackReleases KnowledgePackRelease[]
 
   @@map("clinics")
@@ -163,12 +132,8 @@ model ClinicMembership {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
-  appointments       Appointment[]                @relation("DoctorAppointments")
-  queueEntries       OpdQueueEntry[]              @relation("DoctorQueueEntries")
-  dailyCounters      OpdDailyCounter[]            @relation("DoctorDailyCounters")
   consultations      Consultation[]               @relation("ClinicianConsultations")
   prescriptions      Prescription[]               @relation("DoctorPrescriptions")
-  differentialAudits DifferentialDiagnosisAudit[] @relation("ClinicianDifferentialAudits")
 
   @@unique([userId, clinicId])
   @@index([userId])
@@ -195,11 +160,8 @@ model Patient {
   updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
   clinic             Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  appointments       Appointment[]
-  queueEntries       OpdQueueEntry[]
   consultations      Consultation[]
   prescriptions      Prescription[]
-  differentialAudits DifferentialDiagnosisAudit[]
 
   @@unique([clinicId, uhid])
   @@unique([id, clinicId])
@@ -218,90 +180,6 @@ model PatientUhidCounter {
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@map("patient_uhid_counters")
-}
-
-model Appointment {
-  id        String @id @default(uuid())
-  clinicId  String
-  patientId String
-  doctorId  String
-
-  serviceDate DateTime  @db.Date
-  startTime   DateTime  @db.Timestamptz(3)
-  endTime     DateTime? @db.Timestamptz(3)
-
-  type           AppointmentType   @default(SCHEDULED)
-  status         AppointmentStatus @default(SCHEDULED)
-  chiefComplaint String?
-  notes          String?
-
-  cancellationReason String?
-  cancelledAt        DateTime? @db.Timestamptz(3)
-  rescheduledFromId  String?
-
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
-
-  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient         Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  doctor          ClinicMembership @relation("DoctorAppointments", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
-  rescheduledFrom Appointment?     @relation("AppointmentRescheduling", fields: [rescheduledFromId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  rescheduledTo   Appointment[]    @relation("AppointmentRescheduling")
-  queueEntry      OpdQueueEntry?
-
-  @@unique([id, clinicId])
-  @@index([clinicId, serviceDate, doctorId])
-  @@index([clinicId, patientId])
-  @@index([clinicId, status])
-  @@map("appointments")
-}
-
-model OpdQueueEntry {
-  id             String  @id @default(uuid())
-  clinicId       String
-  patientId      String
-  doctorId       String
-  appointmentId  String? @unique
-  idempotencyKey String?
-
-  serviceDate DateTime    @db.Date
-  tokenNumber Int
-  status      QueueStatus @default(WAITING)
-  priority    Int         @default(0)
-
-  checkInTime           DateTime  @default(now()) @db.Timestamptz(3)
-  calledAt              DateTime? @db.Timestamptz(3)
-  consultationStartTime DateTime? @db.Timestamptz(3)
-  consultationEndTime   DateTime? @db.Timestamptz(3)
-
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
-
-  clinic      Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient     Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  doctor      ClinicMembership @relation("DoctorQueueEntries", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
-  appointment Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-
-  @@unique([clinicId, doctorId, serviceDate, tokenNumber], name: "clinic_doctor_date_token_unique")
-  @@unique([clinicId, idempotencyKey], name: "clinic_idempotency_unique")
-  @@index([clinicId, serviceDate, doctorId, status])
-  @@index([clinicId, patientId])
-  @@map("opd_queue_entries")
-}
-
-model OpdDailyCounter {
-  id              String   @id @default(uuid())
-  clinicId        String
-  doctorId        String
-  serviceDate     DateTime @db.Date
-  lastTokenNumber Int      @default(0)
-  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
-
-  clinic Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  doctor ClinicMembership @relation("DoctorDailyCounters", fields: [doctorId, clinicId], references: [userId, clinicId], onDelete: Restrict)
-
-  @@unique([clinicId, doctorId, serviceDate], name: "clinic_doctor_date_counter_unique")
-  @@map("opd_daily_counters")
 }
 
 model Consultation {
@@ -337,7 +215,6 @@ model Consultation {
   patient            Patient                      @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
   clinician          ClinicMembership             @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
   prescriptions      Prescription[]
-  differentialAudits DifferentialDiagnosisAudit[]
 
   @@unique([id, clinicId])
   @@index([clinicId, patientId, encounterDate(sort: Desc)])
@@ -422,7 +299,6 @@ model ClinicalAuditEvent {
 }
 
 // ============================================================================
-// DIFFERENTIAL DIAGNOSIS CLINICAL DECISION SUPPORT
 // ============================================================================
 
 enum KnowledgePackDomain {
@@ -450,20 +326,7 @@ enum ReviewerVerificationStatus {
   REVOKED
 }
 
-enum DifferentialMatchTier {
-  RED_FLAG_URGENT
-  STRONG_MATCH
-  MODERATE_MATCH
-  POSSIBLE
-  CONTRADICTED
-}
 
-enum DoctorCandidateAction {
-  ACCEPTED_AS_PRIMARY
-  ACCEPTED_AS_DIFFERENTIAL
-  REJECTED
-  DEFERRED_FOR_INVESTIGATION
-}
 
 /// Domain knowledge pack definition.
 model ClinicalKnowledgePack {
@@ -521,35 +384,12 @@ model ClinicalCondition {
   createdAt     DateTime @default(now()) @db.Timestamptz(3)
 
   version KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  rules   DifferentialRule[]
 
   @@unique([versionId, conditionCode])
   @@index([versionId, category])
   @@map("clinical_conditions")
 }
 
-/// Deterministic differential diagnosis rule.
-model DifferentialRule {
-  id                   String   @id @default(uuid())
-  conditionId          String
-  ruleCode             String // e.g. "RULE-CAP-PRIMARY-001"
-  ruleTitle            String
-  minMajorCount        Int      @default(1)
-  applicabilityJson    Json // Age range, gender, encounter type
-  mandatoryAstJson     Json // Mandatory predicates (ALL)
-  majorSupportingJson  Json // Major supporting predicates list
-  minorSupportingJson  Json? // Minor supporting predicates list
-  contradictionsJson   Json? // Contradiction predicates list
-  missingDataRulesJson Json? // Required vitals/exam alerts
-  investigationsJson   Json? // Suggested lab/imaging tests
-  createdAt            DateTime @default(now()) @db.Timestamptz(3)
-
-  condition        ClinicalCondition   @relation(fields: [conditionId], references: [id], onDelete: Cascade)
-  sourceReferences RuleSourceMapping[]
-
-  @@unique([conditionId, ruleCode])
-  @@map("differential_rules")
-}
 
 /// High-acuity emergency red flag rule.
 model RedFlagRule {
@@ -582,23 +422,11 @@ model ClinicalSourceReference {
   createdAt          DateTime @default(now()) @db.Timestamptz(3)
 
   version      KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  ruleMappings RuleSourceMapping[]
 
   @@map("clinical_source_references")
 }
 
 /// Many-to-many join between rules and sources.
-model RuleSourceMapping {
-  id       String @id @default(uuid())
-  ruleId   String
-  sourceId String
-
-  rule   DifferentialRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  source ClinicalSourceReference @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-
-  @@unique([ruleId, sourceId])
-  @@map("rule_source_mappings")
-}
 
 /// Formal clinician review attestation record.
 model ClinicalReviewApproval {
@@ -675,28 +503,6 @@ model KnowledgePackGovernanceAudit {
 }
 
 /// Consultation-scoped execution audit log.
-model DifferentialDiagnosisAudit {
-  id                    String   @id @default(uuid())
-  clinicId              String
-  consultationId        String
-  patientId             String
-  clinicianId           String
-  knowledgePackVerId    String
-  matchedCandidatesJson Json // Sanitized candidate output
-  redFlagsTriggeredJson Json? // Any red flags fired
-  doctorDecisionsJson   Json? // Accepted/rejected choices
-  createdAt             DateTime @default(now()) @db.Timestamptz(3)
-
-  clinic       Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  consultation Consultation     @relation(fields: [consultationId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  patient      Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  clinician    ClinicMembership @relation("ClinicianDifferentialAudits", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
-
-  @@unique([id, clinicId])
-  @@index([clinicId, consultationId])
-  @@index([clinicId, patientId])
-  @@map("differential_diagnosis_audits")
-}
 
 /// Independent medical reviewer credential record.
 model ReviewerCredential {

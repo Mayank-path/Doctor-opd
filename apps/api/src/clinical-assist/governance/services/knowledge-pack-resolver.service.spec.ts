@@ -238,13 +238,12 @@ describe('KnowledgePackResolverService — Selection Policy & Cryptographic Inte
       expect(result).toBeNull();
     });
 
-    it('should reject when a differential rule minMajorCount is modified', async () => {
+    it('should reject when a red flag rule clinicalAction is modified', async () => {
       const tamperedVersion = createMockVersion();
-      // Mutate differential rule parameter
-      tamperedVersion.conditions[0].rules[0].minMajorCount = 99;
+      tamperedVersion.redFlagRules[0].clinicalAction = 'Non-standard action';
 
       prisma.knowledgePackRelease.findFirst.mockResolvedValueOnce({
-        id: 'rel-tampered-rule',
+        id: 'rel-tampered-action',
         clinicId,
         versionId: tamperedVersion.id,
         isActive: true,
@@ -255,13 +254,12 @@ describe('KnowledgePackResolverService — Selection Policy & Cryptographic Inte
       expect(result).toBeNull();
     });
 
-    it('should reject when a differential rule mandatory AST predicate is modified', async () => {
+    it('should reject when a red flag rule flagCode is modified', async () => {
       const tamperedVersion = createMockVersion();
-      // Mutate AST predicate term
-      tamperedVersion.conditions[0].rules[0].mandatoryAstJson.canonicalTerm = 'Severe chest tightness';
+      tamperedVersion.redFlagRules[0].flagCode = 'RF-TAMPERED-CODE';
 
       prisma.knowledgePackRelease.findFirst.mockResolvedValueOnce({
-        id: 'rel-tampered-ast',
+        id: 'rel-tampered-flagcode',
         clinicId,
         versionId: tamperedVersion.id,
         isActive: true,
@@ -615,17 +613,16 @@ describe('KnowledgePackResolverService — Selection Policy & Cryptographic Inte
       expect(result).toBeDefined();
       expect(result?.metadata.version).toBe('1.0.0');
       expect(result?.metadata.checksumSha256).toBe(
-        '768f3ca6f79648bfe3ea7a6448719436f5557a9584436f6ca00791c1fa51984d',
+        '96aa8761f94fd495c7b5367a9a1a30715dddad55dc7ef09d0f7bb686002846bf',
       );
       expect(result?.bundle.conditions.length).toBe(35);
-      expect(result?.bundle.rules.length).toBe(35);
       expect(result?.bundle.redFlags.length).toBe(4);
     });
 
     it('should reject authoritative GENERAL_MEDICINE 1.0.0 if any single rule is altered', async () => {
       const authoritativeVersion = createAuthoritativeGeneralMedicineVersion();
       // Alter a rule title in the authoritative pack
-      authoritativeVersion.conditions[0].rules[0].ruleTitle = 'Altered Rule Title';
+      authoritativeVersion.conditions[0].displayName = 'Altered Condition Title';
 
       prisma.knowledgePackRelease.findFirst.mockResolvedValueOnce({
         id: 'rel-gm-altered',

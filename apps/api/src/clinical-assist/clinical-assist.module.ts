@@ -5,7 +5,6 @@ import { ClinicalAssistController } from './clinical-assist.controller';
 import { ClinicalAssistService } from './clinical-assist.service';
 import { SttThrottlerGuard } from './guards/stt-throttler.guard';
 import { SPEECH_TO_TEXT_PROVIDER } from './interfaces/speech-to-text-provider.interface';
-import { DifferentialDiagnosisModule } from './differential/differential-diagnosis.module';
 import { ClinicalExtractionModule } from './extraction/clinical-extraction.module';
 import { ClinicalNormalizationModule } from './normalization/clinical-normalization.module';
 import { ClinicalGovernanceModule } from './governance/clinical-governance.module';
@@ -36,7 +35,6 @@ const getRateLimitMax = (): number => {
     PrismaModule,
     ClinicalNormalizationModule,
     ClinicalExtractionModule,
-    DifferentialDiagnosisModule,
     ClinicalGovernanceModule,
     ThrottlerModule.forRoot([
       {
@@ -61,7 +59,6 @@ const getRateLimitMax = (): number => {
     SPEECH_TO_TEXT_PROVIDER,
     ClinicalNormalizationModule,
     ClinicalExtractionModule,
-    DifferentialDiagnosisModule,
     ClinicalGovernanceModule,
   ],
 })

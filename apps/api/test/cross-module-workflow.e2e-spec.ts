@@ -10,10 +10,11 @@ import {
   ClinicRole,
   MembershipStatus,
   Gender,
-  AppointmentStatus,
-  AppointmentType,
-  QueueStatus,
   ConsultationStatus,
+  PrescriptionStatus,
+  DosageForm,
+  MedicationRoute,
+  MedicationTiming,
   PrismaClient,
 } from '@prisma/client';
 import { AppModule } from '../src/app.module';
@@ -50,7 +51,7 @@ process.env.JWT_ISSUER = 'doctor-opd-api';
 process.env.JWT_AUDIENCE = 'doctor-opd-client';
 process.env.JWT_EXPIRES_IN = '1h';
 
-describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)', () => {
+describe('Cross-Module End-to-End Clinical Lifecycle (PostgreSQL Integration)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let authService: AuthService;
@@ -59,11 +60,11 @@ describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)'
   const createdClinicIds: string[] = [];
   const createdUserIds: string[] = [];
   const createdPatientIds: string[] = [];
-  const createdAppointmentIds: string[] = [];
-  const createdQueueIds: string[] = [];
   const createdConsultationIds: string[] = [];
+  const createdPrescriptionIds: string[] = [];
 
   const clinicId = crypto.randomUUID();
+  const otherClinicId = crypto.randomUUID();
   const doctorUserId = crypto.randomUUID();
   const otherDoctorUserId = crypto.randomUUID();
   const receptionistUserId = crypto.randomUUID();
@@ -104,137 +105,151 @@ describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)'
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.use(json({ limit: '64kb' }));
-    app.use(urlencoded({ extended: true, limit: '64kb' }));
     app.setGlobalPrefix('api/v1');
+    app.use(json({ limit: '1mb' }));
+    app.use(urlencoded({ extended: true, limit: '1mb' }));
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
+        transformOptions: { enableImplicitConversion: true },
       }),
     );
+
     await app.init();
+    prisma = moduleRef.get(PrismaService);
+    authService = moduleRef.get(AuthService);
 
-    prisma = app.get(PrismaService);
-    authService = app.get(AuthService);
-
-    // 1. Seed Clinic
+    // -------------------------------------------------------------------------
+    // Seed Multi-Tenant Clinics & Users
+    // -------------------------------------------------------------------------
     await prisma.clinic.create({
       data: {
         id: clinicId,
-        name: 'Apex Lifecare Centre (Master E2E)',
-        slug: `apex-master-${Date.now()}`,
-        phone: '+919811100099',
+        name: 'Apex Healthcare Master Clinic',
+        address: '100 Medical Center Way',
+        phone: '+911122334455',
       },
     });
     createdClinicIds.push(clinicId);
 
-    // 2. Seed Users
-    await prisma.user.createMany({
-      data: [
-        {
-          id: doctorUserId,
-          email: `doc.master.${Date.now()}@example.com`,
-          phone: doctorPhone,
-          fullName: 'Dr. Vikram Sharma',
-          passwordHash: 'dummy-hash-not-used-for-jwt-direct-auth',
-          isActive: true,
-        },
-        {
-          id: otherDoctorUserId,
-          email: `doc.other.${Date.now()}@example.com`,
-          phone: otherDoctorPhone,
-          fullName: 'Dr. Sneha Patel',
-          passwordHash: 'dummy-hash-not-used-for-jwt-direct-auth',
-          isActive: true,
-        },
-        {
-          id: receptionistUserId,
-          email: `rec.master.${Date.now()}@example.com`,
-          phone: receptionistPhone,
-          fullName: 'Pooja Verma',
-          passwordHash: 'dummy-hash-not-used-for-jwt-direct-auth',
-          isActive: true,
-        },
-      ],
+    await prisma.clinic.create({
+      data: {
+        id: otherClinicId,
+        name: 'Isolated Other Clinic',
+        address: '200 Other Street',
+        phone: '+911122334499',
+      },
     });
-    createdUserIds.push(doctorUserId, otherDoctorUserId, receptionistUserId);
+    createdClinicIds.push(otherClinicId);
 
-    // 3. Seed Memberships
-    await prisma.clinicMembership.createMany({
-      data: [
-        {
-          userId: doctorUserId,
-          clinicId,
-          role: ClinicRole.DOCTOR,
-          status: MembershipStatus.ACTIVE,
-        },
-        {
-          userId: otherDoctorUserId,
-          clinicId,
-          role: ClinicRole.DOCTOR,
-          status: MembershipStatus.ACTIVE,
-        },
-        {
-          userId: receptionistUserId,
-          clinicId,
-          role: ClinicRole.RECEPTIONIST,
-          status: MembershipStatus.ACTIVE,
-        },
-      ],
+    // Create Doctor User & Active Membership
+    await prisma.user.create({
+      data: {
+        id: doctorUserId,
+        phone: doctorPhone,
+        fullName: 'Dr. Vikram Malhotra',
+      },
+    });
+    createdUserIds.push(doctorUserId);
+
+    await prisma.clinicMembership.create({
+      data: {
+        userId: doctorUserId,
+        clinicId,
+        role: ClinicRole.DOCTOR,
+        status: MembershipStatus.ACTIVE,
+      },
     });
 
-    // 4. Generate Authenticated JWT Tokens
+    // Create Second Doctor User (in same clinic)
+    await prisma.user.create({
+      data: {
+        id: otherDoctorUserId,
+        phone: otherDoctorPhone,
+        fullName: 'Dr. Sunita Sharma',
+      },
+    });
+    createdUserIds.push(otherDoctorUserId);
+
+    await prisma.clinicMembership.create({
+      data: {
+        userId: otherDoctorUserId,
+        clinicId,
+        role: ClinicRole.DOCTOR,
+        status: MembershipStatus.ACTIVE,
+      },
+    });
+
+    // Create Receptionist User & Active Membership
+    await prisma.user.create({
+      data: {
+        id: receptionistUserId,
+        phone: receptionistPhone,
+        fullName: 'Pooja Verma',
+      },
+    });
+    createdUserIds.push(receptionistUserId);
+
+    await prisma.clinicMembership.create({
+      data: {
+        userId: receptionistUserId,
+        clinicId,
+        role: ClinicRole.RECEPTIONIST,
+        status: MembershipStatus.ACTIVE,
+      },
+    });
+
+    // Generate JWT Tokens
     doctorToken = await authService.signToken(doctorUserId, doctorPhone);
-    otherDoctorToken = await authService.signToken(
-      otherDoctorUserId,
-      otherDoctorPhone,
-    );
-    receptionistToken = await authService.signToken(
-      receptionistUserId,
-      receptionistPhone,
-    );
+    otherDoctorToken = await authService.signToken(otherDoctorUserId, otherDoctorPhone);
+    receptionistToken = await authService.signToken(receptionistUserId, receptionistPhone);
   });
 
   afterAll(async () => {
-    const preflight = new PrismaClient({
-      datasources: { db: { url: process.env.DATABASE_URL } },
-    });
-    await preflight.$connect();
-    const dbCheck = await preflight.$queryRawUnsafe<
-      Array<{ current_database: string }>
-    >('SELECT current_database();');
-    await preflight.$disconnect();
+    // -------------------------------------------------------------------------
+    // Robust Teardown in Dependency Order
+    // -------------------------------------------------------------------------
+    if (prisma) {
+      if (createdPrescriptionIds.length > 0) {
+        await prisma.prescriptionItem.deleteMany({
+          where: { prescriptionId: { in: createdPrescriptionIds } },
+        });
+        await prisma.prescription.deleteMany({
+          where: { id: { in: createdPrescriptionIds } },
+        });
+      }
 
-    if (dbCheck[0]?.current_database === 'doctor_opd_test') {
-      await prisma.consultation.deleteMany({
-        where: { id: { in: createdConsultationIds } },
-      });
-      await prisma.opdQueueEntry.deleteMany({
-        where: { id: { in: createdQueueIds } },
-      });
-      await prisma.opdDailyCounter.deleteMany({
-        where: { clinicId: { in: createdClinicIds } },
-      });
-      await prisma.appointment.deleteMany({
-        where: { id: { in: createdAppointmentIds } },
-      });
-      await prisma.patient.deleteMany({
-        where: { id: { in: createdPatientIds } },
-      });
-      await prisma.patientUhidCounter.deleteMany({
-        where: { clinicId: { in: createdClinicIds } },
-      });
-      await prisma.clinicMembership.deleteMany({
-        where: { clinicId: { in: createdClinicIds } },
-      });
-      await prisma.user.deleteMany({
-        where: { id: { in: createdUserIds } },
-      });
-      await prisma.clinic.deleteMany({
-        where: { id: { in: createdClinicIds } },
-      });
+      if (createdConsultationIds.length > 0) {
+        await prisma.consultation.deleteMany({
+          where: { id: { in: createdConsultationIds } },
+        });
+      }
+
+      if (createdPatientIds.length > 0) {
+        await prisma.patient.deleteMany({
+          where: { id: { in: createdPatientIds } },
+        });
+        await prisma.patientUhidCounter.deleteMany({
+          where: { clinicId: { in: createdClinicIds } },
+        });
+      }
+
+      if (createdClinicIds.length > 0) {
+        await prisma.clinicMembership.deleteMany({
+          where: { clinicId: { in: createdClinicIds } },
+        });
+        await prisma.clinic.deleteMany({
+          where: { id: { in: createdClinicIds } },
+        });
+      }
+
+      if (createdUserIds.length > 0) {
+        await prisma.user.deleteMany({
+          where: { id: { in: createdUserIds } },
+        });
+      }
     }
 
     if (app) {
@@ -242,14 +257,12 @@ describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)'
     }
   });
 
-  describe('Master 9-Step Scheduled Workflow', () => {
+  describe('Master 6-Step Clinical Lifecycle Workflow', () => {
     let patientId: string;
-    let appointmentId: string;
-    let queueEntryId: string;
     let consultationId: string;
-    const serviceDate = '2026-11-25';
+    let prescriptionId: string;
 
-    it('Step 1: Create an active patient', async () => {
+    it('Step 1: Create an active patient with generated UHID', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/patients')
         .set('Authorization', `Bearer ${receptionistToken}`)
@@ -269,147 +282,126 @@ describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)'
       createdPatientIds.push(patientId);
     });
 
-    it('Step 2: Create a scheduled appointment', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/appointments')
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({
-          patientId,
-          doctorId: doctorUserId,
-          serviceDate,
-          startTime: `${serviceDate}T10:00:00+05:30`,
-          endTime: `${serviceDate}T10:30:00+05:30`,
-          type: AppointmentType.SCHEDULED,
-          chiefComplaint: 'Persistent cough for two weeks',
-        })
-        .expect(201);
-
-      expect(res.body.id).toBeDefined();
-      expect(res.body.status).toBe(AppointmentStatus.SCHEDULED);
-      expect(res.body.patient.fullName).toBe('Rajesh Kumar');
-      appointmentId = res.body.id;
-      createdAppointmentIds.push(appointmentId);
-    });
-
-    it('Step 3: Check in the appointment and issue token', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/queue/check-in')
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({
-          appointmentId,
-          idempotencyKey: `chk-scheduled-${appointmentId}`,
-        })
-        .expect(201);
-
-      expect(res.body.id).toBeDefined();
-      expect(res.body.tokenNumber).toBe(1);
-      expect(res.body.status).toBe(QueueStatus.WAITING);
-      expect(res.body.appointmentId).toBe(appointmentId);
-      queueEntryId = res.body.id;
-      createdQueueIds.push(queueEntryId);
-    });
-
-    it('Step 4: Call the patient', async () => {
-      const res = await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${queueEntryId}/status`)
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.CALLED })
-        .expect(200);
-
-      expect(res.body.status).toBe(QueueStatus.CALLED);
-      expect(res.body.calledAt).toBeDefined();
-    });
-
-    it('Step 5: Move queue entry to IN_CONSULTATION as assigned doctor', async () => {
-      // Must reject if attempted by non-assigned doctor
-      await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${queueEntryId}/status`)
-        .set('Authorization', `Bearer ${otherDoctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.IN_CONSULTATION })
-        .expect(403);
-
-      const res = await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${queueEntryId}/status`)
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.IN_CONSULTATION })
-        .expect(200);
-
-      expect(res.body.status).toBe(QueueStatus.IN_CONSULTATION);
-      expect(res.body.consultationStartTime).toBeDefined();
-
-      // Verify linked appointment was also updated to IN_CONSULTATION
-      const apptCheck = await prisma.appointment.findUnique({
-        where: { id: appointmentId },
-      });
-      expect(apptCheck?.status).toBe(AppointmentStatus.IN_CONSULTATION);
-    });
-
-    it('Step 6: Create consultation draft for assigned doctor', async () => {
+    it('Step 2: Create a direct clinical consultation draft for assigned doctor', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/consultations')
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinicId)
         .send({
           patientId,
-          chiefComplaint: 'Severe dry cough with throat pain',
-          symptoms: 'Fever for 3 days, dry cough',
+          chiefComplaint: 'Severe dry cough with throat pain for 3 days',
+          symptoms: 'High fever, sore throat, chills, malaise',
           bpSystolic: 120,
           bpDiastolic: 80,
           pulse: 78,
+          temperature: 101.2,
+          weightKg: 72.5,
+          heightCm: 175.0,
+          spo2: 98,
+          respiratoryRate: 18,
         })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.status).toBe(ConsultationStatus.DRAFT);
       expect(res.body.clinicianId).toBe(doctorUserId);
+      expect(res.body.patientId).toBe(patientId);
       consultationId = res.body.id;
       createdConsultationIds.push(consultationId);
     });
 
-    it('Step 7: Update and finalize the consultation', async () => {
-      // Update draft
-      await request(app.getHttpServer())
+    it('Step 3: Update consultation draft with physical examination & clinical diagnosis', async () => {
+      const res = await request(app.getHttpServer())
         .patch(`/api/v1/consultations/${consultationId}`)
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinicId)
         .send({
-          diagnosis: 'Upper Respiratory Tract Infection (Acute Pharyngitis)',
-          treatmentPlan:
-            'Azithromycin 500mg daily for 3 days, warm saline gargles',
-          followUpDate: '2026-12-02',
+          examination: 'Pharyngeal erythema with tonsillar pillar congestion. Chest clear to auscultation.',
+          diagnosis: 'Acute Streptococcal Pharyngitis',
+          treatmentPlan: 'Antibiotic therapy, warm saline gargles, hydration, antipyretic PRN.',
+          followUpDate: '2026-12-05',
         })
         .expect(200);
 
-      // Finalize consultation
-      const finalizeRes = await request(app.getHttpServer())
+      expect(res.body.diagnosis).toBe('Acute Streptococcal Pharyngitis');
+      expect(res.body.treatmentPlan).toContain('Antibiotic therapy');
+      expect(res.body.examination).toContain('Pharyngeal erythema');
+      expect(res.body.status).toBe(ConsultationStatus.DRAFT);
+    });
+
+    it('Step 4: Create a draft prescription linked to the consultation', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId,
+          consultationId,
+          notes: 'Take medications strictly after meals',
+          items: [
+            {
+              medicationName: 'Amoxicillin-Clavulanate 625mg',
+              dosageForm: DosageForm.TABLET,
+              strength: '625mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              timing: MedicationTiming.AFTER_MEALS,
+              durationValue: 5,
+              durationUnit: 'DAYS',
+              specialInstructions: 'Complete full course even if symptoms subside',
+            },
+            {
+              medicationName: 'Paracetamol 650mg',
+              dosageForm: DosageForm.TABLET,
+              strength: '650mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              timing: MedicationTiming.AFTER_MEALS,
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              specialInstructions: 'Take SOS for fever > 100 F',
+            },
+          ],
+        })
+        .expect(201);
+
+      expect(res.body.id).toBeDefined();
+      expect(res.body.status).toBe(PrescriptionStatus.DRAFT);
+      expect(res.body.patientId).toBe(patientId);
+      expect(res.body.consultationId).toBe(consultationId);
+      expect(res.body.items).toHaveLength(2);
+      prescriptionId = res.body.id;
+      createdPrescriptionIds.push(prescriptionId);
+    });
+
+    it('Step 5: Review and approve the prescription', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${prescriptionId}/approve`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          confirmApproval: true,
+          doctorNotes: 'Prescription verified with patient history.',
+        })
+        .expect(200);
+
+      expect(res.body.status).toBe(PrescriptionStatus.APPROVED);
+      expect(res.body.approvedAt).toBeDefined();
+    });
+
+    it('Step 6: Finalize the clinical consultation', async () => {
+      const res = await request(app.getHttpServer())
         .post(`/api/v1/consultations/${consultationId}/finalize`)
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinicId)
         .expect(200);
 
-      expect(finalizeRes.body.status).toBe(ConsultationStatus.FINALIZED);
-      expect(finalizeRes.body.finalizedAt).toBeDefined();
+      expect(res.body.status).toBe(ConsultationStatus.FINALIZED);
+      expect(res.body.finalizedAt).toBeDefined();
     });
 
-    it('Step 8: Complete the queue entry', async () => {
-      const res = await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${queueEntryId}/status`)
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.COMPLETED })
-        .expect(200);
-
-      expect(res.body.status).toBe(QueueStatus.COMPLETED);
-      expect(res.body.consultationEndTime).toBeDefined();
-    });
-
-    it('Step 9: Verify final consultation, queue, and appointment states', async () => {
-      // 1. Consultation state
+    it('Step 7: Verify final consultation state, prescription link, and immutability', async () => {
+      // 1. Verify finalized consultation
       const consultRes = await request(app.getHttpServer())
         .get(`/api/v1/consultations/${consultationId}`)
         .set('Authorization', `Bearer ${doctorToken}`)
@@ -417,136 +409,39 @@ describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)'
         .expect(200);
 
       expect(consultRes.body.status).toBe(ConsultationStatus.FINALIZED);
-      expect(consultRes.body.finalizedAt).toBeDefined();
-      expect(consultRes.body.diagnosis).toBe(
-        'Upper Respiratory Tract Infection (Acute Pharyngitis)',
-      );
+      expect(consultRes.body.diagnosis).toBe('Acute Streptococcal Pharyngitis');
 
-      // 2. Queue state
-      const queueListRes = await request(app.getHttpServer())
-        .get(`/api/v1/queue?serviceDate=${serviceDate}`)
+      // Verify prescription link and status
+      const rxRes = await request(app.getHttpServer())
+        .get(`/api/v1/prescriptions/${prescriptionId}`)
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinicId)
         .expect(200);
 
-      const targetEntry = queueListRes.body.data.find(
-        (e: any) => e.id === queueEntryId,
-      );
-      expect(targetEntry).toBeDefined();
-      expect(targetEntry.status).toBe(QueueStatus.COMPLETED);
-      expect(targetEntry.consultationEndTime).toBeDefined();
+      expect(rxRes.body.id).toBe(prescriptionId);
+      expect(rxRes.body.consultationId).toBe(consultationId);
+      expect(rxRes.body.status).toBe(PrescriptionStatus.APPROVED);
 
-      // 3. Appointment state
-      const apptRes = await request(app.getHttpServer())
-        .get(`/api/v1/appointments/${appointmentId}`)
+      // 2. Reject editing finalized consultation
+      await request(app.getHttpServer())
+        .patch(`/api/v1/consultations/${consultationId}`)
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinicId)
-        .expect(200);
+        .send({ diagnosis: 'Attempted Post-Finalization Edit' })
+        .expect(409);
 
-      expect(apptRes.body.status).toBe(AppointmentStatus.COMPLETED);
+      // 3. Reject re-finalizing already finalized consultation
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultationId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .expect(409);
     });
   });
 
-  describe('Walk-In Workflow with Auto-Coordinated Queue Finalization', () => {
-    let walkInPatientId: string;
-    let walkInQueueId: string;
-    let walkInConsultationId: string;
-    const serviceDate = '2026-11-26';
-
-    it('registers walk-in and transitions through CALLED to IN_CONSULTATION', async () => {
-      // 1. Create Patient
-      const patRes = await request(app.getHttpServer())
-        .post('/api/v1/patients')
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({
-          fullName: 'Ananya Roy',
-          gender: Gender.FEMALE,
-          phone: `+9199${Math.floor(10000000 + Math.random() * 90000000)}`,
-        })
-        .expect(201);
-      walkInPatientId = patRes.body.id;
-      createdPatientIds.push(walkInPatientId);
-
-      // 2. Walk-in check-in (no appointmentId)
-      const queueRes = await request(app.getHttpServer())
-        .post('/api/v1/queue/check-in')
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({
-          patientId: walkInPatientId,
-          doctorId: doctorUserId,
-          serviceDate,
-        })
-        .expect(201);
-
-      expect(queueRes.body.appointmentId).toBeNull();
-      expect(queueRes.body.status).toBe(QueueStatus.WAITING);
-      walkInQueueId = queueRes.body.id;
-      createdQueueIds.push(walkInQueueId);
-
-      // 3. Call patient
-      await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${walkInQueueId}/status`)
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.CALLED })
-        .expect(200);
-
-      // 4. Move to IN_CONSULTATION
-      await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${walkInQueueId}/status`)
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.IN_CONSULTATION })
-        .expect(200);
-    });
-
-    it('creates draft and automatically completes walk-in queue entry upon consultation finalization', async () => {
-      // 1. Doctor creates consultation draft
-      const consultRes = await request(app.getHttpServer())
-        .post('/api/v1/consultations')
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({
-          patientId: walkInPatientId,
-          chiefComplaint: 'Migraine headache',
-        })
-        .expect(201);
-      walkInConsultationId = consultRes.body.id;
-      createdConsultationIds.push(walkInConsultationId);
-
-      // 2. Doctor finalizes consultation
-      const finalizeRes = await request(app.getHttpServer())
-        .post(`/api/v1/consultations/${walkInConsultationId}/finalize`)
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .expect(200);
-
-      expect(finalizeRes.body.status).toBe(ConsultationStatus.FINALIZED);
-
-      // 3. Verify walk-in queue entry was automatically completed
-      const queueCheck = await prisma.opdQueueEntry.findUnique({
-        where: { id: walkInQueueId },
-      });
-      expect(queueCheck?.status).toBe(QueueStatus.COMPLETED);
-      expect(queueCheck?.consultationEndTime).toBeDefined();
-
-      // 4. Verify idempotent retry on queue completion endpoint returns 200 without conflict
-      const retryRes = await request(app.getHttpServer())
-        .patch(`/api/v1/queue/${walkInQueueId}/status`)
-        .set('Authorization', `Bearer ${doctorToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({ status: QueueStatus.COMPLETED })
-        .expect(200);
-
-      expect(retryRes.body.status).toBe(QueueStatus.COMPLETED);
-    });
-  });
-
-  describe('Timezone & Asia/Kolkata Midnight Boundary E2E Verification', () => {
-    let tzPatientId: string;
-    const testDate = '2026-11-27';
+  describe('Multi-Tenant Isolation & Role-Based Access Control (RBAC) Safety', () => {
+    let rbacPatientId: string;
+    let rbacConsultationId: string;
 
     beforeAll(async () => {
       const patRes = await request(app.getHttpServer())
@@ -554,83 +449,78 @@ describe('Cross-Module End-to-End Workflow & Lifecycle (PostgreSQL Integration)'
         .set('Authorization', `Bearer ${receptionistToken}`)
         .set('x-clinic-id', clinicId)
         .send({
-          fullName: 'Sunil Mehta',
-          gender: Gender.MALE,
+          fullName: 'Priya Sharma',
+          gender: Gender.FEMALE,
           phone: `+9199${Math.floor(10000000 + Math.random() * 90000000)}`,
         })
         .expect(201);
-      tzPatientId = patRes.body.id;
-      createdPatientIds.push(tzPatientId);
-    });
 
-    it('accepts appointment scheduled at 01:30 AM IST (which is previous UTC calendar date)', async () => {
-      // 01:30 AM IST on 2026-11-27 = 2026-11-26T20:00:00.000Z in UTC
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/appointments')
-        .set('Authorization', `Bearer ${receptionistToken}`)
+      rbacPatientId = patRes.body.id;
+      createdPatientIds.push(rbacPatientId);
+
+      const consultRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', clinicId)
         .send({
-          patientId: tzPatientId,
-          doctorId: doctorUserId,
-          serviceDate: testDate,
-          startTime: `${testDate}T01:30:00+05:30`,
-          endTime: `${testDate}T02:00:00+05:30`,
-          type: AppointmentType.SCHEDULED,
+          patientId: rbacPatientId,
+          chiefComplaint: 'Migraine headache with aura',
         })
         .expect(201);
 
-      expect(res.body.id).toBeDefined();
-      createdAppointmentIds.push(res.body.id);
+      rbacConsultationId = consultRes.body.id;
+      createdConsultationIds.push(rbacConsultationId);
     });
 
-    it('accepts appointment scheduled at exact midnight boundary 00:00:00 IST', async () => {
-      // 00:00:00 IST on 2026-11-27 = 2026-11-26T18:30:00.000Z in UTC
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/appointments')
-        .set('Authorization', `Bearer ${receptionistToken}`)
-        .set('x-clinic-id', clinicId)
-        .send({
-          patientId: tzPatientId,
-          doctorId: doctorUserId,
-          serviceDate: testDate,
-          startTime: `${testDate}T00:00:00+05:30`,
-          endTime: `${testDate}T00:30:00+05:30`,
-          type: AppointmentType.SCHEDULED,
-        })
-        .expect(201);
-
-      expect(res.body.id).toBeDefined();
-      createdAppointmentIds.push(res.body.id);
-    });
-
-    it('rejects appointment when startTime IST date differs from serviceDate', async () => {
+    it('rejects consultation creation by non-doctor role (RECEPTIONIST)', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/appointments')
+        .post('/api/v1/consultations')
         .set('Authorization', `Bearer ${receptionistToken}`)
         .set('x-clinic-id', clinicId)
         .send({
-          patientId: tzPatientId,
-          doctorId: doctorUserId,
-          serviceDate: testDate,
-          startTime: '2026-11-28T10:00:00+05:30', // Next day
-          endTime: '2026-11-28T10:30:00+05:30',
+          patientId: rbacPatientId,
+          chiefComplaint: 'Unauthorized creation attempt',
         })
-        .expect(400);
+        .expect(403);
     });
 
-    it('rejects appointment when endTime is equal to or before startTime', async () => {
+    it('rejects prescription creation by non-doctor role (RECEPTIONIST)', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/appointments')
+        .post('/api/v1/prescriptions')
         .set('Authorization', `Bearer ${receptionistToken}`)
         .set('x-clinic-id', clinicId)
         .send({
-          patientId: tzPatientId,
-          doctorId: doctorUserId,
-          serviceDate: testDate,
-          startTime: `${testDate}T11:00:00+05:30`,
-          endTime: `${testDate}T10:30:00+05:30`,
+          patientId: rbacPatientId,
+          items: [
+            {
+              medicationName: 'Unauthorized Drug',
+              dosageForm: DosageForm.TABLET,
+              dosageStrength: '10mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              timing: MedicationTiming.AFTER_MEALS,
+              durationDays: 1,
+              quantity: 1,
+            },
+          ],
         })
-        .expect(400);
+        .expect(403);
+    });
+
+    it('rejects consultation finalization by non-assigned clinician', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${rbacConsultationId}/finalize`)
+        .set('Authorization', `Bearer ${otherDoctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .expect(403);
+    });
+
+    it('enforces tenant isolation: rejects access when x-clinic-id does not match caller membership', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/consultations/${rbacConsultationId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', otherClinicId)
+        .expect(403);
     });
   });
 });

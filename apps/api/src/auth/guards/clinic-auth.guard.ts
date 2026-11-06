@@ -27,11 +27,11 @@ import {
  *    Any authenticated user with an ACTIVE membership in the requested clinic
  *    (roles: ADMIN, DOCTOR, STAFF) is granted access. This default-permissive policy
  *    within the tenant is intended for general clinic-scoped resources (e.g., clinic profile,
- *    clinic directory, shared appointment counters).
+ *    clinic directory).
  * 2. When @RequireRoles is present:
  *    Only active members whose role matches one of the declared roles are permitted.
  *    Endpoints requiring specific clinical or administrative privileges (e.g., clinical diagnoses,
- *    prescriptions, doctor queue actions, member administration) MUST explicitly annotate
+ *    prescriptions, member administration) MUST explicitly annotate
  *    @RequireRoles(ClinicRole.DOCTOR) or @RequireRoles(ClinicRole.ADMIN).
  *
  * Selector vs Proof:

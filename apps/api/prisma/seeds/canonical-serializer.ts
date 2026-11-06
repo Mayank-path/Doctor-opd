@@ -109,7 +109,7 @@ export function validateKnowledgePackSeed(seed: KnowledgePackSeed): void {
   if (!Array.isArray(seed.conditions) || seed.conditions.length === 0) {
     throw new Error('Knowledge pack must contain at least one condition');
   }
-  if (seed.rules.length > MAX_RULES_PER_PACK) {
+  if (seed.rules && seed.rules.length > MAX_RULES_PER_PACK) {
     throw new Error(
       `Rule Count Violation: Pack contains ${seed.rules.length} rules, exceeding limit of ${MAX_RULES_PER_PACK}`,
     );
@@ -129,7 +129,7 @@ export function validateKnowledgePackSeed(seed: KnowledgePackSeed): void {
 
   // Validate differential rules
   const ruleCodes = new Set<string>();
-  for (const rule of seed.rules) {
+  for (const rule of (seed.rules || [])) {
     if (!rule.ruleCode || rule.ruleCode.trim().length === 0) {
       throw new Error(`Rule code missing in rule "${rule.ruleTitle}"`);
     }
@@ -206,7 +206,7 @@ export function validateKnowledgePackSeed(seed: KnowledgePackSeed): void {
 
   // Validate rule-source mappings
   const sourceMap = new Map(seed.sources.map((s) => [s.referenceIdentifier, s]));
-  for (const mapping of seed.mappings) {
+  for (const mapping of (seed.mappings || [])) {
     if (!ruleCodes.has(mapping.ruleCode)) {
       throw new Error(
         `Rule-source mapping references non-existent ruleCode "${mapping.ruleCode}"`,
@@ -218,7 +218,7 @@ export function validateKnowledgePackSeed(seed: KnowledgePackSeed): void {
       );
     }
 
-    const rule = seed.rules.find((r) => r.ruleCode === mapping.ruleCode);
+    const rule = (seed.rules || []).find((r: any) => r.ruleCode === mapping.ruleCode);
     const source = sourceMap.get(mapping.sourceReferenceIdentifier);
     if (rule && source) {
       if (
@@ -232,29 +232,26 @@ export function validateKnowledgePackSeed(seed: KnowledgePackSeed): void {
     }
   }
 
-  // Validate condition-rule evidence consistency
+  // Validate condition-rule evidence consistency (when rules are provided)
   for (const cond of seed.conditions) {
-    const rule = seed.rules.find((r) => r.conditionCode === cond.conditionCode);
-    if (!rule) {
-      throw new Error(
-        `Condition "${cond.conditionCode}" has no associated differential rule`,
-      );
-    }
-    if (
-      cond.evidenceStatus === 'DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION' &&
-      rule.isComplete === true
-    ) {
-      throw new Error(
-        `Integrity Violation: Condition "${cond.conditionCode}" is pending clinical board ratification, but rule "${rule.ruleCode}" is marked isComplete: true.`,
-      );
-    }
-    if (
-      cond.evidenceStatus === 'AUTHORITATIVE_ICMR_WHO' &&
-      rule.isComplete === false
-    ) {
-      throw new Error(
-        `Integrity Violation: Condition "${cond.conditionCode}" is authoritative, but rule "${rule.ruleCode}" is marked isComplete: false.`,
-      );
+    const rule = (seed.rules || []).find((r: any) => r.conditionCode === cond.conditionCode);
+    if (rule) {
+      if (
+        cond.evidenceStatus === 'DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION' &&
+        rule.isComplete === true
+      ) {
+        throw new Error(
+          `Integrity Violation: Condition "${cond.conditionCode}" is pending clinical board ratification, but rule "${rule.ruleCode}" is marked isComplete: true.`,
+        );
+      }
+      if (
+        cond.evidenceStatus === 'AUTHORITATIVE_ICMR_WHO' &&
+        rule.isComplete === false
+      ) {
+        throw new Error(
+          `Integrity Violation: Condition "${cond.conditionCode}" is authoritative, but rule "${rule.ruleCode}" is marked isComplete: false.`,
+        );
+      }
     }
   }
 }
@@ -319,7 +316,7 @@ export function buildCanonicalPayload(seed: KnowledgePackSeed): Record<string, a
       evidenceStatus: c.evidenceStatus,
     }));
 
-  const sortedRules = [...seed.rules]
+  const sortedRules = [...(seed.rules || [])]
     .sort((a, b) => a.ruleCode.localeCompare(b.ruleCode))
     .map((r) => ({
       applicability: r.applicability,
@@ -359,7 +356,7 @@ export function buildCanonicalPayload(seed: KnowledgePackSeed): Record<string, a
       sourceUrlOrDoi: s.sourceUrlOrDoi,
     }));
 
-  const sortedMappings = [...seed.mappings]
+  const sortedMappings = [...(seed.mappings || [])]
     .sort((a, b) => {
       const cmp = a.ruleCode.localeCompare(b.ruleCode);
       if (cmp !== 0) return cmp;

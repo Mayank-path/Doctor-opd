@@ -11,7 +11,6 @@ import {
   ConsultationStatus,
   MembershipStatus,
   Prisma,
-  QueueStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
@@ -228,14 +227,12 @@ export class ConsultationsService {
   /**
    * Finalizes an active consultation draft, transitioning its status to FINALIZED
    * and setting finalizedAt timestamp to server time.
-   * Also transactionally completes any associated walk-in queue entry in IN_CONSULTATION.
    *
    * Invariants:
    * 1. Scoped strictly to the active clinic (404 if not found).
    * 2. Only the assigned clinician can finalize (403 Forbidden).
    * 3. Cannot transition if already FINALIZED (409 Conflict).
    * 4. Uses atomic compare-and-swap (where status = DRAFT) to serialize concurrent finalization.
-   * 5. Coordinates completion of walk-in queue entries in the same atomic transaction.
    */
   async finalize(
     clinicId: string,
@@ -283,31 +280,6 @@ export class ConsultationsService {
         throw new ConflictException(
           'Consultation was already finalized concurrently',
         );
-      }
-
-      // 5. Transactionally complete any associated walk-in queue entry currently IN_CONSULTATION
-      const walkInQueueEntry = await tx.opdQueueEntry.findFirst({
-        where: {
-          clinicId,
-          patientId: existing.patientId,
-          doctorId: currentUserId,
-          appointmentId: null,
-          status: QueueStatus.IN_CONSULTATION,
-        },
-      });
-
-      if (walkInQueueEntry) {
-        await tx.opdQueueEntry.updateMany({
-          where: {
-            id: walkInQueueEntry.id,
-            clinicId,
-            status: QueueStatus.IN_CONSULTATION,
-          },
-          data: {
-            status: QueueStatus.COMPLETED,
-            consultationEndTime: now,
-          },
-        });
       }
 
       return tx.consultation.findUniqueOrThrow({

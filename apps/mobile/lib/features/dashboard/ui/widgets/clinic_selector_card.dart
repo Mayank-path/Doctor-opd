@@ -254,7 +254,7 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
               ],
             ] else ...[
               const Text(
-                'Enter the Clinic UUID to scope all patient, appointment, and queue operations to that tenant:',
+                'Enter the Clinic UUID to scope all patient, consultation, and prescription operations to that tenant:',
                 style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 12),

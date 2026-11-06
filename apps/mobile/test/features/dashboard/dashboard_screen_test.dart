@@ -4,25 +4,18 @@ import 'package:mocktail/mocktail.dart';
 import 'package:doctor_opd_mobile/core/errors/api_exception.dart';
 import 'package:doctor_opd_mobile/features/auth/models/auth_user.dart';
 import 'package:doctor_opd_mobile/features/auth/services/auth_service.dart';
-import 'package:doctor_opd_mobile/features/dashboard/models/appointment_summary.dart';
 import 'package:doctor_opd_mobile/features/dashboard/models/clinic_dashboard_stats.dart';
 import 'package:doctor_opd_mobile/features/dashboard/models/patient_summary.dart';
-import 'package:doctor_opd_mobile/features/dashboard/models/queue_summary.dart';
 import 'package:doctor_opd_mobile/features/dashboard/services/dashboard_service.dart';
 import 'package:doctor_opd_mobile/features/dashboard/ui/dashboard_screen.dart';
-import 'package:doctor_opd_mobile/features/queue/models/queue_list_response.dart';
-import 'package:doctor_opd_mobile/features/queue/services/queue_service.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 
 class MockDashboardService extends Mock implements DashboardService {}
 
-class MockQueueService extends Mock implements QueueService {}
-
 void main() {
   late MockAuthService mockAuthService;
   late MockDashboardService mockDashboardService;
-  late MockQueueService mockQueueService;
 
   const testUser = AuthUser(
     id: 'user-admin-123',
@@ -46,42 +39,6 @@ void main() {
         phone: '+919876543210',
       ),
     ],
-    totalAppointmentsToday: 1,
-    appointmentsToday: const [
-      AppointmentSummary(
-        id: 'apt-1',
-        serviceDate: '2026-10-26T00:00:00.000Z',
-        startTime: '2026-10-26T05:00:00.000Z',
-        type: 'SCHEDULED',
-        status: 'SCHEDULED',
-        patientName: 'Aarav Patel',
-        patientUhid: 'UHID-2026-0001',
-        doctorName: 'Dr. Sharma',
-      ),
-    ],
-    totalQueueToday: 2,
-    queueWaitingCount: 1,
-    queueCalledCount: 1,
-    queueInConsultationCount: 0,
-    queueCompletedCount: 0,
-    queueEntriesToday: const [
-      QueueSummary(
-        id: 'q-1',
-        tokenNumber: 1,
-        status: 'WAITING',
-        priority: 0,
-        patientName: 'Aarav Patel',
-        patientUhid: 'UHID-2026-0001',
-      ),
-      QueueSummary(
-        id: 'q-2',
-        tokenNumber: 2,
-        status: 'CALLED',
-        priority: 1,
-        patientName: 'Sunita Rao',
-        patientUhid: 'UHID-2026-0002',
-      ),
-    ],
     isDoctor: false,
     detectedRole: 'ADMIN',
     consultationRestrictionMessage:
@@ -93,13 +50,6 @@ void main() {
   setUp(() {
     mockAuthService = MockAuthService();
     mockDashboardService = MockDashboardService();
-    mockQueueService = MockQueueService();
-
-    when(() => mockQueueService.getQueue(
-          serviceDate: any(named: 'serviceDate'),
-          doctorId: any(named: 'doctorId'),
-          status: any(named: 'status'),
-        )).thenAnswer((_) async => const QueueListResponse(data: [], total: 0));
   });
 
   Widget buildTestWidget({String? clinicId}) {
@@ -112,7 +62,6 @@ void main() {
         authService: mockAuthService,
         user: testUser,
         dashboardService: mockDashboardService,
-        queueService: mockQueueService,
       ),
     );
   }
@@ -144,15 +93,9 @@ void main() {
       expect(find.text('DOCTOR-OPD'), findsOneWidget);
       expect(find.text('Dr. System Administrator'), findsOneWidget);
 
-      // OPD Queue Overview
-      expect(find.text("Today's OPD Queue"), findsOneWidget);
-      expect(find.text('#1'), findsOneWidget);
-      expect(find.text('#2'), findsOneWidget);
-      expect(find.text('Aarav Patel'), findsWidgets);
-
-      // Appointments Overview
-      expect(find.text("Today's Appointments"), findsOneWidget);
-      expect(find.text('1 booked'), findsOneWidget);
+      // OPD Queue & Appointments Overviews are removed
+      expect(find.text("Today's OPD Queue"), findsNothing);
+      expect(find.text("Today's Appointments"), findsNothing);
 
       // Registered Patients Overview
       expect(find.text('Registered Patients'), findsOneWidget);
@@ -165,7 +108,7 @@ void main() {
       expect(find.text('API ONLINE'), findsOneWidget);
     });
 
-    testWidgets('renders empty states when queue, appointments, and patients are empty',
+    testWidgets('renders empty state when patients are empty',
         (tester) async {
       final emptyStats = ClinicDashboardStats.empty(
         clinicId: testClinicId,
@@ -180,9 +123,9 @@ void main() {
       await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
       await tester.pumpAndSettle();
 
-      expect(find.text('No patients currently in OPD queue today'), findsOneWidget);
-      expect(find.text('No appointments scheduled for today'), findsOneWidget);
       expect(find.text('No patients registered in this clinic yet'), findsOneWidget);
+      expect(find.text("Today's OPD Queue"), findsNothing);
+      expect(find.text("Today's Appointments"), findsNothing);
     });
 
     testWidgets('displays error banner and retry button on fetch failure',
@@ -213,7 +156,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
       await tester.pumpAndSettle();
 
-      // Tap on Consultations quick action (still upcoming module)
+      // Tap on Consultations quick action (still upcoming module for non-doctor)
       await tester.tap(find.text('Consultations').first);
       await tester.pumpAndSettle();
 
@@ -227,7 +170,7 @@ void main() {
       expect(find.text('Clinical Consultations'), findsNothing);
     });
 
-    testWidgets('tapping OPD Queue quick action navigates to QueueScreen',
+    testWidgets('verifies Appointments, OPD Queue, and Voice Symptoms quick actions are absent from dashboard',
         (tester) async {
       when(() => mockDashboardService.fetchDashboardStats(
             clinicId: testClinicId,
@@ -237,12 +180,11 @@ void main() {
       await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
       await tester.pumpAndSettle();
 
-      // Tap on OPD Queue quick action
-      await tester.tap(find.text('OPD Queue').first);
-      await tester.pumpAndSettle();
-
-      // Should be on QueueScreen
-      expect(find.text('OPD Queue is Empty'), findsOneWidget);
+      expect(find.text('Appointments'), findsNothing);
+      expect(find.text('OPD Queue'), findsNothing);
+      expect(find.text('Voice Symptoms'), findsNothing);
+      expect(find.text('Patients'), findsOneWidget);
+      expect(find.text('Consultations'), findsOneWidget);
     });
 
     testWidgets('tapping logout button displays confirmation dialog and calls logout',
@@ -261,12 +203,11 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Tap on logout icon in app bar
+      // Tap logout icon in AppBar
       await tester.tap(find.byIcon(Icons.logout_rounded));
       await tester.pumpAndSettle();
 
-      expect(find.text('Are you sure you want to end this clinical session? Your secure session tokens will be cleared.'),
-          findsOneWidget);
+      expect(find.text('Are you sure you want to end this clinical session? Your secure session tokens will be cleared.'), findsOneWidget);
 
       // Confirm logout
       await tester.tap(find.widgetWithText(ElevatedButton, 'Log Out'));
@@ -275,43 +216,7 @@ void main() {
       verify(() => mockAuthService.logout()).called(1);
     });
 
-    testWidgets('clinic save validates with backend, updates active clinic, and renders Continue to Dashboard button',
-        (tester) async {
-      when(() => mockAuthService.getActiveClinicId())
-          .thenAnswer((_) async => null);
-      when(() => mockAuthService.setActiveClinic(any()))
-          .thenAnswer((_) async {});
-      when(() => mockDashboardService.fetchDashboardStats(
-            clinicId: 'ab1aa951-7907-445f-b2f3-b0a072d053af',
-            serviceDate: any(named: 'serviceDate'),
-          )).thenAnswer((_) async => testStats);
-
-      await tester.pumpWidget(buildTestWidget(clinicId: null));
-      await tester.pumpAndSettle();
-
-      // Enter clinic UUID into the field
-      final textField = find.byType(TextField);
-      expect(textField, findsOneWidget);
-      await tester.enterText(textField, 'ab1aa951-7907-445f-b2f3-b0a072d053af');
-      await tester.pumpAndSettle();
-
-      // Tap Save button
-      final saveButton = find.widgetWithText(ElevatedButton, 'Save');
-      expect(saveButton, findsOneWidget);
-      await tester.tap(saveButton);
-      await tester.pumpAndSettle();
-
-      // Verify active clinic was saved
-      verify(() => mockAuthService.setActiveClinic('ab1aa951-7907-445f-b2f3-b0a072d053af')).called(1);
-
-      // Verify Continue to Dashboard button and ACTIVE badge appear
-      expect(find.byKey(const Key('continue_to_dashboard_button')), findsOneWidget);
-      expect(find.text('Continue to Dashboard'), findsOneWidget);
-      expect(find.text('ACTIVE'), findsOneWidget);
-      expect(find.text('Clinic context verified! Welcome to OPD Dashboard.'), findsOneWidget);
-    });
-
-    testWidgets('tapping Continue to Dashboard button triggers scroll to dashboard section',
+    testWidgets('renders anchor navigation button to scroll down to dashboard overview',
         (tester) async {
       when(() => mockDashboardService.fetchDashboardStats(
             clinicId: testClinicId,
@@ -321,11 +226,8 @@ void main() {
       await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
       await tester.pumpAndSettle();
 
-      // Continue to Dashboard button should be present
-      final continueBtn = find.byKey(const Key('continue_to_dashboard_button'));
-      expect(continueBtn, findsOneWidget);
-
-      await tester.tap(continueBtn);
+      // Tap Go to Dashboard
+      await tester.tap(find.text('Continue to Dashboard'));
       await tester.pumpAndSettle();
 
       // The section header should be rendered
@@ -333,7 +235,7 @@ void main() {
       expect(find.text('LIVE SYNC'), findsOneWidget);
     });
 
-    testWidgets('opening navigation drawer exposes app-level navigation routes',
+    testWidgets('navigation drawer opens and displays navigation targets without removed features',
         (tester) async {
       when(() => mockDashboardService.fetchDashboardStats(
             clinicId: testClinicId,
@@ -343,7 +245,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget(clinicId: testClinicId));
       await tester.pumpAndSettle();
 
-      // Open drawer using the scaffold's drawer button or swipe/openDrawer
+      // Open drawer using the scaffold state
       final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
       scaffoldState.openDrawer();
       await tester.pumpAndSettle();
@@ -352,8 +254,9 @@ void main() {
       final drawerFinder = find.byType(Drawer);
       expect(drawerFinder, findsOneWidget);
       expect(find.descendant(of: drawerFinder, matching: find.text('Dashboard')), findsOneWidget);
-      expect(find.descendant(of: drawerFinder, matching: find.text('OPD Queue')), findsOneWidget);
-      expect(find.descendant(of: drawerFinder, matching: find.text('Appointments')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('OPD Queue')), findsNothing);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Appointments')), findsNothing);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Voice Symptoms')), findsNothing);
       expect(find.descendant(of: drawerFinder, matching: find.text('Patients')), findsOneWidget);
       expect(find.descendant(of: drawerFinder, matching: find.text('Active Clinic Context')), findsOneWidget);
       expect(find.descendant(of: drawerFinder, matching: find.text(testClinicId)), findsOneWidget);
@@ -380,8 +283,8 @@ void main() {
           )).called(1);
 
       // Verifies live cards are present
-      expect(find.text("Today's OPD Queue"), findsOneWidget);
-      expect(find.text("Today's Appointments"), findsOneWidget);
+      expect(find.text("Today's OPD Queue"), findsNothing);
+      expect(find.text("Today's Appointments"), findsNothing);
       expect(find.text('Registered Patients'), findsOneWidget);
     });
 
@@ -392,14 +295,6 @@ void main() {
         serviceDate: '2026-10-26',
         totalPatients: 1,
         recentPatients: testStats.recentPatients,
-        totalAppointmentsToday: 1,
-        appointmentsToday: testStats.appointmentsToday,
-        totalQueueToday: 1,
-        queueWaitingCount: 1,
-        queueCalledCount: 0,
-        queueInConsultationCount: 0,
-        queueCompletedCount: 0,
-        queueEntriesToday: testStats.queueEntriesToday,
         isDoctor: true,
         detectedRole: 'DOCTOR',
         consultationRestrictionMessage: null,
@@ -426,10 +321,10 @@ void main() {
       expect(find.text('Doctor visits'), findsOneWidget);
       expect(find.text('Protected'), findsNothing);
 
-      // Prescriptions, Differential Dx, and Voice Symptoms quick actions are exposed
+      // Prescriptions quick action is exposed; Differential Dx and Voice Symptoms are removed
       expect(find.text('Prescriptions'), findsOneWidget);
-      expect(find.text('Differential Dx'), findsOneWidget);
-      expect(find.text('Voice Symptoms'), findsOneWidget);
+      expect(find.text('Differential Dx'), findsNothing);
+      expect(find.text('Voice Symptoms'), findsNothing);
 
       // Open drawer and verify clinical assist routes
       final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
@@ -437,8 +332,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final drawerFinder = find.byType(Drawer);
-      expect(find.descendant(of: drawerFinder, matching: find.text('Differential Diagnosis')), findsOneWidget);
-      expect(find.descendant(of: drawerFinder, matching: find.text('Voice Symptoms')), findsOneWidget);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Differential Diagnosis')), findsNothing);
+      expect(find.descendant(of: drawerFinder, matching: find.text('Voice Symptoms')), findsNothing);
       expect(find.descendant(of: drawerFinder, matching: find.text('Prescriptions')), findsOneWidget);
     });
 
@@ -459,7 +354,6 @@ void main() {
           authService: mockAuthService,
           user: userWithoutRole,
           dashboardService: mockDashboardService,
-          queueService: mockQueueService,
         ),
       ));
       await tester.pumpAndSettle();

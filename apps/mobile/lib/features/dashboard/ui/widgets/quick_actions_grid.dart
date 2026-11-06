@@ -7,24 +7,16 @@ class QuickActionsGrid extends StatelessWidget {
   final String? activeClinicId;
   final bool isDoctor;
   final VoidCallback? onPatientsTap;
-  final VoidCallback? onAppointmentsTap;
-  final VoidCallback? onQueueTap;
   final VoidCallback? onConsultationsTap;
   final VoidCallback? onPrescriptionsTap;
-  final VoidCallback? onDifferentialTap;
-  final VoidCallback? onVoiceSymptomsTap;
 
   const QuickActionsGrid({
     super.key,
     required this.activeClinicId,
     required this.isDoctor,
     this.onPatientsTap,
-    this.onAppointmentsTap,
-    this.onQueueTap,
     this.onConsultationsTap,
     this.onPrescriptionsTap,
-    this.onDifferentialTap,
-    this.onVoiceSymptomsTap,
   });
 
   void _showComingSoonSheet(
@@ -100,33 +92,38 @@ class QuickActionsGrid extends StatelessWidget {
                     border: Border.all(color: AppTheme.borderGray),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.check_circle_outline_rounded,
-                          size: 16, color: AppTheme.successGreen),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Active Clinic Context: ${activeClinicId!.substring(0, 8)}...',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            color: AppTheme.textPrimary,
-                          ),
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppTheme.successGreen,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Clinic Active: ${activeClinicId!.substring(0, activeClinicId!.length.clamp(0, 8))}...',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Understood'),
+                  child: const Text('Understood', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -141,13 +138,16 @@ class QuickActionsGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'QUICK ACTIONS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-            color: AppTheme.textSecondary,
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'QUICK ACTIONS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppTheme.textSecondary,
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -174,46 +174,6 @@ class QuickActionsGrid extends StatelessWidget {
             Expanded(
               child: _buildActionCard(
                 context,
-                title: 'Appointments',
-                subtitle: 'Book & reschedule',
-                icon: Icons.edit_calendar_rounded,
-                color: Colors.blue.shade700,
-                onTap: onAppointmentsTap ??
-                    () => _showComingSoonSheet(
-                          context,
-                          title: 'Appointment Booking',
-                          icon: Icons.edit_calendar_rounded,
-                          description:
-                              'Appointment scheduling, doctor calendar slots, and rescheduling workflows will connect in upcoming checkpoints.',
-                        ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionCard(
-                context,
-                title: 'OPD Queue',
-                subtitle: 'Check-in & call',
-                icon: Icons.confirmation_number_rounded,
-                color: Colors.amber.shade800,
-                onTap: onQueueTap ??
-                    () => _showComingSoonSheet(
-                          context,
-                          title: 'OPD Queue Check-in',
-                          icon: Icons.confirmation_number_rounded,
-                          description:
-                              'Token allocation, walk-in check-in, and live queue status transitions will connect in upcoming checkpoints.',
-                        ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildActionCard(
-                context,
                 title: 'Consultations',
                 subtitle: isDoctor ? 'Doctor visits' : 'Protected',
                 icon: Icons.medical_services_rounded,
@@ -232,7 +192,7 @@ class QuickActionsGrid extends StatelessWidget {
             ),
           ],
         ),
-        if (isDoctor || onPrescriptionsTap != null || onDifferentialTap != null) ...[
+        if (isDoctor || onPrescriptionsTap != null) ...[
           const SizedBox(height: 10),
           Row(
             children: [
@@ -252,52 +212,6 @@ class QuickActionsGrid extends StatelessWidget {
                             description: isDoctor
                                 ? 'Clinician-reviewed prescription builder, digital approvals, and authenticated PDF printing.'
                                 : 'Prescription creation is restricted to DOCTOR memberships.',
-                          ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildActionCard(
-                  context,
-                  title: 'Differential Dx',
-                  subtitle: isDoctor ? 'Decision support' : 'Protected',
-                  icon: Icons.psychology_rounded,
-                  color: Colors.indigo.shade700,
-                  onTap: (isDoctor && onDifferentialTap != null)
-                      ? onDifferentialTap!
-                      : () => _showComingSoonSheet(
-                            context,
-                            title: 'Differential Diagnosis',
-                            icon: Icons.psychology_rounded,
-                            description: isDoctor
-                                ? 'Clinical decision support: deterministic AST evaluation and differential diagnosis candidate review.'
-                                : 'Differential diagnosis is restricted to DOCTOR memberships.',
-                          ),
-                ),
-              ),
-            ],
-          ),
-        ],
-        if (isDoctor || onVoiceSymptomsTap != null) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionCard(
-                  context,
-                  title: 'Voice Symptoms',
-                  subtitle: isDoctor ? 'Capture & Extract' : 'Protected',
-                  icon: Icons.mic_rounded,
-                  color: Colors.deepOrange.shade700,
-                  onTap: (isDoctor && onVoiceSymptomsTap != null)
-                      ? onVoiceSymptomsTap!
-                      : () => _showComingSoonSheet(
-                            context,
-                            title: 'Voice Symptoms',
-                            icon: Icons.mic_rounded,
-                            description: isDoctor
-                                ? 'Record and review voice symptom notes with AI-assisted clinical concept extraction.'
-                                : 'Voice clinical notes are restricted to DOCTOR memberships.',
                           ),
                 ),
               ),

@@ -64,10 +64,10 @@ export class KnowledgePackBootstrapper {
         checksumSha256,
         action: 'DRY_RUN',
         conditionsCount: seed.conditions.length,
-        rulesCount: seed.rules.length,
+        rulesCount: 0,
         redFlagsCount: seed.redFlags.length,
         sourcesCount: seed.sources.length,
-        mappingsCount: seed.mappings.length,
+        mappingsCount: 0,
       };
     }
 
@@ -153,10 +153,10 @@ export class KnowledgePackBootstrapper {
           checksumSha256,
           action: 'UP_TO_DATE',
           conditionsCount: seed.conditions.length,
-          rulesCount: seed.rules.length,
+          rulesCount: 0,
           redFlagsCount: seed.redFlags.length,
           sourcesCount: seed.sources.length,
-          mappingsCount: seed.mappings.length,
+          mappingsCount: 0,
         };
       }
 
@@ -215,52 +215,7 @@ export class KnowledgePackBootstrapper {
       conditionIdMap.set(cond.conditionCode, conditionRecord.id);
     }
 
-    // 4. Upsert Differential Rules
-    const ruleIdMap = new Map<string, string>();
-    for (const rule of seed.rules) {
-      const conditionId = conditionIdMap.get(rule.conditionCode);
-      if (!conditionId) {
-        throw new Error(
-          `Internal Error: Condition ID not found for code "${rule.conditionCode}"`,
-        );
-      }
-
-      const ruleRecord = await tx.differentialRule.upsert({
-        where: {
-          conditionId_ruleCode: {
-            conditionId,
-            ruleCode: rule.ruleCode,
-          },
-        },
-        create: {
-          conditionId,
-          ruleCode: rule.ruleCode,
-          ruleTitle: rule.ruleTitle,
-          minMajorCount: rule.minMajorCount,
-          applicabilityJson: rule.applicability as any,
-          mandatoryAstJson: rule.mandatoryAst as any,
-          majorSupportingJson: rule.majorSupporting as any,
-          minorSupportingJson: (rule.minorSupporting || Prisma.JsonNull) as any,
-          contradictionsJson: (rule.contradictions || Prisma.JsonNull) as any,
-          missingDataRulesJson:
-            (rule.missingDataRules || Prisma.JsonNull) as any,
-          investigationsJson: (rule.investigations || Prisma.JsonNull) as any,
-        },
-        update: {
-          ruleTitle: rule.ruleTitle,
-          minMajorCount: rule.minMajorCount,
-          applicabilityJson: rule.applicability as any,
-          mandatoryAstJson: rule.mandatoryAst as any,
-          majorSupportingJson: rule.majorSupporting as any,
-          minorSupportingJson: (rule.minorSupporting || Prisma.JsonNull) as any,
-          contradictionsJson: (rule.contradictions || Prisma.JsonNull) as any,
-          missingDataRulesJson:
-            (rule.missingDataRules || Prisma.JsonNull) as any,
-          investigationsJson: (rule.investigations || Prisma.JsonNull) as any,
-        },
-      });
-      ruleIdMap.set(rule.ruleCode, ruleRecord.id);
-    }
+    // 4. Differential Rules decommissioned in Phase 5
 
     // 5. Upsert Red Flag Rules
     for (const rf of seed.redFlags) {
@@ -328,31 +283,7 @@ export class KnowledgePackBootstrapper {
       sourceIdMap.set(src.referenceIdentifier, sourceRecord.id);
     }
 
-    // 7. Upsert Rule-Source Mappings
-    for (const mapping of seed.mappings) {
-      const ruleId = ruleIdMap.get(mapping.ruleCode);
-      const sourceId = sourceIdMap.get(mapping.sourceReferenceIdentifier);
-
-      if (!ruleId || !sourceId) {
-        throw new Error(
-          `Mapping error: ruleId (${ruleId}) or sourceId (${sourceId}) missing for mapping ${mapping.ruleCode} -> ${mapping.sourceReferenceIdentifier}`,
-        );
-      }
-
-      await tx.ruleSourceMapping.upsert({
-        where: {
-          ruleId_sourceId: {
-            ruleId,
-            sourceId,
-          },
-        },
-        create: {
-          ruleId,
-          sourceId,
-        },
-        update: {},
-      });
-    }
+    // 7. Rule-Source Mappings decommissioned in Phase 5
 
     // 8. Governance Integrity Assertions
     // Strictly verify that no approvals or releases exist for this version
@@ -367,10 +298,10 @@ export class KnowledgePackBootstrapper {
       checksumSha256,
       action,
       conditionsCount: seed.conditions.length,
-      rulesCount: seed.rules.length,
+      rulesCount: 0,
       redFlagsCount: seed.redFlags.length,
       sourcesCount: seed.sources.length,
-      mappingsCount: seed.mappings.length,
+      mappingsCount: 0,
     };
   }
 

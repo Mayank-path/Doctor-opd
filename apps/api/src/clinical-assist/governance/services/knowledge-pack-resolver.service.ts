@@ -9,14 +9,22 @@ import {
 import {
   ClinicalConditionSeed,
   ClinicalSourceReferenceSeed,
-  DifferentialRuleSeed,
   KnowledgePackSeed,
   RedFlagRuleSeed,
-  RuleSourceMappingSeed,
 } from '../../../../prisma/seeds/knowledge-pack.types';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { KnowledgePackBundle } from '../../evaluator/ast-evaluator.engine';
-import { KnowledgePackReleaseMetadataDto } from '../dto/differential-response.dto';
+export interface KnowledgePackBundle {
+  conditions: ClinicalConditionSeed[];
+  redFlags: RedFlagRuleSeed[];
+}
+
+export interface KnowledgePackReleaseMetadataDto {
+  domain: string;
+  version: string;
+  releaseStatus: string;
+  releaseScope: 'CLINIC' | 'GLOBAL';
+  checksumSha256: string;
+}
 
 export interface ResolvedKnowledgePack {
   bundle: KnowledgePackBundle;
@@ -29,7 +37,7 @@ export interface ResolvedKnowledgePack {
  */
 export const KNOWN_CANONICAL_CHECKSUMS: Record<string, string> = {
   [`${KnowledgePackDomain.GENERAL_MEDICINE}_1.0.0`]:
-    '768f3ca6f79648bfe3ea7a6448719436f5557a9584436f6ca00791c1fa51984d',
+    '96aa8761f94fd495c7b5367a9a1a30715dddad55dc7ef09d0f7bb686002846bf',
 };
 
 /**
@@ -87,19 +95,7 @@ export class KnowledgePackResolverService {
           version: {
             include: {
               pack: true,
-              conditions: {
-                include: {
-                  rules: {
-                    include: {
-                      sourceReferences: {
-                        include: {
-                          source: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
+              conditions: true,
               redFlagRules: true,
               sources: true,
               approvals: true,
@@ -142,19 +138,7 @@ export class KnowledgePackResolverService {
           version: {
             include: {
               pack: true,
-              conditions: {
-                include: {
-                  rules: {
-                    include: {
-                      sourceReferences: {
-                        include: {
-                          source: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
+              conditions: true,
               redFlagRules: true,
               sources: true,
               approvals: true,
@@ -529,7 +513,6 @@ export class KnowledgePackResolverService {
    */
   public reconstructSeedFromVersion(version: any): KnowledgePackSeed {
     const conditions: ClinicalConditionSeed[] = [];
-    const rules: DifferentialRuleSeed[] = [];
 
     for (const cond of version.conditions || []) {
       conditions.push({
@@ -540,23 +523,6 @@ export class KnowledgePackResolverService {
         icd10Guidance: cond.icd10Guidance ?? null,
         evidenceStatus: cond.evidenceStatus || 'AUTHORITATIVE_ICMR_WHO',
       });
-
-      for (const r of cond.rules || []) {
-        rules.push({
-          ruleCode: r.ruleCode,
-          conditionCode: cond.conditionCode,
-          ruleTitle: r.ruleTitle,
-          minMajorCount: r.minMajorCount,
-          applicability: r.applicabilityJson ?? r.applicability ?? {},
-          mandatoryAst: r.mandatoryAstJson ?? r.mandatoryAst,
-          majorSupporting: r.majorSupportingJson ?? r.majorSupporting ?? [],
-          minorSupporting: r.minorSupportingJson ?? r.minorSupporting ?? null,
-          contradictions: r.contradictionsJson ?? r.contradictions ?? null,
-          missingDataRules: r.missingDataRulesJson ?? r.missingDataRules ?? null,
-          investigations: r.investigationsJson ?? r.investigations ?? null,
-          isComplete: r.isComplete !== false,
-        });
-      }
     }
 
     const redFlags: RedFlagRuleSeed[] = (version.redFlagRules || []).map(
@@ -582,8 +548,6 @@ export class KnowledgePackResolverService {
       }),
     );
 
-    const mappings: RuleSourceMappingSeed[] = version.mappings || [];
-
     return {
       domain: version.pack?.domain || version.domain,
       name: version.pack?.name || version.name || '',
@@ -595,10 +559,8 @@ export class KnowledgePackResolverService {
         changelog: version.changelog || '',
       },
       conditions,
-      rules,
       redFlags,
       sources,
-      mappings,
     };
   }
 
@@ -629,7 +591,6 @@ export class KnowledgePackResolverService {
   ): ResolvedKnowledgePack {
     const version = release.version;
     const conditions: ClinicalConditionSeed[] = [];
-    const rules: DifferentialRuleSeed[] = [];
 
     for (const cond of version.conditions || []) {
       conditions.push({
@@ -640,23 +601,6 @@ export class KnowledgePackResolverService {
         icd10Guidance: cond.icd10Guidance ?? undefined,
         evidenceStatus: 'AUTHORITATIVE_ICMR_WHO',
       });
-
-      for (const rule of cond.rules || []) {
-        rules.push({
-          conditionCode: cond.conditionCode,
-          ruleCode: rule.ruleCode,
-          ruleTitle: rule.ruleTitle,
-          minMajorCount: rule.minMajorCount,
-          applicability: rule.applicabilityJson ?? rule.applicability,
-          mandatoryAst: rule.mandatoryAstJson ?? rule.mandatoryAst,
-          majorSupporting: rule.majorSupportingJson ?? rule.majorSupporting ?? [],
-          minorSupporting: rule.minorSupportingJson ?? rule.minorSupporting ?? [],
-          contradictions: rule.contradictionsJson ?? rule.contradictions ?? [],
-          missingDataRules: rule.missingDataRulesJson ?? rule.missingDataRules ?? [],
-          investigations: rule.investigationsJson ?? rule.investigations ?? [],
-          isComplete: true,
-        });
-      }
     }
 
     const redFlags: RedFlagRuleSeed[] = (version.redFlagRules || []).map(
@@ -672,7 +616,6 @@ export class KnowledgePackResolverService {
     return {
       bundle: {
         conditions,
-        rules,
         redFlags,
       },
       metadata: {

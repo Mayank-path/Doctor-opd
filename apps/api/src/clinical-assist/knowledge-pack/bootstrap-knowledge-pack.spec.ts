@@ -1,10 +1,8 @@
 import {
   GENERAL_MEDICINE_CONDITIONS,
-  GENERAL_MEDICINE_DIFFERENTIAL_RULES,
   GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED,
   GENERAL_MEDICINE_PACK_METADATA,
   GENERAL_MEDICINE_RED_FLAGS,
-  GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS,
   GENERAL_MEDICINE_SOURCE_REFERENCES,
 } from '../../../prisma/seeds/general-medicine';
 import {
@@ -91,21 +89,6 @@ describe('General Medicine Knowledge Pack Bootstrapper (Phase 5B.4-C)', () => {
       expect(actualCodes.sort()).toEqual(expectedCodes.sort());
     });
 
-    it('should have exactly 35 corresponding differential rules matching conditions', () => {
-      expect(GENERAL_MEDICINE_DIFFERENTIAL_RULES).toHaveLength(35);
-      const conditionCodes = new Set(
-        GENERAL_MEDICINE_CONDITIONS.map((c) => c.conditionCode),
-      );
-      for (const rule of GENERAL_MEDICINE_DIFFERENTIAL_RULES) {
-        expect(conditionCodes.has(rule.conditionCode)).toBe(true);
-        expect(rule.ruleCode.trim().length).toBeGreaterThan(0);
-        expect(rule.ruleTitle.trim().length).toBeGreaterThan(0);
-        expect(rule.minMajorCount).toBeGreaterThanOrEqual(1);
-        expect(rule.mandatoryAst).toBeDefined();
-        expect(Array.isArray(rule.majorSupporting)).toBe(true);
-      }
-    });
-
     it('should have 4 high-acuity emergency red flag rules', () => {
       expect(GENERAL_MEDICINE_RED_FLAGS).toHaveLength(4);
       const flagCodes = GENERAL_MEDICINE_RED_FLAGS.map((rf) => rf.flagCode);
@@ -115,46 +98,16 @@ describe('General Medicine Knowledge Pack Bootstrapper (Phase 5B.4-C)', () => {
       expect(flagCodes).toContain('RF-HYPERTENSIVE-CRISIS');
     });
 
-    it('should have authoritative source references and complete mappings', () => {
+    it('should have authoritative source references', () => {
       expect(GENERAL_MEDICINE_SOURCE_REFERENCES.length).toBeGreaterThanOrEqual(10);
-      const sourceIds = new Set(
-        GENERAL_MEDICINE_SOURCE_REFERENCES.map((s) => s.referenceIdentifier),
-      );
-      for (const mapping of GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS) {
-        expect(sourceIds.has(mapping.sourceReferenceIdentifier)).toBe(true);
+      for (const s of GENERAL_MEDICINE_SOURCE_REFERENCES) {
+        expect(s.referenceIdentifier.trim().length).toBeGreaterThan(0);
+        expect(s.sourceTitle.trim().length).toBeGreaterThan(0);
       }
     });
   });
 
   describe('2. AST Safety & Invariants Validation', () => {
-    it('should verify all differential rules respect MAX_AST_DEPTH and MAX_AST_NODES', () => {
-      for (const rule of GENERAL_MEDICINE_DIFFERENTIAL_RULES) {
-        const mandatoryStats = validateAstTree(rule.mandatoryAst);
-        expect(mandatoryStats.maxDepth).toBeLessThanOrEqual(MAX_AST_DEPTH);
-        expect(mandatoryStats.nodeCount).toBeLessThanOrEqual(MAX_AST_NODES);
-
-        for (const major of rule.majorSupporting) {
-          const stats = validateAstTree(major);
-          expect(stats.maxDepth).toBeLessThanOrEqual(MAX_AST_DEPTH);
-          expect(stats.nodeCount).toBeLessThanOrEqual(MAX_AST_NODES);
-        }
-
-        if (rule.minorSupporting) {
-          for (const minor of rule.minorSupporting) {
-            const stats = validateAstTree(minor);
-            expect(stats.maxDepth).toBeLessThanOrEqual(MAX_AST_DEPTH);
-          }
-        }
-
-        if (rule.contradictions) {
-          for (const contra of rule.contradictions) {
-            const stats = validateAstTree(contra);
-            expect(stats.maxDepth).toBeLessThanOrEqual(MAX_AST_DEPTH);
-          }
-        }
-      }
-    });
-
     it('should verify all red flag rules respect MAX_AST_DEPTH and MAX_AST_NODES', () => {
       for (const rf of GENERAL_MEDICINE_RED_FLAGS) {
         const stats = validateAstTree(rf.ruleAst);
@@ -370,7 +323,7 @@ describe('General Medicine Knowledge Pack Bootstrapper (Phase 5B.4-C)', () => {
       const parsed = JSON.parse(jsonStr);
       expect(parsed.domain).toBe('GENERAL_MEDICINE');
       expect(parsed.conditions).toHaveLength(35);
-      expect(parsed.rules).toHaveLength(35);
+      expect(parsed.rules).toHaveLength(0);
     });
   });
 
@@ -469,7 +422,7 @@ describe('General Medicine Knowledge Pack Bootstrapper (Phase 5B.4-C)', () => {
       expect(result.version).toBe('1.0.0');
       expect(result.releaseStatus).toBe(KnowledgePackReleaseStatus.DRAFT);
       expect(result.conditionsCount).toBe(35);
-      expect(result.rulesCount).toBe(35);
+      expect(result.rulesCount).toBe(0);
       expect(result.redFlagsCount).toBe(4);
 
       // Verify draft status in create call
@@ -678,217 +631,60 @@ describe('General Medicine Knowledge Pack Bootstrapper (Phase 5B.4-C)', () => {
       expect(authoritative.length + draftPending.length).toBe(35);
     });
 
-    it('should strictly contain exactly 20 complete rules and 15 incomplete rules matching condition evidence statuses', () => {
-      const completeRules = GENERAL_MEDICINE_DIFFERENTIAL_RULES.filter(
-        (r) => r.isComplete === true,
-      );
-      const incompleteRules = GENERAL_MEDICINE_DIFFERENTIAL_RULES.filter(
-        (r) => r.isComplete === false,
-      );
-
-      expect(completeRules).toHaveLength(20);
-      expect(incompleteRules).toHaveLength(15);
-      expect(completeRules.length + incompleteRules.length).toBe(35);
-
-      const conditionStatusMap = new Map(
-        GENERAL_MEDICINE_CONDITIONS.map((c) => [c.conditionCode, c.evidenceStatus]),
-      );
-
-      for (const rule of GENERAL_MEDICINE_DIFFERENTIAL_RULES) {
-        const conditionStatus = conditionStatusMap.get(rule.conditionCode);
-        if (conditionStatus === 'AUTHORITATIVE_ICMR_WHO') {
-          expect(rule.isComplete).toBe(true);
-        } else if (
-          conditionStatus === 'DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION'
-        ) {
-          expect(rule.isComplete).toBe(false);
-        } else {
-          fail(`Unexpected evidence status for condition ${rule.conditionCode}: ${conditionStatus}`);
-        }
-      }
-    });
-
-    it('should verify that all 20 complete rules map exclusively to authoritative sources and never to draft', () => {
-      const sourceMap = new Map(
-        GENERAL_MEDICINE_SOURCE_REFERENCES.map((s) => [
-          s.referenceIdentifier,
-          s.evidenceScope,
-        ]),
-      );
-
-      const completeRuleCodes = new Set(
-        GENERAL_MEDICINE_DIFFERENTIAL_RULES.filter((r) => r.isComplete === true).map(
-          (r) => r.ruleCode,
-        ),
-      );
-
-      for (const mapping of GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS) {
-        if (completeRuleCodes.has(mapping.ruleCode)) {
-          const evidenceScope = sourceMap.get(mapping.sourceReferenceIdentifier);
-          expect(evidenceScope).not.toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-          expect(mapping.sourceReferenceIdentifier).not.toBe('SRC-BOARD-DRAFT-GENERAL-MED-2026');
-        }
-      }
-    });
-
-    it('should reject validation if a DRAFT condition is paired with isComplete: true', () => {
-      // Map PUD rule to an authoritative source so mapping check passes, isolating condition-rule invariant
-      const invalidSeed: KnowledgePackSeed = {
-        ...GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED,
-        mappings: GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED.mappings.map((m) =>
-          m.ruleCode === 'RULE-GM-PUD-001'
-            ? { ...m, sourceReferenceIdentifier: 'SRC-NICE-CG184-GERD-2019' }
-            : m,
-        ),
-        rules: GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED.rules.map((r) =>
-          r.ruleCode === 'RULE-GM-PUD-001' ? { ...r, isComplete: true } : r,
-        ),
-      };
-
-      expect(() => validateKnowledgePackSeed(invalidSeed)).toThrow(
-        /Integrity Violation: Condition "COND-GM-PUD-DYSPEPSIA-010" is pending clinical board ratification, but rule "RULE-GM-PUD-001" is marked isComplete: true/,
-      );
-    });
-
-    it('should reject validation if an AUTHORITATIVE condition is paired with isComplete: false', () => {
-      const invalidSeed: KnowledgePackSeed = {
-        ...GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED,
-        rules: GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED.rules.map((r) =>
-          r.ruleCode === 'RULE-GM-URI-001' ? { ...r, isComplete: false } : r,
-        ),
-      };
-
-      expect(() => validateKnowledgePackSeed(invalidSeed)).toThrow(
-        /Integrity Violation: Condition "COND-GM-URI-001" is authoritative, but rule "RULE-GM-URI-001" is marked isComplete: false/,
-      );
-    });
-
-    it('should reject validation if an authoritative rule is mapped to a DRAFT source', () => {
-      const invalidSeed: KnowledgePackSeed = {
-        ...GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED,
-        mappings: [
-          ...GENERAL_MEDICINE_KNOWLEDGE_PACK_SEED.mappings,
-          {
-            ruleCode: 'RULE-GM-URI-001', // Authoritative rule!
-            sourceReferenceIdentifier: 'SRC-BOARD-DRAFT-GENERAL-MED-2026', // Draft source!
-          },
-        ],
-      };
-
-      expect(() => validateKnowledgePackSeed(invalidSeed)).toThrow(
-        /Integrity Violation: Complete rule "RULE-GM-URI-001" cannot be backed solely by unratified draft source "SRC-BOARD-DRAFT-GENERAL-MED-2026"/,
-      );
-    });
-
     it('should audit Grouping A (Vit D / B12): verify draft pending status and safety rationale', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-DEFIC-VIT-MYALGIA-024',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-DEFIC-VIT-MYALGIA-024',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
     });
 
     it('should audit Grouping B (BPPV / Vestibular Neuritis): verify draft pending status and safety rationale', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-VERTIGO-PERIPH-028',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-VERTIGO-PERIPH-028',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
     });
 
     it('should audit Grouping C (PUD / Non-Ulcer Dyspepsia): verify draft pending status and safety rationale', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-PUD-DYSPEPSIA-010',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-PUD-DYSPEPSIA-010',
-      );
-      const mapping = GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS.find(
-        (m) => m.ruleCode === 'RULE-GM-PUD-001',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
-      expect(mapping?.sourceReferenceIdentifier).toBe('SRC-BOARD-DRAFT-GENERAL-MED-2026');
     });
 
     it('should audit Grouping D (Hepatitis A / E): verify draft pending status and safety rationale', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-HEPATITIS-ACUTE-016',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-HEPATITIS-ACUTE-016',
-      );
-      const mapping = GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS.find(
-        (m) => m.ruleCode === 'RULE-GM-HEPATITIS-001',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
-      expect(mapping?.sourceReferenceIdentifier).toBe('SRC-BOARD-DRAFT-GENERAL-MED-2026');
     });
 
     it('should audit Allergic Rhinitis (COND-GM-ALLERG-RHIN-021) as draft pending board review', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-ALLERG-RHIN-021',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-ALLERG-RHIN-021',
-      );
-      const mapping = GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS.find(
-        (m) => m.ruleCode === 'RULE-GM-ALLERG-001',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
-      expect(mapping?.sourceReferenceIdentifier).toBe('SRC-BOARD-DRAFT-GENERAL-MED-2026');
     });
 
     it('should audit Acute Bacterial Rhinosinusitis (COND-GM-RHINOSINUS-022) as draft pending board review', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-RHINOSINUS-022',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-RHINOSINUS-022',
-      );
-      const mapping = GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS.find(
-        (m) => m.ruleCode === 'RULE-GM-RHINOSIN-001',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
-      expect(mapping?.sourceReferenceIdentifier).toBe('SRC-BOARD-DRAFT-GENERAL-MED-2026');
     });
 
     it('should audit Iron Deficiency Anemia (COND-GM-ANEMIA-IDA-023) as draft pending board review', () => {
       const cond = GENERAL_MEDICINE_CONDITIONS.find(
         (c) => c.conditionCode === 'COND-GM-ANEMIA-IDA-023',
       );
-      const rule = GENERAL_MEDICINE_DIFFERENTIAL_RULES.find(
-        (r) => r.conditionCode === 'COND-GM-ANEMIA-IDA-023',
-      );
-      const mapping = GENERAL_MEDICINE_RULE_SOURCE_MAPPINGS.find(
-        (m) => m.ruleCode === 'RULE-GM-ANEMIA-001',
-      );
-
       expect(cond).toBeDefined();
       expect(cond?.evidenceStatus).toBe('DRAFT_PENDING_CLINICAL_BOARD_RATIFICATION');
-      expect(rule?.isComplete).toBe(false);
-      expect(mapping?.sourceReferenceIdentifier).toBe('SRC-BOARD-DRAFT-GENERAL-MED-2026');
     });
   });
 });

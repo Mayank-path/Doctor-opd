@@ -131,7 +131,6 @@ class ConsultationsService {
 
   /// Finalizes an active consultation draft, transitioning its status to FINALIZED
   /// and setting finalizedAt timestamp to server time.
-  /// Also transactionally completes any associated walk-in queue entry on the backend.
   /// Strict backend rules:
   /// - Only assigned clinician can finalize (403 Forbidden).
   /// - Cannot finalize an already finalized consultation (409 Conflict).

@@ -13,7 +13,7 @@ import {
   computeCanonicalChecksum,
 } from '../../../../prisma/seeds/canonical-serializer';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { KnowledgePackResolverService } from '../../differential/services/knowledge-pack-resolver.service';
+import { KnowledgePackResolverService } from './knowledge-pack-resolver.service';
 import {
   GovernanceAuditAction,
   PublicKeyStatus,

@@ -1,10 +1,8 @@
 import 'package:dio/dio.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../core/network/api_client.dart';
-import '../models/appointment_summary.dart';
 import '../models/clinic_dashboard_stats.dart';
 import '../models/patient_summary.dart';
-import '../models/queue_summary.dart';
 
 /// Service coordinating data fetching for the Clinic Dashboard
 /// using existing backend endpoints.
@@ -59,75 +57,7 @@ class DashboardService {
       }
     }
 
-    // 2. Fetch Appointments for today (serviceDate required)
-    int totalAppointments = 0;
-    List<AppointmentSummary> appointmentsToday = [];
-    try {
-      final aptRes = await _apiClient.get(
-        '/appointments',
-        queryParameters: {'serviceDate': date, 'limit': 10},
-        options: clinicOptions,
-      );
-      if (aptRes.data is Map<String, dynamic>) {
-        final dataMap = aptRes.data as Map<String, dynamic>;
-        final meta = dataMap['meta'] as Map<String, dynamic>?;
-        totalAppointments = (meta?['total'] as num?)?.toInt() ?? 0;
-        final list = dataMap['data'] as List<dynamic>? ?? [];
-        appointmentsToday = list
-            .map((e) => AppointmentSummary.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-    } on ApiException catch (e) {
-      if (e.statusCode == 403 || e.statusCode == 401 || e.statusCode == 400) {
-        rethrow;
-      }
-    }
-
-    // 3. Fetch OPD Queue for today (serviceDate required)
-    int totalQueue = 0;
-    int waitingCount = 0;
-    int calledCount = 0;
-    int inConsultationCount = 0;
-    int completedCount = 0;
-    List<QueueSummary> queueEntries = [];
-    try {
-      final queueRes = await _apiClient.get(
-        '/queue',
-        queryParameters: {'serviceDate': date},
-        options: clinicOptions,
-      );
-      if (queueRes.data is Map<String, dynamic>) {
-        final dataMap = queueRes.data as Map<String, dynamic>;
-        totalQueue = (dataMap['total'] as num?)?.toInt() ?? 0;
-        final list = dataMap['data'] as List<dynamic>? ?? [];
-        queueEntries = list
-            .map((e) => QueueSummary.fromJson(e as Map<String, dynamic>))
-            .toList();
-
-        for (final entry in queueEntries) {
-          switch (entry.status) {
-            case 'WAITING':
-              waitingCount++;
-              break;
-            case 'CALLED':
-              calledCount++;
-              break;
-            case 'IN_CONSULTATION':
-              inConsultationCount++;
-              break;
-            case 'COMPLETED':
-              completedCount++;
-              break;
-          }
-        }
-      }
-    } on ApiException catch (e) {
-      if (e.statusCode == 403 || e.statusCode == 401 || e.statusCode == 400) {
-        rethrow;
-      }
-    }
-
-    // 4. Probe Consultations endpoint to verify DOCTOR vs other role authorization
+    // 2. Probe Consultations endpoint to verify DOCTOR vs other role authorization
     bool isDoctor = false;
     String detectedRole = 'UNKNOWN';
     String? consultationRestrictionMessage;
@@ -164,7 +94,7 @@ class DashboardService {
       detectedRole = 'UNKNOWN';
     }
 
-    // 5. Check Health status
+    // 3. Check Health status
     String healthStatus = 'online';
     try {
       final healthRes = await _apiClient.get('/health');
@@ -181,14 +111,6 @@ class DashboardService {
       serviceDate: date,
       totalPatients: totalPatients,
       recentPatients: recentPatients,
-      totalAppointmentsToday: totalAppointments,
-      appointmentsToday: appointmentsToday,
-      totalQueueToday: totalQueue,
-      queueWaitingCount: waitingCount,
-      queueCalledCount: calledCount,
-      queueInConsultationCount: inConsultationCount,
-      queueCompletedCount: completedCount,
-      queueEntriesToday: queueEntries,
       isDoctor: isDoctor,
       detectedRole: detectedRole,
       consultationRestrictionMessage: consultationRestrictionMessage,

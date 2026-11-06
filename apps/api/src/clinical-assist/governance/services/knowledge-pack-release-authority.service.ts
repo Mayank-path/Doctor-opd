@@ -15,7 +15,7 @@ import {
   computeCanonicalChecksum,
 } from '../../../../prisma/seeds/canonical-serializer';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { KnowledgePackResolverService } from '../../differential/services/knowledge-pack-resolver.service';
+import { KnowledgePackResolverService } from './knowledge-pack-resolver.service';
 import {
   DOMAIN_QUORUM_RULES,
   GovernanceAuditAction,
@@ -85,19 +85,7 @@ export class KnowledgePackReleaseAuthorityService {
       where: { id: dto.versionId },
       include: {
         pack: true,
-        conditions: {
-          include: {
-            rules: {
-              include: {
-                sourceReferences: {
-                  include: {
-                    source: true,
-                  },
-                },
-              },
-            },
-          },
-        },
+        conditions: true,
         redFlagRules: true,
         sources: true,
         approvals: true,
@@ -434,19 +422,7 @@ export class KnowledgePackReleaseAuthorityService {
       where: { id: dto.targetVersionId },
       include: {
         pack: true,
-        conditions: {
-          include: {
-            rules: {
-              include: {
-                sourceReferences: {
-                  include: {
-                    source: true,
-                  },
-                },
-              },
-            },
-          },
-        },
+        conditions: true,
         redFlagRules: true,
         sources: true,
         approvals: true,

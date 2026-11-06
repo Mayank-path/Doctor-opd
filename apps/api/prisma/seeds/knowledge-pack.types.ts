@@ -1,15 +1,11 @@
 import {
   KnowledgePackDomain,
   KnowledgePackReleaseStatus,
-  DifferentialMatchTier,
-  DoctorCandidateAction,
 } from '@prisma/client';
 
 export {
   KnowledgePackDomain,
   KnowledgePackReleaseStatus,
-  DifferentialMatchTier,
-  DoctorCandidateAction,
 };
 
 /**
@@ -181,25 +177,6 @@ export interface ClinicalConditionSeed {
 }
 
 /**
- * Differential diagnosis rule seed definition.
- */
-export interface DifferentialRuleSeed {
-  ruleCode: string;
-  conditionCode: string;
-  ruleTitle: string;
-  minMajorCount: number;
-  applicability: RuleApplicability;
-  mandatoryAst: AstNode;
-  majorSupporting: AstNode[];
-  minorSupporting?: AstNode[];
-  contradictions?: AstNode[];
-  missingDataRules?: MissingDataRule[];
-  investigations?: string[];
-  sourceReferenceIdentifiers?: string[];
-  isComplete?: boolean;
-}
-
-/**
  * Red flag emergency alert rule seed definition.
  */
 export interface RedFlagRuleSeed {
@@ -226,14 +203,6 @@ export interface ClinicalSourceReferenceSeed {
 }
 
 /**
- * Mapping between rules and source references.
- */
-export interface RuleSourceMappingSeed {
-  ruleCode: string;
-  sourceReferenceIdentifier: string;
-}
-
-/**
  * Complete knowledge pack seed bundle.
  */
 export interface KnowledgePackSeed {
@@ -247,9 +216,8 @@ export interface KnowledgePackSeed {
     changelog: string;
   };
   conditions: ClinicalConditionSeed[];
-  rules: DifferentialRuleSeed[];
+  rules?: any[];
   redFlags: RedFlagRuleSeed[];
   sources: ClinicalSourceReferenceSeed[];
-  mappings: RuleSourceMappingSeed[];
+  mappings?: any[];
 }
-

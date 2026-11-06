@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'differential_evaluation_models.dart';
 import 'structured_clinical_extraction.dart';
 
 /// Doctor decision type on an extracted clinical finding.
@@ -65,7 +64,6 @@ class ClinicalExtractionFormattingResult {
   final int includedAssessmentsCount;
   final int includedUnmappedCount;
   final String? formattedDiagnosis;
-  final DoctorDifferentialReviewResult? differentialResult;
 
   const ClinicalExtractionFormattingResult({
     required this.formattedSymptoms,
@@ -75,7 +73,6 @@ class ClinicalExtractionFormattingResult {
     required this.includedAssessmentsCount,
     required this.includedUnmappedCount,
     this.formattedDiagnosis,
-    this.differentialResult,
   });
 }
 
@@ -88,7 +85,6 @@ class ClinicalExtractionConsultationFormatter {
     required Map<String, FindingReviewDecision> findingDecisions,
     required Map<String, bool> assessmentInclusions,
     required Map<String, bool> unmappedInclusions,
-    DoctorDifferentialReviewResult? differentialResult,
   }) {
     final symptomBuffer = StringBuffer();
     final examBuffer = StringBuffer();
@@ -268,8 +264,6 @@ class ClinicalExtractionConsultationFormatter {
       excludedFindingsCount: excludedFindings,
       includedAssessmentsCount: includedAssessments,
       includedUnmappedCount: includedUnmapped,
-      formattedDiagnosis: differentialResult?.formatForConsultationDiagnosis(),
-      differentialResult: differentialResult,
     );
   }
 }

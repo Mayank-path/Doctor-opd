@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../patients/models/patient.dart';
-import '../models/differential_evaluation_models.dart';
 import '../models/doctor_extraction_review.dart';
 import '../models/structured_clinical_extraction.dart';
 import '../widgets/clinical_assessment_section.dart';
 import '../widgets/clinical_finding_card.dart';
 import '../widgets/unmapped_expressions_section.dart';
-import 'differential_diagnosis_screen.dart';
 
 /// Screen allowing clinicians to review, override, and approve structured clinical
 /// extraction findings before inserting them into a consultation note.
@@ -44,8 +42,6 @@ class _StructuredExtractionReviewScreenState
   // Inclusions for assessments and unmapped expressions
   late final Map<String, bool> _assessmentInclusions;
   late final Map<String, bool> _unmappedInclusions;
-
-  DoctorDifferentialReviewResult? _differentialResult;
 
   bool _isTranscriptExpanded = false;
 
@@ -84,108 +80,12 @@ class _StructuredExtractionReviewScreenState
     });
   }
 
-  Future<void> _openDifferentialDiagnosis() async {
-    final findings = <DifferentialFindingInput>[];
-    for (final f in widget.extractionResult.findings) {
-      final dec = _decisions[f.id];
-      if (dec != null && !dec.isExcluded) {
-        EvaluationFindingStatus status;
-        switch (dec.effectiveStatus) {
-          case ClinicalFindingStatus.present:
-            status = EvaluationFindingStatus.present;
-            break;
-          case ClinicalFindingStatus.absent:
-            status = EvaluationFindingStatus.absent;
-            break;
-          case ClinicalFindingStatus.uncertain:
-            status = EvaluationFindingStatus.uncertain;
-            break;
-          case ClinicalFindingStatus.unknown:
-            status = EvaluationFindingStatus.unknown;
-            break;
-        }
-
-        int? durationDays;
-        if (f.temporalStatements.isNotEmpty) {
-          final dur = f.temporalStatements.first.duration;
-          if (dur != null && dur.unit != null && dur.value != null) {
-            final unit = dur.unit!.toLowerCase();
-            final val = dur.value!.toInt();
-            if (unit.contains('day')) {
-              durationDays = val;
-            } else if (unit.contains('week')) {
-              durationDays = val * 7;
-            } else if (unit.contains('month')) {
-              durationDays = val * 30;
-            }
-          }
-        }
-
-        findings.add(
-          DifferentialFindingInput(
-            canonicalTerm: f.canonicalDisplayName.isNotEmpty
-                ? f.canonicalDisplayName
-                : f.canonicalTermId,
-            conceptId: f.canonicalTermId,
-            status: status,
-            durationDays: durationDays,
-            severity: f.severityAssessment.level?.value,
-            bodyLocation: f.bodyLocation.name,
-          ),
-        );
-      }
-    }
-
-    final assessments = <DifferentialAssessmentInput>[];
-    for (final a in widget.extractionResult.clinicalAssessments) {
-      if (_assessmentInclusions[a.id] == true) {
-        assessments.add(
-          DifferentialAssessmentInput(
-            examination: a.targetSystemOrExam,
-            status: a.status == ClinicalAssessmentStatus.notAssessed
-                ? AssessmentStatus.notAssessed
-                : AssessmentStatus.deferred,
-            reason: a.reason,
-          ),
-        );
-      }
-    }
-
-    final result = await Navigator.of(context).push<DoctorDifferentialReviewResult>(
-      MaterialPageRoute(
-        builder: (_) => DifferentialDiagnosisScreen(
-          patient: widget.patient,
-          initialFindings: findings,
-          initialInfectionSuspicion: InfectionSuspicionState.unknown,
-          initialAssessments: assessments.isNotEmpty ? assessments : null,
-        ),
-      ),
-    );
-
-    if (result != null && mounted) {
-      setState(() {
-        _differentialResult = result;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.primaryDiagnosis != null
-                ? 'Primary Diagnosis: ${result.primaryDiagnosis!.conditionDisplayName}'
-                : '${result.differentialDiagnoses.length} differential diagnoses confirmed',
-          ),
-          backgroundColor: AppTheme.accentTeal,
-        ),
-      );
-    }
-  }
-
   Future<void> _onInsertIntoConsultation() async {
     final formattedResult = ClinicalExtractionConsultationFormatter.format(
       extractionResult: widget.extractionResult,
       findingDecisions: _decisions,
       assessmentInclusions: _assessmentInclusions,
       unmappedInclusions: _unmappedInclusions,
-      differentialResult: _differentialResult,
     );
 
     // Show insertion preview confirmation dialog
@@ -499,28 +399,6 @@ class _StructuredExtractionReviewScreenState
               ),
 
               const SizedBox(height: 12),
-
-              // 7. Assistive Differential Diagnosis Action Button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryNavy,
-                    side: const BorderSide(color: AppTheme.accentTeal, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                  ),
-                  onPressed: _openDifferentialDiagnosis,
-                  icon: const Icon(Icons.biotech_outlined, color: AppTheme.accentTeal),
-                  label: Text(
-                    _differentialResult != null
-                        ? 'Differential: ${_differentialResult!.primaryDiagnosis?.conditionDisplayName ?? "${_differentialResult!.differentialDiagnoses.length} Selected"}'
-                        : 'Evaluate Differential Diagnosis',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
 
               // 8. Primary Action Button: Insert into Consultation
               SizedBox(

@@ -1,4 +1,4 @@
-﻿# Node.js
+# Node.js
 node_modules/
 dist/
 coverage/
@@ -16,11 +16,17 @@ build/
 !.env.example
 !.env.test.example
 
-# Local databases and logs
+# Local databases, dumps, and logs
 *.log
 *.sqlite
 *.sqlite3
 *.db
+*.dump
+*.backup
+*.dump.toc.txt
+
+# Local operational and forensic reports
+/*_REPORT.md
 
 # IDE and OS
 .vscode/

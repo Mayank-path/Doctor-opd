@@ -59,81 +59,7 @@ void main() {
                 },
               ));
 
-      // 2. Mock Appointments endpoint
-      when(() => mockApiClient.get(
-            '/appointments',
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-          )).thenAnswer((_) async => Response(
-                requestOptions: RequestOptions(path: '/appointments'),
-                statusCode: 200,
-                data: {
-                  'data': [
-                    {
-                      'id': 'apt-1',
-                      'serviceDate': '2026-10-26T00:00:00.000Z',
-                      'startTime': '2026-10-26T05:00:00.000Z',
-                      'endTime': '2026-10-26T05:15:00.000Z',
-                      'type': 'SCHEDULED',
-                      'status': 'SCHEDULED',
-                      'patient': {
-                        'id': 'pat-1',
-                        'uhid': 'UHID-2026-0001',
-                        'fullName': 'Aarav Patel',
-                      },
-                      'doctor': {
-                        'userId': 'doc-1',
-                        'role': 'DOCTOR',
-                        'user': {'fullName': 'Dr. Sharma'},
-                      },
-                    }
-                  ],
-                  'meta': {
-                    'page': 1,
-                    'limit': 10,
-                    'total': 1,
-                    'totalPages': 1,
-                  },
-                },
-              ));
-
-      // 3. Mock Queue endpoint with multiple statuses
-      when(() => mockApiClient.get(
-            '/queue',
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-          )).thenAnswer((_) async => Response(
-                requestOptions: RequestOptions(path: '/queue'),
-                statusCode: 200,
-                data: {
-                  'total': 3,
-                  'data': [
-                    {
-                      'id': 'q-1',
-                      'tokenNumber': 1,
-                      'status': 'WAITING',
-                      'priority': 0,
-                      'patient': {'fullName': 'Aarav Patel', 'uhid': 'UHID-001'},
-                    },
-                    {
-                      'id': 'q-2',
-                      'tokenNumber': 2,
-                      'status': 'CALLED',
-                      'priority': 1,
-                      'patient': {'fullName': 'Sunita Rao', 'uhid': 'UHID-002'},
-                    },
-                    {
-                      'id': 'q-3',
-                      'tokenNumber': 3,
-                      'status': 'COMPLETED',
-                      'priority': 0,
-                      'patient': {'fullName': 'Mohan Das', 'uhid': 'UHID-003'},
-                    },
-                  ],
-                },
-              ));
-
-      // 4. Mock Consultations endpoint: throws 403 role ADMIN not authorized
+      // 2. Mock Consultations endpoint: throws 403 role ADMIN not authorized
       when(() => mockApiClient.get(
             '/consultations',
             queryParameters: any(named: 'queryParameters'),
@@ -143,7 +69,7 @@ void main() {
             message: 'Access denied: role ADMIN is not authorized for this operation',
           ));
 
-      // 5. Mock Health endpoint
+      // 3. Mock Health endpoint
       when(() => mockApiClient.get('/health', options: any(named: 'options')))
           .thenAnswer((_) async => Response(
                 requestOptions: RequestOptions(path: '/health'),
@@ -161,12 +87,6 @@ void main() {
       expect(stats.totalPatients, equals(1));
       expect(stats.recentPatients.length, equals(1));
       expect(stats.recentPatients.first.fullName, equals('Aarav Patel'));
-      expect(stats.totalAppointmentsToday, equals(1));
-      expect(stats.appointmentsToday.first.patientName, equals('Aarav Patel'));
-      expect(stats.totalQueueToday, equals(3));
-      expect(stats.queueWaitingCount, equals(1));
-      expect(stats.queueCalledCount, equals(1));
-      expect(stats.queueCompletedCount, equals(1));
       expect(stats.isDoctor, isFalse);
       expect(stats.detectedRole, equals('ADMIN'));
       expect(stats.consultationRestrictionMessage, contains('Doctor role'));
@@ -182,24 +102,6 @@ void main() {
                 requestOptions: RequestOptions(path: '/patients'),
                 statusCode: 200,
                 data: {'data': [], 'meta': {'total': 0}},
-              ));
-      when(() => mockApiClient.get(
-            '/appointments',
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-          )).thenAnswer((_) async => Response(
-                requestOptions: RequestOptions(path: '/appointments'),
-                statusCode: 200,
-                data: {'data': [], 'meta': {'total': 0}},
-              ));
-      when(() => mockApiClient.get(
-            '/queue',
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-          )).thenAnswer((_) async => Response(
-                requestOptions: RequestOptions(path: '/queue'),
-                statusCode: 200,
-                data: {'total': 0, 'data': []},
               ));
       when(() => mockApiClient.get(
             '/consultations',
