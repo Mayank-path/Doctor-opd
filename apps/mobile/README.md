@@ -158,7 +158,7 @@ The mobile app integrates directly with the existing DOCTOR-OPD NestJS backend:
   ```
 
 ### Tenant Isolation:
-- Protected clinic resources (`/patients`, `/appointments`, `/queue`, `/consultations`) require two headers:
+- Protected clinic resources (`/patients`, `/consultations`, `/prescriptions`) require two headers:
   - `Authorization: Bearer <accessToken>`
   - `x-clinic-id: <clinicUuid>`
 - The `AuthInterceptor` automatically injects both headers from encrypted device storage into every outgoing request.
