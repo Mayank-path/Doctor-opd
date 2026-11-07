@@ -817,7 +817,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
       );
     }
 
-    if (_errorMessage != null && _consultation == null) {
+    if (_consultation == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -827,7 +827,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
               Icon(Icons.error_outline, size: 48, color: AppTheme.errorRed),
               const SizedBox(height: 12),
               Text(
-                _errorMessage!,
+                _errorMessage ?? 'Consultation not found',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
               ),
@@ -1150,6 +1150,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.accentTeal,
                     foregroundColor: Colors.white,
+                    minimumSize: Size.zero,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -1196,6 +1197,13 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                   OutlinedButton.icon(
                     key: const Key('pickFollowUpDateButton'),
                     onPressed: _pickFollowUpDate,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
                     icon: const Icon(Icons.date_range, size: 16),
                     label: Text(
                       _followUpDateController.text.isNotEmpty
