@@ -99,13 +99,13 @@ describe('AuthService — Clinic Owner Registration (Phase 5D.1)', () => {
     expect(response.clinic).toEqual({
       id: 'clinic-uuid-1',
       name: 'Desai Care Clinic',
-      role: ClinicRole.ADMIN,
+      role: ClinicRole.DOCTOR,
     });
     expect(response.clinics).toEqual([
       {
         id: 'clinic-uuid-1',
         name: 'Desai Care Clinic',
-        role: ClinicRole.ADMIN,
+        role: ClinicRole.DOCTOR,
       },
     ]);
     // Ensure no password hash is returned
@@ -195,7 +195,7 @@ describe('AuthService — Clinic Owner Registration (Phase 5D.1)', () => {
     expect(capturedUserData.phone.startsWith('+reg-')).toBe(true);
   });
 
-  it('should enforce ClinicRole.ADMIN regardless of any client tampering attempts', async () => {
+  it('should enforce ClinicRole.DOCTOR regardless of any client tampering attempts', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
     let capturedMembershipData: any;
@@ -234,8 +234,8 @@ describe('AuthService — Clinic Owner Registration (Phase 5D.1)', () => {
 
     await authService.registerClinic(tamperedDto);
 
-    // Membership MUST be ADMIN and link strictly to newly created clinic
-    expect(capturedMembershipData.role).toBe(ClinicRole.ADMIN);
+    // Membership MUST be DOCTOR and link strictly to newly created clinic
+    expect(capturedMembershipData.role).toBe(ClinicRole.DOCTOR);
     expect(capturedMembershipData.status).toBe(MembershipStatus.ACTIVE);
     expect(capturedMembershipData.clinicId).toBe('clinic-tamper-id');
     expect(capturedMembershipData.userId).toBe('user-tamper-id');

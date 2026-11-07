@@ -225,7 +225,7 @@ export class AuthService {
   }
 
   /**
-   * Registers a new clinic owner: creates a User, Clinic, and ADMIN ClinicMembership
+   * Registers a new clinic owner: creates a User, Clinic, and DOCTOR ClinicMembership
    * inside a single atomic transaction.
    *
    * Security & Integrity Guarantees:
@@ -233,7 +233,7 @@ export class AuthService {
    * - Normalizes email to lowercase.
    * - Enforces unique email check (ConflictException if already exists).
    * - Hashes password using Argon2id; never returns or logs password hashes.
-   * - Hardcodes ClinicRole.ADMIN; never trusts client-supplied roles or clinic IDs.
+   * - Hardcodes ClinicRole.DOCTOR; never trusts client-supplied roles or clinic IDs.
    * - Executes in a single ACID transaction; rolls back completely on any failure.
    * - Preserves standard JWT authentication response contract.
    */
@@ -272,7 +272,7 @@ export class AuthService {
     // 3. Hash password with Argon2id
     const passwordHash = await this.hashPassword(dto.password);
 
-    // 4. Atomic transaction: create User, Clinic, and ADMIN ClinicMembership
+    // 4. Atomic transaction: create User, Clinic, and DOCTOR ClinicMembership
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -306,7 +306,7 @@ export class AuthService {
         data: {
           userId: user.id,
           clinicId: clinic.id,
-          role: ClinicRole.ADMIN,
+          role: ClinicRole.DOCTOR,
           status: MembershipStatus.ACTIVE,
         },
       });
@@ -320,7 +320,7 @@ export class AuthService {
     const clinicContext: AuthClinicContext = {
       id: result.clinic.id,
       name: result.clinic.name,
-      role: ClinicRole.ADMIN,
+      role: ClinicRole.DOCTOR,
     };
 
     return {

@@ -120,6 +120,10 @@ describe('Clinical Extraction API (E2E Integration & Security)', () => {
             clinicId,
             role: ClinicRole.DOCTOR,
             status: MembershipStatus.ACTIVE,
+            clinic: {
+              id: clinicId,
+              isActive: true,
+            },
           } as any;
         }
 
@@ -130,6 +134,10 @@ describe('Clinical Extraction API (E2E Integration & Security)', () => {
             clinicId,
             role: ClinicRole.STAFF,
             status: MembershipStatus.ACTIVE,
+            clinic: {
+              id: clinicId,
+              isActive: true,
+            },
           } as any;
         }
 

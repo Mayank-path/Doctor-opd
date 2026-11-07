@@ -540,13 +540,13 @@ void main() {
             'clinic': {
               'id': '44444444-4444-4444-a444-444444444444',
               'name': 'New Founder Clinic',
-              'role': 'ADMIN',
+              'role': 'DOCTOR',
             },
             'clinics': [
               {
                 'id': '44444444-4444-4444-a444-444444444444',
                 'name': 'New Founder Clinic',
-                'role': 'ADMIN',
+                'role': 'DOCTOR',
               },
             ],
           },
@@ -563,7 +563,7 @@ void main() {
       expect(authService.isAuthenticated, isTrue);
       expect(authService.activeClinicId, '44444444-4444-4444-a444-444444444444');
       expect(authService.activeClinic?.name, 'New Founder Clinic');
-      expect(authService.activeClinic?.role, 'ADMIN');
+      expect(authService.activeClinic?.role, 'DOCTOR');
       verify(() => mockStorageService.saveActiveClinicId('44444444-4444-4444-a444-444444444444')).called(1);
     });
 
