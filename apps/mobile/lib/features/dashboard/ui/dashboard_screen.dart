@@ -18,6 +18,9 @@ import '../../consultations/services/consultations_service.dart';
 import '../../consultations/ui/consultation_list_screen.dart';
 import '../../prescriptions/services/prescriptions_service.dart';
 import '../../prescriptions/ui/prescription_list_screen.dart';
+import '../../analytics/services/analytics_service.dart';
+import '../../analytics/ui/practice_analytics_screen.dart';
+import '../../analytics/ui/disease_search_screen.dart';
 
 /// Production-ready Clinic Dashboard Screen
 /// Integrates real backend OPD endpoints, tenant isolation, and role boundaries.
@@ -28,6 +31,7 @@ class DashboardScreen extends StatefulWidget {
   final PatientsService? patientsService;
   final ConsultationsService? consultationsService;
   final PrescriptionsService? prescriptionsService;
+  final AnalyticsService? analyticsService;
 
   const DashboardScreen({
     super.key,
@@ -37,6 +41,7 @@ class DashboardScreen extends StatefulWidget {
     this.patientsService,
     this.consultationsService,
     this.prescriptionsService,
+    this.analyticsService,
   });
 
   @override
@@ -245,6 +250,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(
         builder: (_) => PrescriptionListScreen(
           prescriptionsService: widget.prescriptionsService,
+        ),
+      ),
+    );
+    if (_activeClinicId != null && mounted) {
+      await _loadDashboardData(_activeClinicId!);
+    }
+  }
+
+  Future<void> _navigateToAnalytics() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PracticeAnalyticsScreen(
+          analyticsService: widget.analyticsService ?? AnalyticsService(),
+        ),
+      ),
+    );
+    if (_activeClinicId != null && mounted) {
+      await _loadDashboardData(_activeClinicId!);
+    }
+  }
+
+  Future<void> _navigateToDiseaseSearch() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DiseaseSearchScreen(
+          analyticsService: widget.analyticsService ?? AnalyticsService(),
         ),
       ),
     );
@@ -480,6 +511,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onPatientsTap: _navigateToPatients,
                       onConsultationsTap: _navigateToConsultations,
                       onPrescriptionsTap: _navigateToPrescriptions,
+                      onAnalyticsTap: _navigateToAnalytics,
+                      onDiseaseSearchTap: _navigateToDiseaseSearch,
                     ),
                     const SizedBox(height: 16),
 

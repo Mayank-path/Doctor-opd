@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:doctor_opd_mobile/core/storage/secure_storage_service.dart';
 import 'package:doctor_opd_mobile/features/auth/models/auth_user.dart';
-import 'package:doctor_opd_mobile/features/clinical_assist/models/doctor_extraction_review.dart';
 import 'package:doctor_opd_mobile/features/consultations/services/consultations_service.dart';
 import 'package:doctor_opd_mobile/features/consultations/ui/consultation_create_screen.dart';
 import 'package:doctor_opd_mobile/features/patients/models/patient.dart';
@@ -61,48 +60,46 @@ void main() {
     );
   }
 
-  group('Structured Clinical Extraction to Consultation Integration Tests', () {
-    testWidgets('populates symptoms and examination controllers from structured formatting result', (tester) async {
+  group('Consultation Voice Removal & Manual Workflow Verification', () {
+    testWidgets('confirms voice recording UI and mic buttons are completely removed from consultation create', (tester) async {
       await tester.pumpWidget(createWidget());
       await tester.pumpAndSettle();
 
       expect(find.text('Start Consultation'), findsOneWidget);
       expect(find.text('Symptoms / History of Present Illness'), findsOneWidget);
       expect(find.text('Physical Examination Findings'), findsOneWidget);
+      expect(find.text('Clinical Diagnosis / Impression'), findsOneWidget);
 
-      // Verify Voice Symptoms icon button exists
-      final micButton = find.byIcon(Icons.mic_rounded);
-      expect(micButton, findsOneWidget);
+      // Verify Voice Symptoms icon button and tooltip do NOT exist
+      expect(find.byIcon(Icons.mic_rounded), findsNothing);
+      expect(find.byTooltip('Capture Voice Symptoms'), findsNothing);
     });
 
-    testWidgets('applies structured formatting result safely with category separation and draft preservation', (tester) async {
-      const formattingResult = ClinicalExtractionFormattingResult(
-        formattedSymptoms: '[Reported Symptoms]\n• Fever: PRESENT (SEVERE)\n• Throat Pain: PRESENT',
-        formattedExamination: '[Examinations & Procedures Omitted / Deferred]\n• Chest Examination: NOT PERFORMED (Reason: Not done)',
-        includedFindingsCount: 2,
-        excludedFindingsCount: 0,
-        includedAssessmentsCount: 1,
-        includedUnmappedCount: 0,
-      );
-
+    testWidgets('supports direct manual entry for symptoms, examination, and diagnosis without voice dependency', (tester) async {
       await tester.pumpWidget(createWidget());
       await tester.pumpAndSettle();
 
-      final state = tester.state<ConsultationCreateScreenState>(find.byType(ConsultationCreateScreen));
-
-      state.applyStructuredExtractionForTest(formattingResult);
+      // Enter manual clinical symptoms
+      final symptomsFinder = find.widgetWithText(TextFormField, 'Symptoms / History of Present Illness');
+      expect(symptomsFinder, findsOneWidget);
+      await tester.enterText(symptomsFinder, 'Patient presents with mild fever and sore throat.');
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Fever: PRESENT (SEVERE)'), findsOneWidget);
-      expect(find.textContaining('Chest Examination: NOT PERFORMED'), findsOneWidget);
-      expect(find.text('Structured findings inserted into consultation draft'), findsOneWidget);
-
-      // Duplicate insertion check: calling again should not duplicate identical text
-      state.applyStructuredExtractionForTest(formattingResult);
+      // Enter manual physical examination findings
+      final examFinder = find.widgetWithText(TextFormField, 'Physical Examination Findings');
+      expect(examFinder, findsOneWidget);
+      await tester.enterText(examFinder, 'Throat hyperemic, tonsils enlarged.');
       await tester.pumpAndSettle();
 
-      // Only one occurrence of the block
-      expect(find.textContaining('Fever: PRESENT (SEVERE)'), findsOneWidget);
+      // Enter manual clinical diagnosis
+      final diagFinder = find.widgetWithText(TextFormField, 'Clinical Diagnosis / Impression');
+      expect(diagFinder, findsOneWidget);
+      await tester.enterText(diagFinder, 'Acute Pharyngitis');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Patient presents with mild fever and sore throat.'), findsOneWidget);
+      expect(find.text('Throat hyperemic, tonsils enlarged.'), findsOneWidget);
+      expect(find.text('Acute Pharyngitis'), findsOneWidget);
     });
   });
 }

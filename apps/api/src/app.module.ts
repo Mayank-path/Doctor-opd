@@ -12,6 +12,8 @@ import { PatientsModule } from './patients/patients.module';
 import { ConsultationsModule } from './consultations/consultations.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { ClinicalAssistModule } from './clinical-assist/clinical-assist.module';
+import { PaymentsModule } from './payments/payments.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { ClinicalAssistModule } from './clinical-assist/clinical-assist.module';
     ConsultationsModule,
     PrescriptionsModule,
     ClinicalAssistModule,
+    PaymentsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

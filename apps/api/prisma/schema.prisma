@@ -72,44 +72,45 @@ enum MedicationTiming {
 }
 
 model User {
-  id           String               @id @default(uuid())
-  phone        String               @unique
-  email        String?              @unique
-  passwordHash String?
-  fullName     String
-  isActive     Boolean              @default(true)
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  memberships  ClinicMembership[]
-  auditEvents  ClinicalAuditEvent[]
+  id               String               @id @default(uuid())
+  phone            String               @unique
+  email            String?              @unique
+  passwordHash     String?
+  fullName         String
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  memberships      ClinicMembership[]
+  auditEvents      ClinicalAuditEvent[]
+  recordedPayments Payment[]            @relation("PaymentRecorder")
 
   // Clinical Knowledge-Pack Governance relations
-  reviewedApprovals        ClinicalReviewApproval[]
-  authorizedReleases       KnowledgePackRelease[]
-  governanceAudits         KnowledgePackGovernanceAudit[] @relation("GovernanceAuditActor")
-  reviewerCredential       ReviewerCredential?            @relation("ReviewerCredentialUser")
-  verifiedCredentials      ReviewerCredential[]           @relation("ReviewerCredentialVerifier")
-  authoredVersions         KnowledgePackVersion[]         @relation("KnowledgePackAuthor")
-  verificationDecisions    ReviewerVerificationHistory[]  @relation("VerificationHistoryActor")
-  registeredPublicKeys     ReviewerPublicKey[]            @relation("ReviewerPublicKeys")
-  consumedAttestationNonces GovernanceAttestationNonce[]  @relation("ReviewerNonces")
+  reviewedApprovals         ClinicalReviewApproval[]
+  authorizedReleases        KnowledgePackRelease[]
+  governanceAudits          KnowledgePackGovernanceAudit[] @relation("GovernanceAuditActor")
+  reviewerCredential        ReviewerCredential?            @relation("ReviewerCredentialUser")
+  verifiedCredentials       ReviewerCredential[]           @relation("ReviewerCredentialVerifier")
+  authoredVersions          KnowledgePackVersion[]         @relation("KnowledgePackAuthor")
+  verificationDecisions     ReviewerVerificationHistory[]  @relation("VerificationHistoryActor")
+  registeredPublicKeys      ReviewerPublicKey[]            @relation("ReviewerPublicKeys")
+  consumedAttestationNonces GovernanceAttestationNonce[]   @relation("ReviewerNonces")
 
   @@map("users")
 }
 
 model Clinic {
-  id                    String                       @id @default(uuid())
+  id                    String                 @id @default(uuid())
   name                  String
-  slug                  String?                      @unique
+  slug                  String?                @unique
   phone                 String?
   email                 String?
   address               String?
   city                  String?
   state                 String?
   postalCode            String?
-  isActive              Boolean                      @default(true)
-  createdAt             DateTime                     @default(now())
-  updatedAt             DateTime                     @updatedAt
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
   memberships           ClinicMembership[]
   patients              Patient[]
   uhidCounter           PatientUhidCounter?
@@ -117,6 +118,7 @@ model Clinic {
   prescriptions         Prescription[]
   auditEvents           ClinicalAuditEvent[]
   knowledgePackReleases KnowledgePackRelease[]
+  payments              Payment[]
 
   @@map("clinics")
 }
@@ -133,8 +135,8 @@ model ClinicMembership {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
-  consultations      Consultation[]               @relation("ClinicianConsultations")
-  prescriptions      Prescription[]               @relation("DoctorPrescriptions")
+  consultations Consultation[] @relation("ClinicianConsultations")
+  prescriptions Prescription[] @relation("DoctorPrescriptions")
 
   @@unique([userId, clinicId])
   @@index([userId])
@@ -160,9 +162,10 @@ model Patient {
   createdAt      DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
-  clinic             Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  consultations      Consultation[]
-  prescriptions      Prescription[]
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consultations Consultation[]
+  prescriptions Prescription[]
+  payments      Payment[]
 
   @@unique([clinicId, uhid])
   @@unique([id, clinicId])
@@ -214,10 +217,11 @@ model Consultation {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  clinic             Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient            Patient                      @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
-  clinician          ClinicMembership             @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
-  prescriptions      Prescription[]
+  clinic        Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient       Patient          @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  clinician     ClinicMembership @relation("ClinicianConsultations", fields: [clinicianId, clinicId], references: [userId, clinicId], onDelete: Restrict)
+  prescriptions Prescription[]
+  payments      Payment[]
 
   @@unique([id, clinicId])
   @@index([clinicId, patientId, encounterDate(sort: Desc)])
@@ -331,8 +335,6 @@ enum ReviewerVerificationStatus {
   REVOKED
 }
 
-
-
 /// Domain knowledge pack definition.
 model ClinicalKnowledgePack {
   id          String              @id @default(uuid())
@@ -360,15 +362,15 @@ model KnowledgePackVersion {
   publishedAt    DateTime?                  @db.Timestamptz(3)
   createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
 
-  pack         ClinicalKnowledgePack     @relation(fields: [packId], references: [id], onDelete: Restrict)
-  authorUserId String?                   // Relational link to User who authored version (Nullable for legacy safety; fails closed in governance if null)
-  author       User?                     @relation("KnowledgePackAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
-  conditions   ClinicalCondition[]
-  redFlagRules RedFlagRule[]
-  sources      ClinicalSourceReference[]
-  approvals        ClinicalReviewApproval[]
-  releases         KnowledgePackRelease[]
-  governanceAudits KnowledgePackGovernanceAudit[]
+  pack              ClinicalKnowledgePack          @relation(fields: [packId], references: [id], onDelete: Restrict)
+  authorUserId      String? // Relational link to User who authored version (Nullable for legacy safety; fails closed in governance if null)
+  author            User?                          @relation("KnowledgePackAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  conditions        ClinicalCondition[]
+  redFlagRules      RedFlagRule[]
+  sources           ClinicalSourceReference[]
+  approvals         ClinicalReviewApproval[]
+  releases          KnowledgePackRelease[]
+  governanceAudits  KnowledgePackGovernanceAudit[]
   attestationNonces GovernanceAttestationNonce[]
 
   @@unique([packId, majorVersion, minorVersion, patchVersion])
@@ -394,7 +396,6 @@ model ClinicalCondition {
   @@index([versionId, category])
   @@map("clinical_conditions")
 }
-
 
 /// High-acuity emergency red flag rule.
 model RedFlagRule {
@@ -426,7 +427,7 @@ model ClinicalSourceReference {
   evidenceScope      String
   createdAt          DateTime @default(now()) @db.Timestamptz(3)
 
-  version      KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  version KnowledgePackVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
 
   @@map("clinical_source_references")
 }
@@ -437,14 +438,14 @@ model ClinicalSourceReference {
 model ClinicalReviewApproval {
   id                  String    @id @default(uuid())
   versionId           String
-  reviewerUserId      String?   // Relational link to authenticated User (verified reviewer identity)
+  reviewerUserId      String? // Relational link to authenticated User (verified reviewer identity)
   clinicianName       String
-  medicalRegistration String    // State Medical Council or NMC reg
-  stateMedicalCouncil String?   // e.g. "Delhi Medical Council"
-  qualification       String?   // e.g. "MBBS, MD (General Medicine)"
+  medicalRegistration String // State Medical Council or NMC reg
+  stateMedicalCouncil String? // e.g. "Delhi Medical Council"
+  qualification       String? // e.g. "MBBS, MD (General Medicine)"
   specialty           String
-  checksumSha256      String?   // Explicit 64-char SHA-256 binding. Nullable for legacy safety; resolver rejects if null.
-  approvalVerdict     String    // "APPROVED", "REJECTED"
+  checksumSha256      String? // Explicit 64-char SHA-256 binding. Nullable for legacy safety; resolver rejects if null.
+  approvalVerdict     String // "APPROVED", "REJECTED"
   reviewNotes         String    @db.Text
   coiDeclared         Boolean   @default(false)
   coiDetails          String?   @db.Text
@@ -464,11 +465,11 @@ model ClinicalReviewApproval {
 /// Tenant-specific knowledge pack release. Null clinicId = Global baseline release.
 model KnowledgePackRelease {
   id                 String              @id @default(uuid())
-  clinicId           String?             // Null = Global Baseline; Non-null = Tenant override
+  clinicId           String? // Null = Global Baseline; Non-null = Tenant override
   versionId          String
   domain             KnowledgePackDomain @default(GENERAL_MEDICINE) // Domain for active release scoping
   isActive           Boolean             @default(true)
-  releasedByUserId   String?             // Relational link to Release Officer
+  releasedByUserId   String? // Relational link to Release Officer
   releaseNotes       String?             @db.Text
   activatedAt        DateTime            @default(now()) @db.Timestamptz(3)
   deactivatedAt      DateTime?           @db.Timestamptz(3)
@@ -488,12 +489,12 @@ model KnowledgePackRelease {
 model KnowledgePackGovernanceAudit {
   id             String   @id @default(uuid())
   versionId      String
-  action         String   // "STATUS_TRANSITIONED", "APPROVAL_SIGNED", "RELEASE_ACTIVATED", "EMERGENCY_ROLLBACK"
+  action         String // "STATUS_TRANSITIONED", "APPROVAL_SIGNED", "RELEASE_ACTIVATED", "EMERGENCY_ROLLBACK"
   fromStatus     String?
   toStatus       String?
   actorUserId    String
-  checksumSha256 String   // Exact SHA-256 at the moment of action
-  metadataJson   Json?    // Structured event parameters
+  checksumSha256 String // Exact SHA-256 at the moment of action
+  metadataJson   Json? // Structured event parameters
   ipAddress      String?
   userAgent      String?
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
@@ -545,7 +546,7 @@ model ReviewerCredential {
 model ReviewerVerificationHistory {
   id           String                     @id @default(uuid())
   credentialId String
-  action       String                     // "SUBMITTED", "VERIFIED", "REJECTED", "REVOKED", "EXPIRED"
+  action       String // "SUBMITTED", "VERIFIED", "REJECTED", "REVOKED", "EXPIRED"
   fromStatus   ReviewerVerificationStatus
   toStatus     ReviewerVerificationStatus
   actorUserId  String
@@ -604,5 +605,46 @@ model GovernanceAttestationNonce {
   @@map("governance_attestation_nonces")
 }
 
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  OTHER
+}
 
+enum PaymentStatus {
+  COMPLETED
+  PENDING
+  FAILED
+  REFUNDED
+}
 
+model Payment {
+  id             String  @id @default(uuid())
+  clinicId       String  @map("clinic_id")
+  consultationId String? @map("consultation_id")
+  patientId      String  @map("patient_id")
+  recordedById   String  @map("recorded_by_id")
+
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod
+  status         PaymentStatus @default(COMPLETED)
+  notes          String?
+  idempotencyKey String?       @map("idempotency_key")
+  paidAt         DateTime      @default(now()) @map("paid_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  patient      Patient       @relation(fields: [patientId, clinicId], references: [id, clinicId], onDelete: Restrict)
+  recordedBy   User          @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, idempotencyKey])
+  @@index([clinicId, paidAt(sort: Desc)])
+  @@index([clinicId, status, paidAt(sort: Desc)])
+  @@index([clinicId, consultationId])
+  @@index([clinicId, patientId])
+  @@map("payments")
+}

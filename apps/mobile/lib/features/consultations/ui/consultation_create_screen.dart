@@ -9,8 +9,6 @@ import '../services/consultations_service.dart';
 import 'components/patient_search_selector.dart';
 import 'components/vitals_input_grid.dart';
 import 'consultation_details_screen.dart';
-import '../../clinical_assist/screens/voice_symptom_capture_screen.dart';
-import '../../clinical_assist/models/doctor_extraction_review.dart';
 
 /// Screen for creating a new consultation draft for a patient.
 ///
@@ -220,82 +218,6 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
     final text = controller.text.trim();
     if (text.isEmpty) return null;
     return double.tryParse(text);
-  }
-
-  Future<void> _openVoiceSymptomCapture() async {
-    final result = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute(
-        builder: (_) => VoiceSymptomCaptureScreen(
-          initialPatient: _selectedPatient,
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-
-    if (result is ClinicalExtractionFormattingResult) {
-      _applyStructuredExtraction(result);
-    } else if (result is String && result.trim().isNotEmpty) {
-      final current = _symptomsController.text.trim();
-      setState(() {
-        if (current.isEmpty) {
-          _symptomsController.text = result.trim();
-        } else {
-          _symptomsController.text = '$current\n${result.trim()}';
-        }
-        _hasUnsavedChanges = true;
-      });
-    }
-  }
-
-  void _applyStructuredExtraction(ClinicalExtractionFormattingResult result) {
-    final newSymptoms = result.formattedSymptoms.trim();
-    final newExam = result.formattedExamination.trim();
-    final newDiagnosis = result.formattedDiagnosis?.trim();
-
-    final currentSymptoms = _symptomsController.text.trim();
-    final currentExam = _examinationController.text.trim();
-    final currentDiagnosis = _diagnosisController.text.trim();
-
-    setState(() {
-      if (newSymptoms.isNotEmpty) {
-        if (currentSymptoms.isEmpty) {
-          _symptomsController.text = newSymptoms;
-        } else if (!currentSymptoms.contains(newSymptoms)) {
-          _symptomsController.text = '$currentSymptoms\n\n$newSymptoms';
-        }
-      }
-
-      if (newExam.isNotEmpty) {
-        if (currentExam.isEmpty) {
-          _examinationController.text = newExam;
-        } else if (!currentExam.contains(newExam)) {
-          _examinationController.text = '$currentExam\n\n$newExam';
-        }
-      }
-
-      if (newDiagnosis != null && newDiagnosis.isNotEmpty) {
-        if (currentDiagnosis.isEmpty) {
-          _diagnosisController.text = newDiagnosis;
-        } else if (!currentDiagnosis.contains(newDiagnosis)) {
-          _diagnosisController.text = '$currentDiagnosis\n$newDiagnosis';
-        }
-      }
-
-      _hasUnsavedChanges = true;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Structured findings inserted into consultation draft'),
-        backgroundColor: AppTheme.accentTeal,
-      ),
-    );
-  }
-
-  @visibleForTesting
-  void applyStructuredExtractionForTest(ClinicalExtractionFormattingResult result) {
-    _applyStructuredExtraction(result);
   }
 
   Future<void> _submitCreateDraft() async {
@@ -628,15 +550,10 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                       TextFormField(
                         controller: _symptomsController,
                         maxLines: 2,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Symptoms / History of Present Illness',
                           hintText: 'e.g. Chills, sore throat, fatigue...',
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.mic_rounded, color: AppTheme.accentTeal),
-                            tooltip: 'Capture Voice Symptoms',
-                            onPressed: _openVoiceSymptomCapture,
-                          ),
+                          border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 14),

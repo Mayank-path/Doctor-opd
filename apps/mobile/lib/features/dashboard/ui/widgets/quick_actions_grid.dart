@@ -9,6 +9,8 @@ class QuickActionsGrid extends StatelessWidget {
   final VoidCallback? onPatientsTap;
   final VoidCallback? onConsultationsTap;
   final VoidCallback? onPrescriptionsTap;
+  final VoidCallback? onAnalyticsTap;
+  final VoidCallback? onDiseaseSearchTap;
 
   const QuickActionsGrid({
     super.key,
@@ -17,6 +19,8 @@ class QuickActionsGrid extends StatelessWidget {
     this.onPatientsTap,
     this.onConsultationsTap,
     this.onPrescriptionsTap,
+    this.onAnalyticsTap,
+    this.onDiseaseSearchTap,
   });
 
   void _showComingSoonSheet(
@@ -212,6 +216,52 @@ class QuickActionsGrid extends StatelessWidget {
                             description: isDoctor
                                 ? 'Clinician-reviewed prescription builder, digital approvals, and authenticated PDF printing.'
                                 : 'Prescription creation is restricted to DOCTOR memberships.',
+                          ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildActionCard(
+                  context,
+                  title: 'Analytics',
+                  subtitle: isDoctor ? 'Performance' : 'Protected',
+                  icon: Icons.insights_rounded,
+                  color: Colors.indigo.shade700,
+                  onTap: (isDoctor && onAnalyticsTap != null)
+                      ? onAnalyticsTap!
+                      : () => _showComingSoonSheet(
+                            context,
+                            title: 'Practice Analytics',
+                            icon: Icons.insights_rounded,
+                            description: isDoctor
+                                ? 'Doctor practice performance, patient trends, and collected revenue metrics.'
+                                : 'Practice analytics is restricted to DOCTOR memberships.',
+                          ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (isDoctor || onDiseaseSearchTap != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionCard(
+                  context,
+                  title: 'Disease Search',
+                  subtitle: isDoctor ? 'Clinical History' : 'Protected',
+                  icon: Icons.manage_search_rounded,
+                  color: Colors.deepOrange.shade700,
+                  onTap: (isDoctor && onDiseaseSearchTap != null)
+                      ? onDiseaseSearchTap!
+                      : () => _showComingSoonSheet(
+                            context,
+                            title: 'Disease Search',
+                            icon: Icons.manage_search_rounded,
+                            description: isDoctor
+                                ? 'Search historical clinical consultation records by confirmed disease name or clinical symptoms.'
+                                : 'Clinical record search is restricted to DOCTOR memberships.',
                           ),
                 ),
               ),
