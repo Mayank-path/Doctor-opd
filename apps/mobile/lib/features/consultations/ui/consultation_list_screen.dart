@@ -275,6 +275,15 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
             selectedColor: AppTheme.accentTeal.withAlpha(30),
             checkmarkColor: AppTheme.accentTeal,
           ),
+          const SizedBox(width: 8),
+          FilterChip(
+            label: const Text('Voided'),
+            selected: _selectedStatusFilter == ConsultationStatus.voided,
+            onSelected: (_) =>
+                _onStatusFilterSelected(ConsultationStatus.voided),
+            selectedColor: AppTheme.errorRed.withAlpha(30),
+            checkmarkColor: AppTheme.errorRed,
+          ),
         ],
       ),
     );
@@ -419,33 +428,49 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDraft
-                          ? Colors.amber.shade50
-                          : AppTheme.accentTeal.withAlpha(20),
+                      color: item.isVoided
+                          ? AppTheme.errorRed.withAlpha(20)
+                          : (isDraft
+                              ? Colors.amber.shade50
+                              : AppTheme.accentTeal.withAlpha(20)),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isDraft ? Colors.amber.shade700 : AppTheme.accentTeal,
+                        color: item.isVoided
+                            ? AppTheme.errorRed
+                            : (isDraft
+                                ? Colors.amber.shade700
+                                : AppTheme.accentTeal),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isDraft ? Icons.edit_note : Icons.check_circle_outline,
+                          item.isVoided
+                              ? Icons.block_rounded
+                              : (isDraft
+                                  ? Icons.edit_note
+                                  : Icons.check_circle_outline),
                           size: 13,
-                          color: isDraft
-                              ? Colors.amber.shade800
-                              : AppTheme.accentTeal,
+                          color: item.isVoided
+                              ? AppTheme.errorRed
+                              : (isDraft
+                                  ? Colors.amber.shade800
+                                  : AppTheme.accentTeal),
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isDraft ? 'DRAFT' : 'FINALIZED',
+                          item.isVoided
+                              ? 'VOIDED'
+                              : (isDraft ? 'DRAFT' : 'FINALIZED'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isDraft
-                                ? Colors.amber.shade900
-                                : AppTheme.accentTeal,
+                            color: item.isVoided
+                                ? AppTheme.errorRed
+                                : (isDraft
+                                    ? Colors.amber.shade900
+                                    : AppTheme.accentTeal),
                           ),
                         ),
                       ],
@@ -503,6 +528,36 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.primaryNavy,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              if (item.isVoided &&
+                  item.voidReason != null &&
+                  item.voidReason!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Void Reason: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.errorRed,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        item.voidReason!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.errorRed,
                         ),
                       ),
                     ),

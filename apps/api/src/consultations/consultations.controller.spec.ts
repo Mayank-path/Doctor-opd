@@ -18,6 +18,8 @@ describe('ConsultationsController', () => {
     finalize: jest.Mock;
     findAll: jest.Mock;
     findOne: jest.Mock;
+    deleteDraft: jest.Mock;
+    void: jest.Mock;
   };
   let prescriptionsService: {
     createDraft: jest.Mock;
@@ -36,6 +38,8 @@ describe('ConsultationsController', () => {
       finalize: jest.fn(),
       findAll: jest.fn(),
       findOne: jest.fn(),
+      deleteDraft: jest.fn(),
+      void: jest.fn(),
     };
     prescriptionsService = {
       createDraft: jest.fn(),
@@ -92,6 +96,20 @@ describe('ConsultationsController', () => {
     it('finalize should strictly restrict access to DOCTOR role', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const targetHandler = controller.finalize;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
+    });
+
+    it('deleteDraft should strictly restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.deleteDraft;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
+    });
+
+    it('void should strictly restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.void;
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
       expect(roles).toEqual([ClinicRole.DOCTOR]);
     });
@@ -304,6 +322,49 @@ describe('ConsultationsController', () => {
         'Jest-Test',
       );
       expect(result).toBe(mockPrescription);
+    });
+  });
+
+  describe('deleteDraft Handler', () => {
+    it('should delegate to service.deleteDraft with clinicId, id, and clinicianId', async () => {
+      const mockResult = { success: true, message: 'Draft consultation deleted successfully' };
+      service.deleteDraft.mockResolvedValue(mockResult);
+
+      const result = await controller.deleteDraft(
+        mockClinicId,
+        mockDoctorUserId,
+        mockConsultationId,
+      );
+
+      expect(service.deleteDraft).toHaveBeenCalledWith(
+        mockClinicId,
+        mockConsultationId,
+        mockDoctorUserId,
+      );
+      expect(result).toBe(mockResult);
+    });
+  });
+
+  describe('void Handler', () => {
+    it('should delegate to service.void with clinicId, id, clinicianId, and DTO', async () => {
+      const mockResult = { id: mockConsultationId, status: ConsultationStatus.VOIDED };
+      service.void.mockResolvedValue(mockResult as any);
+
+      const dto = { reason: 'Consultation recorded under wrong patient ID' };
+      const result = await controller.void(
+        mockClinicId,
+        mockDoctorUserId,
+        mockConsultationId,
+        dto,
+      );
+
+      expect(service.void).toHaveBeenCalledWith(
+        mockClinicId,
+        mockConsultationId,
+        mockDoctorUserId,
+        dto,
+      );
+      expect(result).toBe(mockResult);
     });
   });
 

@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
 import { UpdateConsultationDto } from './dto/update-consultation.dto';
+import { VoidConsultationDto } from './dto/void-consultation.dto';
 import {
   ConsultationQueryDto,
   PaginatedConsultationResponse,
@@ -24,6 +25,30 @@ import { PatientConsultationHistoryQueryDto } from './dto/patient-consultation-h
 @Injectable()
 export class ConsultationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async validateClinicianMembership(
+    clinicId: string,
+    clinicianId: string,
+  ): Promise<void> {
+    const membership = await this.prisma.clinicMembership.findUnique({
+      where: {
+        userId_clinicId: {
+          userId: clinicianId,
+          clinicId,
+        },
+      },
+    });
+
+    if (
+      !membership ||
+      membership.status !== MembershipStatus.ACTIVE ||
+      membership.role !== ClinicRole.DOCTOR
+    ) {
+      throw new ForbiddenException(
+        'Clinician is not an active doctor in this clinic',
+      );
+    }
+  }
 
   /**
    * Creates a draft clinical consultation record for an existing patient
@@ -56,24 +81,7 @@ export class ConsultationsService {
     }
 
     // 2. Verify clinician has an ACTIVE DOCTOR membership in the active clinic
-    const membership = await this.prisma.clinicMembership.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: clinicianId,
-          clinicId,
-        },
-      },
-    });
-
-    if (
-      !membership ||
-      membership.status !== MembershipStatus.ACTIVE ||
-      membership.role !== ClinicRole.DOCTOR
-    ) {
-      throw new ForbiddenException(
-        'Clinician is not an active doctor in this clinic',
-      );
-    }
+    await this.validateClinicianMembership(clinicId, clinicianId);
 
     // 3. Parse date fields safely
     const parsedEncounterDate = dto.encounterDate
@@ -158,9 +166,11 @@ export class ConsultationsService {
       );
     }
 
-    // 3. Reject edits on already finalized records
-    if (existing.status === ConsultationStatus.FINALIZED) {
-      throw new ConflictException('Cannot edit a finalized consultation');
+    // 3. Reject edits on non-draft records
+    if (existing.status !== ConsultationStatus.DRAFT) {
+      throw new ConflictException(
+        `Cannot edit a ${existing.status.toLowerCase()} consultation`,
+      );
     }
 
     // 4. Assemble partial update payload
@@ -256,9 +266,13 @@ export class ConsultationsService {
         );
       }
 
-      // 3. Reject repeated finalization
-      if (existing.status === ConsultationStatus.FINALIZED) {
-        throw new ConflictException('Consultation is already finalized');
+      // 3. Reject non-draft finalization
+      if (existing.status !== ConsultationStatus.DRAFT) {
+        throw new ConflictException(
+          existing.status === ConsultationStatus.FINALIZED
+            ? 'Consultation is already finalized'
+            : `Cannot finalize a ${existing.status.toLowerCase()} consultation`,
+        );
       }
 
       // 4. Concurrency-safe atomic finalization
@@ -285,6 +299,161 @@ export class ConsultationsService {
       return tx.consultation.findUniqueOrThrow({
         where: { id },
       });
+    });
+  }
+
+  /**
+   * Deletes a draft consultation permanently.
+   *
+   * Invariants:
+   * 1. Scoped strictly to the active clinic (404 if not found).
+   * 2. Only the assigned clinician can delete the draft (403 Forbidden).
+   * 3. Only consultations with status = DRAFT can be deleted. Finalized records must be voided (409 Conflict).
+   * 4. Cannot delete if dependent prescriptions exist (409 Conflict).
+   * 5. Records clinical audit event in an atomic transaction.
+   */
+  async deleteDraft(
+    clinicId: string,
+    id: string,
+    clinicianId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.validateClinicianMembership(clinicId, clinicianId);
+
+    const existing = await this.prisma.consultation.findFirst({
+      where: { id, clinicId },
+      include: {
+        prescriptions: { select: { id: true } },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Consultation not found');
+    }
+
+    if (existing.clinicianId !== clinicianId) {
+      throw new ForbiddenException(
+        'Only the assigned clinician may delete this consultation draft',
+      );
+    }
+
+    if (existing.status !== ConsultationStatus.DRAFT) {
+      throw new ConflictException(
+        `Only draft consultations can be deleted. A ${existing.status.toLowerCase()} consultation must be voided.`,
+      );
+    }
+
+    if (existing.prescriptions && existing.prescriptions.length > 0) {
+      throw new ConflictException(
+        'Cannot delete consultation with linked prescriptions. Please delete or unlink prescriptions first.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.consultation.delete({
+        where: { id_clinicId: { id, clinicId } },
+      });
+
+      await tx.clinicalAuditEvent.create({
+        data: {
+          clinicId,
+          userId: clinicianId,
+          action: 'CONSULTATION_DRAFT_DELETED',
+          entityType: 'Consultation',
+          entityId: id,
+          metadata: {
+            patientId: existing.patientId,
+            chiefComplaint: existing.chiefComplaint,
+            encounterDate: existing.encounterDate,
+          },
+        },
+      });
+
+      return { success: true, message: 'Draft consultation deleted successfully' };
+    });
+  }
+
+  /**
+   * Voids a finalized consultation with a mandatory clinical reason.
+   *
+   * Invariants:
+   * 1. Scoped strictly to the active clinic (404 if not found).
+   * 2. Only the assigned clinician can void the consultation (403 Forbidden).
+   * 3. Only consultations with status = FINALIZED can be voided (409 Conflict).
+   * 4. Mandatory non-empty clinical justification reason (validated via DTO).
+   * 5. Preserves all original clinical content, timestamps, and patient links.
+   * 6. Records void timestamp, reason, and clinical audit event in an atomic transaction.
+   */
+  async void(
+    clinicId: string,
+    id: string,
+    clinicianId: string,
+    dto: VoidConsultationDto,
+  ): Promise<Consultation> {
+    await this.validateClinicianMembership(clinicId, clinicianId);
+
+    const existing = await this.prisma.consultation.findFirst({
+      where: { id, clinicId },
+      include: {
+        patient: {
+          select: { id: true, fullName: true, uhid: true, gender: true, dateOfBirth: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Consultation not found');
+    }
+
+    if (existing.clinicianId !== clinicianId) {
+      throw new ForbiddenException(
+        'Only the assigned clinician may void this consultation',
+      );
+    }
+
+    if (existing.status === ConsultationStatus.VOIDED) {
+      throw new ConflictException('Consultation is already voided');
+    }
+
+    if (existing.status !== ConsultationStatus.FINALIZED) {
+      throw new ConflictException(
+        `Only finalized consultations can be voided. Current status is ${existing.status}. Drafts should be deleted directly.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const voided = await tx.consultation.update({
+        where: { id_clinicId: { id, clinicId } },
+        data: {
+          status: ConsultationStatus.VOIDED,
+          voidedAt: now,
+          voidReason: dto.reason,
+        },
+        include: {
+          patient: {
+            select: { id: true, fullName: true, uhid: true, gender: true, dateOfBirth: true },
+          },
+        },
+      });
+
+      await tx.clinicalAuditEvent.create({
+        data: {
+          clinicId,
+          userId: clinicianId,
+          action: 'CONSULTATION_VOIDED',
+          entityType: 'Consultation',
+          entityId: id,
+          metadata: {
+            previousStatus: ConsultationStatus.FINALIZED,
+            newStatus: ConsultationStatus.VOIDED,
+            reason: dto.reason,
+            patientId: existing.patientId,
+            finalizedAt: existing.finalizedAt,
+          },
+        },
+      });
+
+      return voided;
     });
   }
 

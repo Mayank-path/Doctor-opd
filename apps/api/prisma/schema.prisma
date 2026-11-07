@@ -29,6 +29,7 @@ enum Gender {
 enum ConsultationStatus {
   DRAFT
   FINALIZED
+  VOIDED
 }
 
 enum PrescriptionStatus {
@@ -191,6 +192,8 @@ model Consultation {
   encounterDate DateTime           @default(now()) @db.Timestamptz(3)
   status        ConsultationStatus @default(DRAFT)
   finalizedAt   DateTime?          @db.Timestamptz(3)
+  voidedAt      DateTime?          @db.Timestamptz(3)
+  voidReason    String?
 
   chiefComplaint String
   symptoms       String?
@@ -235,6 +238,8 @@ model Prescription {
   amendmentReason          String?
   notes                    String?
   approvedAt               DateTime?          @db.Timestamptz(3)
+  cancelledAt              DateTime?          @db.Timestamptz(3)
+  cancellationReason       String?
   createdAt                DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt                DateTime           @updatedAt @db.Timestamptz(3)
 

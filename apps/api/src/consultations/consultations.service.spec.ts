@@ -84,9 +84,14 @@ describe('ConsultationsService', () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       count: jest.fn(),
       findMany: jest.fn(),
+    },
+    clinicalAuditEvent: {
+      create: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -562,6 +567,226 @@ describe('ConsultationsService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.consultation.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteDraft', () => {
+    it('successfully deletes a draft consultation and records an audit event', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockDraftConsultation,
+        prescriptions: [],
+      });
+      mockPrismaService.consultation.delete.mockResolvedValue(mockDraftConsultation);
+      mockPrismaService.clinicalAuditEvent.create.mockResolvedValue({});
+
+      const result = await service.deleteDraft(
+        mockClinicId,
+        mockConsultationId,
+        mockDoctorUserId,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Draft consultation deleted successfully',
+      });
+      expect(mockPrismaService.consultation.delete).toHaveBeenCalledWith({
+        where: { id_clinicId: { id: mockConsultationId, clinicId: mockClinicId } },
+      });
+      expect(mockPrismaService.clinicalAuditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clinicId: mockClinicId,
+            userId: mockDoctorUserId,
+            action: 'CONSULTATION_DRAFT_DELETED',
+            entityType: 'Consultation',
+            entityId: mockConsultationId,
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException if consultation does not exist in clinic', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockConsultationId, mockDoctorUserId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException if caller is not the assigned clinician', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockDraftConsultation,
+        clinicianId: 'different-doctor-id',
+        prescriptions: [],
+      });
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockConsultationId, mockDoctorUserId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ConflictException if consultation is not in DRAFT status (e.g. FINALIZED)', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockFinalizedConsultation,
+        prescriptions: [],
+      });
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockConsultationId, mockDoctorUserId),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException if consultation has linked prescriptions', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockDraftConsultation,
+        prescriptions: [{ id: 'prescription-uuid-1' }],
+      });
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockConsultationId, mockDoctorUserId),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('void', () => {
+    const validVoidDto = {
+      reason: 'Patient consultation recorded under wrong clinic visit record',
+    };
+
+    it('successfully voids a finalized consultation and records audit event', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockFinalizedConsultation,
+        patient: mockPatient,
+      });
+      const voidedConsultation = {
+        ...mockFinalizedConsultation,
+        status: ConsultationStatus.VOIDED,
+        voidedAt: new Date(),
+        voidReason: validVoidDto.reason,
+        patient: mockPatient,
+      };
+      mockPrismaService.consultation.update.mockResolvedValue(voidedConsultation);
+      mockPrismaService.clinicalAuditEvent.create.mockResolvedValue({});
+
+      const result = await service.void(
+        mockClinicId,
+        mockConsultationId,
+        mockDoctorUserId,
+        validVoidDto,
+      );
+
+      expect(result.status).toBe(ConsultationStatus.VOIDED);
+      expect(result.voidReason).toBe(validVoidDto.reason);
+      expect(mockPrismaService.consultation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id_clinicId: { id: mockConsultationId, clinicId: mockClinicId } },
+          data: expect.objectContaining({
+            status: ConsultationStatus.VOIDED,
+            voidReason: validVoidDto.reason,
+          }),
+        }),
+      );
+      expect(mockPrismaService.clinicalAuditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clinicId: mockClinicId,
+            userId: mockDoctorUserId,
+            action: 'CONSULTATION_VOIDED',
+            entityType: 'Consultation',
+            entityId: mockConsultationId,
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException if consultation does not exist', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.void(
+          mockClinicId,
+          mockConsultationId,
+          mockDoctorUserId,
+          validVoidDto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException if caller is not the assigned clinician', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockFinalizedConsultation,
+        clinicianId: 'different-doctor-id',
+      });
+
+      await expect(
+        service.void(
+          mockClinicId,
+          mockConsultationId,
+          mockDoctorUserId,
+          validVoidDto,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ConflictException if consultation is already VOIDED', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue({
+        ...mockFinalizedConsultation,
+        status: ConsultationStatus.VOIDED,
+      });
+
+      await expect(
+        service.void(
+          mockClinicId,
+          mockConsultationId,
+          mockDoctorUserId,
+          validVoidDto,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException if consultation is in DRAFT status', async () => {
+      mockPrismaService.clinicMembership.findUnique.mockResolvedValue(
+        mockDoctorMembership,
+      );
+      mockPrismaService.consultation.findFirst.mockResolvedValue(
+        mockDraftConsultation,
+      );
+
+      await expect(
+        service.void(
+          mockClinicId,
+          mockConsultationId,
+          mockDoctorUserId,
+          validVoidDto,
+        ),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

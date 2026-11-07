@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,6 +26,7 @@ import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { ApprovePrescriptionDto } from './dto/approve-prescription.dto';
 import { AmendPrescriptionDto } from './dto/amend-prescription.dto';
+import { CancelPrescriptionDto } from './dto/cancel-prescription.dto';
 import {
   ListPrescriptionsQueryDto,
   PaginatedPrescriptionResponse,
@@ -145,6 +147,56 @@ export class PrescriptionsController {
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
     return this.prescriptionsService.amend(
+      clinicId,
+      id,
+      doctorId,
+      dto,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @RequireRoles(ClinicRole.DOCTOR)
+  async deleteDraft(
+    @ActiveClinic('clinicId') clinicId: string,
+    @CurrentUser('id') doctorId: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }),
+    )
+    id: string,
+    @Req() req: Request,
+  ): Promise<{ success: boolean; message: string }> {
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'] as string | undefined;
+    return this.prescriptionsService.deleteDraft(
+      clinicId,
+      id,
+      doctorId,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @RequireRoles(ClinicRole.DOCTOR)
+  async cancel(
+    @ActiveClinic('clinicId') clinicId: string,
+    @CurrentUser('id') doctorId: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }),
+    )
+    id: string,
+    @Body() dto: CancelPrescriptionDto,
+    @Req() req: Request,
+  ): Promise<Prescription> {
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'] as string | undefined;
+    return this.prescriptionsService.cancel(
       clinicId,
       id,
       doctorId,

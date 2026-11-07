@@ -224,6 +224,33 @@ void main() {
         updatedAt: DateTime.now(),
       );
       expect(supersededRx.isSuperseded, isTrue);
+
+      final cancelledRx = Prescription(
+        id: 'rx-cancelled',
+        clinicId: 'c1',
+        patientId: 'p1',
+        doctorId: 'd1',
+        status: PrescriptionStatus.cancelled,
+        cancelledAt: DateTime.now(),
+        cancellationReason: 'Adverse medication reaction',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      expect(cancelledRx.isCancelled, isTrue);
+      expect(cancelledRx.cancellationReason, 'Adverse medication reaction');
+      expect(cancelledRx.formattedCancelledAt, isNotNull);
+
+      // Permissions
+      expect(draftRx.canDeleteDraft('d1', 'DOCTOR'), isTrue);
+      expect(draftRx.canDeleteDraft('other', 'DOCTOR'), isFalse);
+      expect(draftRx.canDeleteDraft('d1', 'ADMIN'), isFalse);
+
+      expect(approvedRx.canCancel('d1', 'DOCTOR'), isTrue);
+      expect(approvedRx.canCancel('other', 'DOCTOR'), isFalse);
+      expect(approvedRx.canCancel('d1', 'ADMIN'), isFalse);
+
+      expect(cancelledRx.canCancel('d1', 'DOCTOR'), isFalse);
+      expect(cancelledRx.canDeleteDraft('d1', 'DOCTOR'), isFalse);
     });
   });
 

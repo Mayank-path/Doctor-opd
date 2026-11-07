@@ -85,8 +85,39 @@ void main() {
       expect(consultation.status, ConsultationStatus.finalized);
       expect(consultation.isFinalized, isTrue);
       expect(consultation.isDraft, isFalse);
+      expect(consultation.isVoided, isFalse);
       expect(consultation.finalizedAt, isNotNull);
       expect(consultation.formattedFinalizedAt, isNotEmpty);
+      expect(consultation.canVoid(validDoctorId, 'DOCTOR'), isTrue);
+      expect(consultation.canVoid('other-doc', 'DOCTOR'), isFalse);
+      expect(consultation.canVoid(validDoctorId, 'ADMIN'), isFalse);
+    });
+
+    test('parses VOIDED consultation JSON and sets voided state', () {
+      final voidedJson = Map<String, dynamic>.from(sampleDraftJson);
+      voidedJson['status'] = 'VOIDED';
+      voidedJson['finalizedAt'] = '2026-10-26T10:30:00.000Z';
+      voidedJson['voidedAt'] = '2026-10-26T11:00:00.000Z';
+      voidedJson['voidReason'] = 'Patient encounter entered under wrong profile';
+
+      final consultation = Consultation.fromJson(voidedJson);
+
+      expect(consultation.status, ConsultationStatus.voided);
+      expect(consultation.isVoided, isTrue);
+      expect(consultation.isFinalized, isFalse);
+      expect(consultation.isDraft, isFalse);
+      expect(consultation.voidReason, 'Patient encounter entered under wrong profile');
+      expect(consultation.formattedVoidedAt, isNotEmpty);
+      expect(consultation.canEdit(validDoctorId, 'DOCTOR'), isFalse);
+      expect(consultation.canFinalize(validDoctorId, 'DOCTOR'), isFalse);
+      expect(consultation.canVoid(validDoctorId, 'DOCTOR'), isFalse);
+    });
+
+    test('canDeleteDraft verifies doctor identity and draft status', () {
+      final draft = Consultation.fromJson(sampleDraftJson);
+      expect(draft.canDeleteDraft(validDoctorId, 'DOCTOR'), isTrue);
+      expect(draft.canDeleteDraft('other-doc', 'DOCTOR'), isFalse);
+      expect(draft.canDeleteDraft(validDoctorId, 'ADMIN'), isFalse);
     });
 
     test('canEdit and canFinalize ownership checks', () {

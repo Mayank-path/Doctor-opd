@@ -192,6 +192,13 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
               onTap: () =>
                   _onStatusFilterSelected(PrescriptionStatus.superseded),
             ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: 'Cancelled',
+              isSelected: _selectedStatus == PrescriptionStatus.cancelled,
+              onTap: () =>
+                  _onStatusFilterSelected(PrescriptionStatus.cancelled),
+            ),
           ],
         ),
       ),
@@ -443,6 +450,35 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
                 ],
               ),
               const SizedBox(height: 10),
+              if (rx.isCancelled &&
+                  rx.cancellationReason != null &&
+                  rx.cancellationReason!.isNotEmpty) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Reason: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.dangerRed,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        rx.cancellationReason!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.dangerRed,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               const Divider(height: 1, color: AppTheme.borderGray),
               const SizedBox(height: 8),
               Row(

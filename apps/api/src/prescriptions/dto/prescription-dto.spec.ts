@@ -12,6 +12,7 @@ import { CreatePrescriptionDto } from './create-prescription.dto';
 import { UpdatePrescriptionDto } from './update-prescription.dto';
 import { ApprovePrescriptionDto } from './approve-prescription.dto';
 import { AmendPrescriptionDto } from './amend-prescription.dto';
+import { CancelPrescriptionDto } from './cancel-prescription.dto';
 import { ListPrescriptionsQueryDto } from './list-prescriptions-query.dto';
 
 describe('Prescription DTO Validations', () => {
@@ -196,6 +197,32 @@ describe('Prescription DTO Validations', () => {
       });
       const errors = await validate(dto);
       expect(errors.some((e) => e.property === 'limit')).toBe(true);
+    });
+  });
+
+  describe('CancelPrescriptionDto', () => {
+    it('should pass with clear clinical cancellation reason', async () => {
+      const dto = plainToInstance(CancelPrescriptionDto, {
+        reason: 'Prescription cancelled due to patient drug allergy notification',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('should fail when reason is missing or empty', async () => {
+      const dto = plainToInstance(CancelPrescriptionDto, {});
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some((e) => e.property === 'reason')).toBe(true);
+    });
+
+    it('should fail when reason is shorter than 5 characters', async () => {
+      const dto = plainToInstance(CancelPrescriptionDto, {
+        reason: 'bad',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some((e) => e.property === 'reason')).toBe(true);
     });
   });
 });

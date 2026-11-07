@@ -290,12 +290,26 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
         Array<{ current_database: string }>
       >('SELECT current_database();');
       if (verifyDb[0]?.current_database === 'doctor_opd_test') {
+        // Cleanup audit events
+        await prisma.clinicalAuditEvent.deleteMany({
+          where: { clinicId: { in: createdClinicIds } },
+        });
+        // Cleanup prescription items and prescriptions
+        await prisma.prescriptionItem.deleteMany({
+          where: { clinicId: { in: createdClinicIds } },
+        });
+        await prisma.prescription.deleteMany({
+          where: { clinicId: { in: createdClinicIds } },
+        });
         // Cleanup created consultations
         if (createdConsultationIds.length > 0) {
           await prisma.consultation.deleteMany({
             where: { id: { in: createdConsultationIds } },
           });
         }
+        await prisma.consultation.deleteMany({
+          where: { clinicId: { in: createdClinicIds } },
+        });
         // Cleanup patients, clinics, users (cascading deletes clinic memberships)
         await prisma.patient.deleteMany({
           where: { clinicId: { in: createdClinicIds } },
@@ -1352,6 +1366,443 @@ describe('Consultation Draft API (PostgreSQL Integration)', () => {
       );
       expect(afterRecord?.status).toBe(beforeRecord?.status);
       expect(afterRecord?.chiefComplaint).toBe(beforeRecord?.chiefComplaint);
+    });
+  });
+
+  describe('Clinical Record Lifecycle: DELETE /api/v1/consultations/:id (Delete Draft)', () => {
+    it('DOCTOR successfully deletes a draft consultation and records an audit event (200)', async () => {
+      // 1. Create a draft consultation
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Temporary draft consultation for deletion test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+
+      // 2. Delete the draft
+      const delRes = await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      expect(delRes.body.success).toBe(true);
+
+      // 3. Verify record no longer exists in DB
+      const inDb = await prisma.consultation.findUnique({
+        where: { id: consultId },
+      });
+      expect(inDb).toBeNull();
+
+      // 4. Verify audit event
+      const audit = await prisma.clinicalAuditEvent.findFirst({
+        where: {
+          clinicId: clinic1Id,
+          entityId: consultId,
+          action: 'CONSULTATION_DRAFT_DELETED',
+        },
+      });
+      expect(audit).toBeDefined();
+      expect(audit?.userId).toBe(doctorUserId);
+    });
+
+    it('rejects deletion of a FINALIZED consultation with 409 Conflict', async () => {
+      // 1. Create and finalize a consultation
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Finalized consultation cannot be deleted test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      // 2. Attempt deletion
+      const res = await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(409);
+
+      expect(res.body.message).toContain('Only draft consultations can be deleted');
+    });
+
+    it('rejects deletion by a different doctor with 403 Forbidden', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Draft by doctor1',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${colleagueDoctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(403);
+    });
+
+    it('rejects deletion by ADMIN (403) and RECEPTIONIST (403)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'RBAC deletion test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      // ADMIN
+      await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(403);
+
+      // RECEPTIONIST
+      await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${receptionistToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(403);
+    });
+
+    it('returns 404 Not Found for non-existent consultation or cross-clinic', async () => {
+      const fakeId = crypto.randomUUID();
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${fakeId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(404);
+
+      // Clinic 2 doctor querying clinic 1 draft
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Cross-clinic deletion test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${clinic2DoctorToken}`)
+        .set('x-clinic-id', clinic2Id)
+        .expect(404);
+    });
+
+    it('rejects deletion if draft consultation has linked prescriptions (409 Conflict)', async () => {
+      // 1. Create a draft consultation
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Consultation with linked prescription',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      // 2. Create a prescription linked to this consultation
+      const rxRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          consultationId: consultId,
+          items: [
+            {
+              medicationName: 'Paracetamol',
+              dosageForm: 'TABLET',
+              strength: '500 mg',
+              route: 'ORAL',
+              frequency: '1-0-1',
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              timing: 'AFTER_MEALS',
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = rxRes.body.id;
+
+      // 3. Attempt to delete consultation -> 409 Conflict
+      const delRes = await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(409);
+
+      expect(delRes.body.message).toContain('linked prescriptions');
+
+      // 4. Delete the draft prescription first
+      await request(app.getHttpServer())
+        .delete(`/api/v1/prescriptions/${rxId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      // 5. Now delete the consultation succeeds
+      await request(app.getHttpServer())
+        .delete(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+    });
+  });
+
+  describe('Clinical Record Lifecycle: POST /api/v1/consultations/:id/void (Void Consultation)', () => {
+    it('DOCTOR successfully voids a finalized consultation with a clinical reason (200)', async () => {
+      // 1. Create and finalize consultation
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Patient with sore throat to be finalized and voided',
+          diagnosis: 'Pharyngitis',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      // 2. Void consultation
+      const voidRes = await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          reason: 'Duplicate encounter entered by mistake for previous visit',
+        })
+        .expect(200);
+
+      expect(voidRes.body.status).toBe(ConsultationStatus.VOIDED);
+      expect(voidRes.body.voidReason).toBe(
+        'Duplicate encounter entered by mistake for previous visit',
+      );
+      expect(voidRes.body.voidedAt).toBeDefined();
+      expect(voidRes.body.diagnosis).toBe('Pharyngitis'); // History preserved!
+
+      // 3. Verify in database
+      const inDb = await prisma.consultation.findUnique({
+        where: { id: consultId },
+      });
+      expect(inDb?.status).toBe(ConsultationStatus.VOIDED);
+      expect(inDb?.voidReason).toBe(
+        'Duplicate encounter entered by mistake for previous visit',
+      );
+      expect(inDb?.voidedAt).not.toBeNull();
+
+      // 4. Verify audit event
+      const audit = await prisma.clinicalAuditEvent.findFirst({
+        where: {
+          clinicId: clinic1Id,
+          entityId: consultId,
+          action: 'CONSULTATION_VOIDED',
+        },
+      });
+      expect(audit).toBeDefined();
+      expect(audit?.userId).toBe(doctorUserId);
+
+      // 5. Verify cannot edit or re-finalize a voided consultation
+      await request(app.getHttpServer())
+        .patch(`/api/v1/consultations/${consultId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ diagnosis: 'Illegal edit attempt' })
+        .expect(409);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(409);
+    });
+
+    it('rejects voiding a DRAFT consultation with 409 Conflict', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Draft cannot be voided test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'Valid clinical reason here' })
+        .expect(409);
+
+      expect(res.body.message).toContain('Only finalized consultations can be voided');
+    });
+
+    it('rejects voiding if already VOIDED with 409 Conflict', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'To be voided twice test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'First voiding reason' })
+        .expect(200);
+
+      // Second void attempt
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'Second voiding reason' })
+        .expect(409);
+    });
+
+    it('rejects voiding without mandatory clinical reason or reason < 5 chars (400)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'Validation testing',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      // Missing reason
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({})
+        .expect(400);
+
+      // Too short reason (< 5 characters)
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'Bad' })
+        .expect(400);
+    });
+
+    it('rejects voiding by colleague doctor (403), ADMIN (403), and RECEPTIONIST (403)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/consultations')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({
+          patientId: patient1Id,
+          chiefComplaint: 'RBAC void test',
+        })
+        .expect(201);
+
+      const consultId = createRes.body.id;
+      createdConsultationIds.push(consultId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/finalize`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .expect(200);
+
+      // Colleague doctor (not author)
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${colleagueDoctorToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'Unauthorized void attempt' })
+        .expect(403);
+
+      // ADMIN
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'Unauthorized admin void attempt' })
+        .expect(403);
+
+      // RECEPTIONIST
+      await request(app.getHttpServer())
+        .post(`/api/v1/consultations/${consultId}/void`)
+        .set('Authorization', `Bearer ${receptionistToken}`)
+        .set('x-clinic-id', clinic1Id)
+        .send({ reason: 'Unauthorized receptionist void attempt' })
+        .expect(403);
     });
   });
 });

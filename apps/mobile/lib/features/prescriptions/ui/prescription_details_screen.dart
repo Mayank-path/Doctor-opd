@@ -2,7 +2,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import '../../../../core/errors/api_exception.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../auth/models/auth_user.dart';
 import '../models/prescription.dart';
 import '../models/prescription_item.dart';
 import '../models/update_prescription_request.dart';
@@ -25,12 +27,14 @@ class PrescriptionDetailsScreen extends StatefulWidget {
   final String prescriptionId;
   final Prescription? initialPrescription;
   final PrescriptionsService? prescriptionsService;
+  final SecureStorageService? storageService;
 
   const PrescriptionDetailsScreen({
     super.key,
     required this.prescriptionId,
     this.initialPrescription,
     this.prescriptionsService,
+    this.storageService,
   });
 
   @override
@@ -40,12 +44,16 @@ class PrescriptionDetailsScreen extends StatefulWidget {
 
 class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
   late final PrescriptionsService _prescriptionsService;
+  late final SecureStorageService _storageService;
 
   Prescription? _prescription;
+  AuthUser? _currentUser;
   bool _isLoading = true;
   bool _isSavingDraft = false;
   bool _isApproving = false;
   bool _isGeneratingPdf = false;
+  bool _isDeleting = false;
+  bool _isCancelling = false;
   String? _errorMessage;
   bool _hasUnsavedChanges = false;
 
@@ -58,6 +66,9 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     super.initState();
     _prescriptionsService =
         widget.prescriptionsService ?? PrescriptionsService();
+    _storageService = widget.storageService ?? SecureStorageService();
+
+    _loadCurrentUser();
 
     if (widget.initialPrescription != null) {
       _prescription = widget.initialPrescription;
@@ -66,6 +77,17 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     }
 
     _loadPrescription();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await _storageService.getUser();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    } catch (_) {}
   }
 
   void _populateDraftState(Prescription rx) {
@@ -370,6 +392,200 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     );
   }
 
+  bool _canCurrentUserDeleteDraft() {
+    if (_prescription == null) return false;
+    return _prescription!.canDeleteDraft(_currentUser?.id, _currentUser?.role);
+  }
+
+  bool _canCurrentUserCancel() {
+    if (_prescription == null) return false;
+    return _prescription!.canCancel(_currentUser?.id, _currentUser?.role);
+  }
+
+  Future<void> _handleDeleteDraft() async {
+    if (_prescription == null || _isDeleting) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Prescription Draft?'),
+        content: const Text(
+          'This will permanently delete this prescription draft and all medication items. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            key: const Key('confirmDeletePrescriptionDraftButton'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await _prescriptionsService.deleteDraft(_prescription!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft prescription deleted successfully'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+          _errorMessage = e.message;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppTheme.dangerRed,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+          _errorMessage = 'Failed to delete prescription: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _handleCancelPrescription() async {
+    if (_prescription == null || _isCancelling) return;
+
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed),
+            SizedBox(width: 8),
+            Text('Cancel Prescription'),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Cancelling marks this prescription as inactive while preserving medication history for medical audits. A clinical justification reason is mandatory.',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                key: const Key('cancelReasonInput'),
+                controller: reasonController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Clinical Reason for Cancellation *',
+                  hintText: 'e.g. Patient developed adverse reaction; switching therapy',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().length < 5) {
+                    return 'Clinical reason must be at least 5 characters.';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Keep Active'),
+          ),
+          ElevatedButton(
+            key: const Key('confirmCancelPrescriptionButton'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(ctx).pop(reasonController.text.trim());
+              }
+            },
+            child: const Text('Cancel Prescription'),
+          ),
+        ],
+      ),
+    );
+
+    if (reason == null || reason.isEmpty || !mounted) return;
+
+    setState(() {
+      _isCancelling = true;
+    });
+
+    try {
+      final updated = await _prescriptionsService.cancelPrescription(
+        _prescription!.id,
+        reason,
+      );
+      if (mounted) {
+        setState(() {
+          _prescription = updated;
+          _isCancelling = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Prescription has been cancelled'),
+            backgroundColor: AppTheme.dangerRed,
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCancelling = false;
+          _errorMessage = e.message;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppTheme.dangerRed,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCancelling = false;
+          _errorMessage = 'Failed to cancel prescription: $e';
+        });
+      }
+    }
+  }
+
   void _openPriorPrescriptionsSheet() {
     if (_prescription?.patientId == null) return;
 
@@ -387,9 +603,10 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     final isDraft = rx?.isDraft ?? false;
     final isApproved = rx?.isApproved ?? false;
     final isSuperseded = rx?.isSuperseded ?? false;
+    final isCancelled = rx?.isCancelled ?? false;
 
     return PopScope(
-      canPop: !_hasUnsavedChanges || isApproved || isSuperseded,
+      canPop: !_hasUnsavedChanges || isApproved || isSuperseded || isCancelled,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final shouldLeave = await showDialog<bool>(
@@ -425,16 +642,60 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
         backgroundColor: AppTheme.backgroundLight,
         appBar: AppBar(
           title: Text(
-            isDraft
-                ? 'Prescription Draft'
-                : (isApproved
-                    ? 'Approved Prescription'
-                    : 'Superseded Prescription'),
+            isCancelled
+                ? 'Cancelled Prescription'
+                : (isDraft
+                    ? 'Prescription Draft'
+                    : (isApproved
+                        ? 'Approved Prescription'
+                        : 'Superseded Prescription')),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
           backgroundColor: Colors.white,
           elevation: 0,
           actions: [
+            if (isApproved && _canCurrentUserCancel())
+              TextButton.icon(
+                key: const Key('cancelPrescriptionAppBarButton'),
+                onPressed: _isCancelling ? null : _handleCancelPrescription,
+                icon: _isCancelling
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.dangerRed,
+                        ),
+                      )
+                    : const Icon(Icons.cancel_outlined,
+                        size: 18, color: AppTheme.dangerRed),
+                label: const Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: AppTheme.dangerRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            if (isDraft && _canCurrentUserDeleteDraft())
+              IconButton(
+                key: const Key('deleteDraftPrescriptionAppBarButton'),
+                icon: _isDeleting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.dangerRed,
+                        ),
+                      )
+                    : const Icon(Icons.delete_outline_rounded,
+                        color: AppTheme.dangerRed),
+                tooltip: 'Delete Draft',
+                onPressed: _isDeleting || _isSavingDraft || _isApproving
+                    ? null
+                    : _handleDeleteDraft,
+              ),
             if (isApproved || isSuperseded)
               IconButton(
                 key: const Key('printPdfIconButton'),
@@ -728,6 +989,64 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
   }
 
   Widget _buildStatusBanner(Prescription rx) {
+    if (rx.isCancelled) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.dangerRed.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppTheme.dangerRed.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.cancel_outlined,
+                color: AppTheme.dangerRed, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'CANCELLED PRESCRIPTION (IMMUTABLE)',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.dangerRed,
+                    ),
+                  ),
+                  if (rx.cancellationReason != null &&
+                      rx.cancellationReason!.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Reason: ${rx.cancellationReason}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                  if (rx.formattedCancelledAt != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Cancelled on: ${rx.formattedCancelledAt}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (rx.isApproved) {
       return Container(
         padding: const EdgeInsets.all(14),

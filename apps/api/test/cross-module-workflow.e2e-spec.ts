@@ -212,6 +212,10 @@ describe('Cross-Module End-to-End Clinical Lifecycle (PostgreSQL Integration)', 
     // Robust Teardown in Dependency Order
     // -------------------------------------------------------------------------
     if (prisma) {
+      await prisma.clinicalAuditEvent.deleteMany({
+        where: { clinicId: { in: createdClinicIds } },
+      });
+
       if (createdPrescriptionIds.length > 0) {
         await prisma.prescriptionItem.deleteMany({
           where: { prescriptionId: { in: createdPrescriptionIds } },
@@ -520,6 +524,396 @@ describe('Cross-Module End-to-End Clinical Lifecycle (PostgreSQL Integration)', 
         .get(`/api/v1/consultations/${rbacConsultationId}`)
         .set('Authorization', `Bearer ${doctorToken}`)
         .set('x-clinic-id', otherClinicId)
+        .expect(403);
+    });
+  });
+
+  describe('Clinical Record Lifecycle: Prescription Deletion & Cancellation', () => {
+    it('DOCTOR successfully deletes a draft prescription and records audit event (200)', async () => {
+      // 1. Create a draft prescription
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'Draft to be deleted',
+          items: [
+            {
+              medicationName: 'Cetirizine',
+              dosageForm: DosageForm.TABLET,
+              strength: '10 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '0-0-1',
+              durationValue: 5,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+
+      // 2. Delete the draft prescription
+      const delRes = await request(app.getHttpServer())
+        .delete(`/api/v1/prescriptions/${rxId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .expect(200);
+
+      expect(delRes.body.success).toBe(true);
+
+      // 3. Verify record and items deleted from DB
+      const inDb = await prisma.prescription.findUnique({
+        where: { id: rxId },
+      });
+      expect(inDb).toBeNull();
+
+      const itemsInDb = await prisma.prescriptionItem.findMany({
+        where: { prescriptionId: rxId },
+      });
+      expect(itemsInDb).toHaveLength(0);
+
+      // 4. Verify audit event
+      const audit = await prisma.clinicalAuditEvent.findFirst({
+        where: {
+          clinicId,
+          entityId: rxId,
+          action: 'PRESCRIPTION_DRAFT_DELETED',
+        },
+      });
+      expect(audit).toBeDefined();
+    });
+
+    it('rejects deletion of an APPROVED prescription with 409 Conflict', async () => {
+      // 1. Create and approve a prescription
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'Prescription to be approved then delete attempted',
+          items: [
+            {
+              medicationName: 'Amoxicillin',
+              dosageForm: DosageForm.CAPSULE,
+              strength: '500 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              durationValue: 7,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+      createdPrescriptionIds.push(rxId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/approve`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ confirmApproval: true })
+        .expect(200);
+
+      // 2. Attempt deletion
+      const res = await request(app.getHttpServer())
+        .delete(`/api/v1/prescriptions/${rxId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .expect(409);
+
+      expect(res.body.message).toContain('Only draft prescriptions can be deleted');
+    });
+
+    it('rejects deletion of draft by another doctor (403) or receptionist (403)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'RBAC deletion test',
+          items: [
+            {
+              medicationName: 'Paracetamol',
+              dosageForm: DosageForm.TABLET,
+              strength: '650 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+      createdPrescriptionIds.push(rxId);
+
+      // Other doctor
+      await request(app.getHttpServer())
+        .delete(`/api/v1/prescriptions/${rxId}`)
+        .set('Authorization', `Bearer ${otherDoctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .expect(403);
+
+      // Receptionist
+      await request(app.getHttpServer())
+        .delete(`/api/v1/prescriptions/${rxId}`)
+        .set('Authorization', `Bearer ${receptionistToken}`)
+        .set('x-clinic-id', clinicId)
+        .expect(403);
+    });
+
+    it('DOCTOR successfully cancels an approved prescription with clinical reason (200)', async () => {
+      // 1. Create and approve a prescription
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'Prescription to be cancelled',
+          items: [
+            {
+              medicationName: 'Ibuprofen',
+              dosageForm: DosageForm.TABLET,
+              strength: '400 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+      createdPrescriptionIds.push(rxId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/approve`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ confirmApproval: true })
+        .expect(200);
+
+      // 2. Cancel prescription
+      const cancelRes = await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/cancel`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          reason: 'Patient developed gastric irritation; switching to topical gel',
+        })
+        .expect(200);
+
+      expect(cancelRes.body.status).toBe(PrescriptionStatus.CANCELLED);
+      expect(cancelRes.body.cancellationReason).toBe(
+        'Patient developed gastric irritation; switching to topical gel',
+      );
+      expect(cancelRes.body.cancelledAt).toBeDefined();
+      expect(cancelRes.body.items).toHaveLength(1); // Medications preserved!
+
+      // 3. Verify in DB
+      const inDb = await prisma.prescription.findUnique({
+        where: { id: rxId },
+        include: { items: true },
+      });
+      expect(inDb?.status).toBe(PrescriptionStatus.CANCELLED);
+      expect(inDb?.cancellationReason).toBe(
+        'Patient developed gastric irritation; switching to topical gel',
+      );
+      expect(inDb?.cancelledAt).not.toBeNull();
+      expect(inDb?.items).toHaveLength(1);
+
+      // 4. Verify audit event
+      const audit = await prisma.clinicalAuditEvent.findFirst({
+        where: {
+          clinicId,
+          entityId: rxId,
+          action: 'PRESCRIPTION_CANCELLED',
+        },
+      });
+      expect(audit).toBeDefined();
+
+      // 5. Verify cannot update, approve, or amend a cancelled prescription
+      await request(app.getHttpServer())
+        .patch(`/api/v1/prescriptions/${rxId}`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ notes: 'Illegal edit attempt' })
+        .expect(409);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/approve`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ confirmApproval: true })
+        .expect(409);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/amend`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          amendmentReason: 'Illegal amend attempt',
+          items: [
+            {
+              medicationName: 'Gel',
+              dosageForm: DosageForm.OINTMENT,
+              strength: '1%',
+              route: MedicationRoute.TOPICAL,
+              frequency: '1-0-1',
+              durationValue: 5,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(409);
+    });
+
+    it('rejects cancelling a DRAFT prescription with 409 Conflict', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'Draft cannot be cancelled test',
+          items: [
+            {
+              medicationName: 'Drug A',
+              dosageForm: DosageForm.TABLET,
+              strength: '500 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+      createdPrescriptionIds.push(rxId);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/cancel`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ reason: 'Valid clinical cancellation reason' })
+        .expect(409);
+
+      expect(res.body.message).toContain('Only approved prescriptions can be cancelled');
+    });
+
+    it('rejects cancelling without reason or reason < 5 chars (400)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'Validation test',
+          items: [
+            {
+              medicationName: 'Drug B',
+              dosageForm: DosageForm.TABLET,
+              strength: '500 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+      createdPrescriptionIds.push(rxId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/approve`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ confirmApproval: true })
+        .expect(200);
+
+      // Empty body
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/cancel`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({})
+        .expect(400);
+
+      // Short reason (< 5 characters)
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/cancel`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ reason: 'No' })
+        .expect(400);
+    });
+
+    it('rejects cancellation by another doctor (403) or receptionist (403)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/prescriptions')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({
+          patientId: createdPatientIds[0],
+          notes: 'RBAC cancel test',
+          items: [
+            {
+              medicationName: 'Drug C',
+              dosageForm: DosageForm.TABLET,
+              strength: '500 mg',
+              route: MedicationRoute.ORAL,
+              frequency: '1-0-1',
+              durationValue: 3,
+              durationUnit: 'DAYS',
+              timing: MedicationTiming.AFTER_MEALS,
+            },
+          ],
+        })
+        .expect(201);
+
+      const rxId = createRes.body.id;
+      createdPrescriptionIds.push(rxId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/approve`)
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ confirmApproval: true })
+        .expect(200);
+
+      // Other doctor
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/cancel`)
+        .set('Authorization', `Bearer ${otherDoctorToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ reason: 'Unauthorized doctor cancellation attempt' })
+        .expect(403);
+
+      // Receptionist
+      await request(app.getHttpServer())
+        .post(`/api/v1/prescriptions/${rxId}/cancel`)
+        .set('Authorization', `Bearer ${receptionistToken}`)
+        .set('x-clinic-id', clinicId)
+        .send({ reason: 'Unauthorized receptionist cancellation attempt' })
         .expect(403);
     });
   });

@@ -124,6 +124,8 @@ class Prescription {
   final String? amendmentReason;
   final String? notes;
   final DateTime? approvedAt;
+  final DateTime? cancelledAt;
+  final String? cancellationReason;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -144,6 +146,8 @@ class Prescription {
     this.amendmentReason,
     this.notes,
     this.approvedAt,
+    this.cancelledAt,
+    this.cancellationReason,
     required this.createdAt,
     required this.updatedAt,
     this.patient,
@@ -161,6 +165,22 @@ class Prescription {
   String get formattedCreatedAt => DateFormat('MMM dd, yyyy • hh:mm a').format(createdAt);
   String? get formattedApprovedAt =>
       approvedAt != null ? DateFormat('MMM dd, yyyy • hh:mm a').format(approvedAt!) : null;
+  String? get formattedCancelledAt =>
+      cancelledAt != null ? DateFormat('MMM dd, yyyy • hh:mm a').format(cancelledAt!) : null;
+
+  bool canDeleteDraft(String? currentUserId, String? currentUserRole) {
+    if (!isDraft) return false;
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
+    return isDoctorRole && currentUserId == doctorId;
+  }
+
+  bool canCancel(String? currentUserId, String? currentUserRole) {
+    if (!isApproved) return false;
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
+    return isDoctorRole && currentUserId == doctorId;
+  }
 
   factory Prescription.fromJson(Map<String, dynamic> json) {
     return Prescription(
@@ -177,6 +197,10 @@ class Prescription {
       approvedAt: json['approvedAt'] != null
           ? DateTime.tryParse(json['approvedAt'].toString())
           : null,
+      cancelledAt: json['cancelledAt'] != null
+          ? DateTime.tryParse(json['cancelledAt'].toString())
+          : null,
+      cancellationReason: json['cancellationReason'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -214,6 +238,8 @@ class Prescription {
       if (amendmentReason != null) 'amendmentReason': amendmentReason,
       if (notes != null) 'notes': notes,
       if (approvedAt != null) 'approvedAt': approvedAt!.toIso8601String(),
+      if (cancelledAt != null) 'cancelledAt': cancelledAt!.toIso8601String(),
+      if (cancellationReason != null) 'cancellationReason': cancellationReason,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'items': items.map((e) => e.toJson()).toList(),
@@ -232,6 +258,8 @@ class Prescription {
     String? amendmentReason,
     String? notes,
     DateTime? approvedAt,
+    DateTime? cancelledAt,
+    String? cancellationReason,
     DateTime? createdAt,
     DateTime? updatedAt,
     Patient? patient,
@@ -252,6 +280,8 @@ class Prescription {
       amendmentReason: amendmentReason ?? this.amendmentReason,
       notes: notes ?? this.notes,
       approvedAt: approvedAt ?? this.approvedAt,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       patient: patient ?? this.patient,

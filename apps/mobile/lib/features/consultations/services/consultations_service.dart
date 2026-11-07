@@ -150,6 +150,44 @@ class ConsultationsService {
     );
   }
 
+  /// Deletes an active consultation draft permanently.
+  /// Strict backend rules:
+  /// - Only assigned clinician can delete the draft (403 Forbidden).
+  /// - Only DRAFT consultations can be deleted (409 Conflict).
+  /// - Cannot delete if dependent prescriptions exist (409 Conflict).
+  Future<void> deleteDraft(String id) async {
+    await _apiClient.delete('/consultations/$id');
+  }
+
+  /// Voids a finalized consultation with mandatory clinical reason.
+  /// Strict backend rules:
+  /// - Only assigned clinician can void (403 Forbidden).
+  /// - Only FINALIZED consultations can be voided (409 Conflict).
+  /// - Mandatory justification reason (min 5 characters).
+  Future<Consultation> voidConsultation(String id, String reason) async {
+    final trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      throw const ApiException(
+        statusCode: 400,
+        message: 'A clinical reason of at least 5 characters is required to void this consultation.',
+      );
+    }
+
+    final response = await _apiClient.post(
+      '/consultations/$id/void',
+      data: {'reason': trimmed},
+    );
+
+    if (response.data is Map<String, dynamic>) {
+      return Consultation.fromJson(response.data as Map<String, dynamic>);
+    }
+
+    throw const ApiException(
+      statusCode: 500,
+      message: 'Invalid response format from server while voiding consultation',
+    );
+  }
+
   /// Retrieves consultation visit history for a specific patient within the active clinic.
   Future<PaginatedConsultationsResponse> getPatientHistory(
     String patientId, {

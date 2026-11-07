@@ -233,5 +233,42 @@ class PrescriptionsService {
       message: 'Failed to download PDF binary from server',
     );
   }
+
+  /// Deletes an active prescription draft permanently.
+  /// Strict backend rules:
+  /// - Only prescribing doctor can delete (403 Forbidden).
+  /// - Only DRAFT prescriptions can be deleted (409 Conflict).
+  Future<void> deleteDraft(String id) async {
+    await _apiClient.delete('/prescriptions/$id');
+  }
+
+  /// Cancels an approved prescription with mandatory clinical reason.
+  /// Strict backend rules:
+  /// - Only prescribing doctor can cancel (403 Forbidden).
+  /// - Only APPROVED prescriptions can be cancelled (409 Conflict).
+  /// - Mandatory justification reason (min 5 characters).
+  Future<Prescription> cancelPrescription(String id, String reason) async {
+    final trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      throw const ApiException(
+        statusCode: 400,
+        message: 'A clinical reason of at least 5 characters is required to cancel this prescription.',
+      );
+    }
+
+    final response = await _apiClient.post(
+      '/prescriptions/$id/cancel',
+      data: {'reason': trimmed},
+    );
+
+    if (response.data is Map<String, dynamic>) {
+      return Prescription.fromJson(response.data as Map<String, dynamic>);
+    }
+
+    throw const ApiException(
+      statusCode: 500,
+      message: 'Invalid response format from server while cancelling prescription',
+    );
+  }
 }
 

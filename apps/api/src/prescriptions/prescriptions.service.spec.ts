@@ -27,6 +27,7 @@ describe('PrescriptionsService', () => {
       update: jest.Mock;
       updateMany: jest.Mock;
       findUniqueOrThrow: jest.Mock;
+      delete: jest.Mock;
     };
     prescriptionItem: {
       createMany: jest.Mock;
@@ -59,6 +60,7 @@ describe('PrescriptionsService', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
         findUniqueOrThrow: jest.fn(),
+        delete: jest.fn(),
       },
       prescriptionItem: {
         createMany: jest.fn(),
@@ -481,6 +483,203 @@ describe('PrescriptionsService', () => {
       await expect(
         service.generatePdf(mockClinicId, mockPrescriptionId, mockDoctorId),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('deleteDraft', () => {
+    it('should permanently delete a draft prescription with items and log audit event', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: mockDoctorId,
+        patientId: mockPatientId,
+        consultationId: 'consultation-1',
+        versionNumber: 1,
+        status: PrescriptionStatus.DRAFT,
+      });
+
+      const result = await service.deleteDraft(
+        mockClinicId,
+        mockPrescriptionId,
+        mockDoctorId,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Draft prescription deleted successfully',
+      });
+      expect(prisma.prescriptionItem.deleteMany).toHaveBeenCalledWith({
+        where: { prescriptionId: mockPrescriptionId, clinicId: mockClinicId },
+      });
+      expect(prisma.prescription.delete).toHaveBeenCalledWith({
+        where: {
+          id_clinicId: { id: mockPrescriptionId, clinicId: mockClinicId },
+        },
+      });
+      expect(prisma.clinicalAuditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clinicId: mockClinicId,
+            userId: mockDoctorId,
+            action: 'PRESCRIPTION_DRAFT_DELETED',
+            entityId: mockPrescriptionId,
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException if prescription does not exist', async () => {
+      prisma.prescription.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockPrescriptionId, mockDoctorId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if caller is not the prescribing doctor', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: 'other-doctor-id',
+        status: PrescriptionStatus.DRAFT,
+      });
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockPrescriptionId, mockDoctorId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ConflictException if prescription is APPROVED', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: mockDoctorId,
+        status: PrescriptionStatus.APPROVED,
+      });
+
+      await expect(
+        service.deleteDraft(mockClinicId, mockPrescriptionId, mockDoctorId),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('cancel', () => {
+    const cancelDto = {
+      reason: 'Patient experienced adverse allergic reaction to medication',
+    };
+
+    it('should cancel an approved prescription and record audit event', async () => {
+      const existingApproved = {
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: mockDoctorId,
+        patientId: mockPatientId,
+        versionNumber: 1,
+        status: PrescriptionStatus.APPROVED,
+        approvedAt: new Date(),
+      };
+      prisma.prescription.findFirst.mockResolvedValue(existingApproved);
+      const updatedCancelled = {
+        ...existingApproved,
+        status: PrescriptionStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancellationReason: cancelDto.reason,
+      };
+      prisma.prescription.update.mockResolvedValue(updatedCancelled);
+
+      const result = await service.cancel(
+        mockClinicId,
+        mockPrescriptionId,
+        mockDoctorId,
+        cancelDto,
+      );
+
+      expect(result.status).toBe(PrescriptionStatus.CANCELLED);
+      expect(result.cancellationReason).toBe(cancelDto.reason);
+      expect(prisma.prescription.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id_clinicId: { id: mockPrescriptionId, clinicId: mockClinicId },
+          },
+          data: expect.objectContaining({
+            status: PrescriptionStatus.CANCELLED,
+            cancellationReason: cancelDto.reason,
+          }),
+        }),
+      );
+      expect(prisma.clinicalAuditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'PRESCRIPTION_CANCELLED',
+            entityId: mockPrescriptionId,
+            metadata: expect.objectContaining({
+              previousStatus: PrescriptionStatus.APPROVED,
+              newStatus: PrescriptionStatus.CANCELLED,
+              cancellationReason: cancelDto.reason,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException if prescription does not exist', async () => {
+      prisma.prescription.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.cancel(mockClinicId, mockPrescriptionId, mockDoctorId, cancelDto),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if caller is not the prescribing doctor', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: 'other-doctor-id',
+        status: PrescriptionStatus.APPROVED,
+      });
+
+      await expect(
+        service.cancel(mockClinicId, mockPrescriptionId, mockDoctorId, cancelDto),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ConflictException if prescription is already CANCELLED', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: mockDoctorId,
+        status: PrescriptionStatus.CANCELLED,
+      });
+
+      await expect(
+        service.cancel(mockClinicId, mockPrescriptionId, mockDoctorId, cancelDto),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if prescription is SUPERSEDED', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: mockDoctorId,
+        status: PrescriptionStatus.SUPERSEDED,
+      });
+
+      await expect(
+        service.cancel(mockClinicId, mockPrescriptionId, mockDoctorId, cancelDto),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if prescription is still in DRAFT', async () => {
+      prisma.prescription.findFirst.mockResolvedValue({
+        id: mockPrescriptionId,
+        clinicId: mockClinicId,
+        doctorId: mockDoctorId,
+        status: PrescriptionStatus.DRAFT,
+      });
+
+      await expect(
+        service.cancel(mockClinicId, mockPrescriptionId, mockDoctorId, cancelDto),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

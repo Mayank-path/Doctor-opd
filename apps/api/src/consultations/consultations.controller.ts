@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -23,6 +24,7 @@ import { ConsultationsService } from './consultations.service';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
 import { UpdateConsultationDto } from './dto/update-consultation.dto';
+import { VoidConsultationDto } from './dto/void-consultation.dto';
 import {
   ConsultationQueryDto,
   PaginatedConsultationResponse,
@@ -104,6 +106,37 @@ export class ConsultationsController {
     id: string,
   ): Promise<Consultation> {
     return this.consultationsService.finalize(clinicId, id, clinicianId);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @RequireRoles(ClinicRole.DOCTOR)
+  async deleteDraft(
+    @ActiveClinic('clinicId') clinicId: string,
+    @CurrentUser('id') clinicianId: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }),
+    )
+    id: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.consultationsService.deleteDraft(clinicId, id, clinicianId);
+  }
+
+  @Post(':id/void')
+  @HttpCode(HttpStatus.OK)
+  @RequireRoles(ClinicRole.DOCTOR)
+  async void(
+    @ActiveClinic('clinicId') clinicId: string,
+    @CurrentUser('id') clinicianId: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }),
+    )
+    id: string,
+    @Body() dto: VoidConsultationDto,
+  ): Promise<Consultation> {
+    return this.consultationsService.void(clinicId, id, clinicianId, dto);
   }
 
   @Post(':id/prescriptions')

@@ -368,5 +368,50 @@ void main() {
       );
     });
   });
+
+  group('deleteDraft & cancelPrescription Tests', () {
+    test('deleteDraft sends DELETE /prescriptions/:id', () async {
+      when(() => mockApiClient.delete('/prescriptions/$validPrescriptionId'))
+          .thenAnswer((_) async => _mockResponse({'success': true}));
+
+      await prescriptionsService.deleteDraft(validPrescriptionId);
+
+      verify(() => mockApiClient.delete('/prescriptions/$validPrescriptionId'))
+          .called(1);
+    });
+
+    test('cancelPrescription validates reason length and sends POST /prescriptions/:id/cancel', () async {
+      final cancelledJson = Map<String, dynamic>.from(sampleRxJson);
+      cancelledJson['status'] = 'CANCELLED';
+      cancelledJson['cancellationReason'] = 'Patient experienced adverse reaction';
+      cancelledJson['cancelledAt'] = '2026-10-27T02:00:00.000Z';
+
+      when(() => mockApiClient.post(
+            '/prescriptions/$validPrescriptionId/cancel',
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => _mockResponse(cancelledJson));
+
+      // 1. Throws 400 client-side if reason < 5 chars
+      expect(
+        () => prescriptionsService.cancelPrescription(validPrescriptionId, 'bad'),
+        throwsA(
+          isA<ApiException>().having((e) => e.statusCode, 'statusCode', 400),
+        ),
+      );
+
+      // 2. Succeeds with valid reason
+      final result = await prescriptionsService.cancelPrescription(
+        validPrescriptionId,
+        'Patient experienced adverse reaction',
+      );
+
+      expect(result.status, PrescriptionStatus.cancelled);
+      expect(result.cancellationReason, 'Patient experienced adverse reaction');
+      verify(() => mockApiClient.post(
+            '/prescriptions/$validPrescriptionId/cancel',
+            data: {'reason': 'Patient experienced adverse reaction'},
+          )).called(1);
+    });
+  });
 }
 

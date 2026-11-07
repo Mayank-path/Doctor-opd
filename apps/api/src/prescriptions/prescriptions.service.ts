@@ -17,6 +17,7 @@ import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { ApprovePrescriptionDto } from './dto/approve-prescription.dto';
 import { AmendPrescriptionDto } from './dto/amend-prescription.dto';
+import { CancelPrescriptionDto } from './dto/cancel-prescription.dto';
 import {
   ListPrescriptionsQueryDto,
   PaginatedPrescriptionResponse,
@@ -576,6 +577,158 @@ export class PrescriptionsService {
       });
 
       return amended;
+    });
+  }
+
+  /**
+   * Deletes a draft prescription permanently.
+   *
+   * Invariants:
+   * 1. Scoped strictly to the active clinic (404 if not found).
+   * 2. Only the prescribing doctor can delete the draft (403 Forbidden).
+   * 3. Only prescriptions with status = DRAFT can be deleted. Approved records must be cancelled (409 Conflict).
+   * 4. Deletes associated prescription items cascade.
+   * 5. Emits PRESCRIPTION_DRAFT_DELETED audit log event in atomic transaction.
+   */
+  async deleteDraft(
+    clinicId: string,
+    id: string,
+    doctorId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const existing = await this.prisma.prescription.findFirst({
+      where: { id, clinicId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Prescription not found');
+    }
+
+    if (existing.doctorId !== doctorId) {
+      throw new ForbiddenException(
+        'Only the prescribing doctor may delete this prescription draft',
+      );
+    }
+
+    if (existing.status !== PrescriptionStatus.DRAFT) {
+      throw new ConflictException(
+        `Only draft prescriptions can be deleted. An approved prescription must be cancelled.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.prescriptionItem.deleteMany({
+        where: { prescriptionId: id, clinicId },
+      });
+
+      await tx.prescription.delete({
+        where: { id_clinicId: { id, clinicId } },
+      });
+
+      await tx.clinicalAuditEvent.create({
+        data: {
+          clinicId,
+          userId: doctorId,
+          action: 'PRESCRIPTION_DRAFT_DELETED',
+          entityType: 'Prescription',
+          entityId: id,
+          metadata: {
+            patientId: existing.patientId,
+            consultationId: existing.consultationId,
+            versionNumber: existing.versionNumber,
+          },
+          ipAddress: ipAddress ?? null,
+          userAgent: userAgent ?? null,
+        },
+      });
+
+      return { success: true, message: 'Draft prescription deleted successfully' };
+    });
+  }
+
+  /**
+   * Cancels an approved prescription with a mandatory clinical justification reason.
+   *
+   * Invariants:
+   * 1. Scoped strictly to the active clinic (404 if not found).
+   * 2. Only the prescribing doctor can cancel the prescription (403 Forbidden).
+   * 3. Only prescriptions with status = APPROVED can be cancelled (409 Conflict).
+   * 4. Cannot cancel a superseded or draft prescription.
+   * 5. Preserves all medication items, version history, and previous approval timestamp.
+   * 6. Emits PRESCRIPTION_CANCELLED audit log event in atomic transaction.
+   */
+  async cancel(
+    clinicId: string,
+    id: string,
+    doctorId: string,
+    dto: CancelPrescriptionDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<Prescription> {
+    const existing = await this.prisma.prescription.findFirst({
+      where: { id, clinicId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Prescription not found');
+    }
+
+    if (existing.doctorId !== doctorId) {
+      throw new ForbiddenException(
+        'Only the prescribing doctor may cancel this prescription',
+      );
+    }
+
+    if (existing.status === PrescriptionStatus.CANCELLED) {
+      throw new ConflictException('Prescription is already cancelled');
+    }
+
+    if (existing.status === PrescriptionStatus.SUPERSEDED) {
+      throw new ConflictException(
+        'Cannot cancel a superseded prescription. Please cancel the active amended version.',
+      );
+    }
+
+    if (existing.status !== PrescriptionStatus.APPROVED) {
+      throw new ConflictException(
+        `Only approved prescriptions can be cancelled. Current status is ${existing.status}. Drafts should be deleted directly.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const updated = await tx.prescription.update({
+        where: { id_clinicId: { id, clinicId } },
+        data: {
+          status: PrescriptionStatus.CANCELLED,
+          cancelledAt: now,
+          cancellationReason: dto.reason,
+        },
+        include: PRESCRIPTION_INCLUDE,
+      });
+
+      await tx.clinicalAuditEvent.create({
+        data: {
+          clinicId,
+          userId: doctorId,
+          action: 'PRESCRIPTION_CANCELLED',
+          entityType: 'Prescription',
+          entityId: id,
+          metadata: {
+            previousStatus: PrescriptionStatus.APPROVED,
+            newStatus: PrescriptionStatus.CANCELLED,
+            cancellationReason: dto.reason,
+            patientId: existing.patientId,
+            versionNumber: existing.versionNumber,
+            approvedAt: existing.approvedAt,
+          },
+          ipAddress: ipAddress ?? null,
+          userAgent: userAgent ?? null,
+        },
+      });
+
+      return updated;
     });
   }
 

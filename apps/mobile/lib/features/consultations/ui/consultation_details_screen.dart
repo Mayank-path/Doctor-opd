@@ -47,6 +47,8 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isFinalizing = false;
+  bool _isDeleting = false;
+  bool _isVoiding = false;
   String? _errorMessage;
   bool _hasUnsavedChanges = false;
   bool _isForbidden = false;
@@ -372,6 +374,192 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     }
   }
 
+  Future<void> _handleDeleteDraft() async {
+    if (_consultation == null || _isDeleting) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Consultation Draft?'),
+        content: const Text(
+          'This will permanently delete this draft consultation. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            key: const Key('confirmDeleteConsultationDraftButton'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await _consultationsService.deleteDraft(_consultation!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft consultation deleted successfully'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+          _errorMessage = e.message;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+          _errorMessage = 'Failed to delete consultation: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _handleVoidConsultation() async {
+    if (_consultation == null || _isVoiding) return;
+
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.errorRed),
+            SizedBox(width: 8),
+            Text('Void Consultation'),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Voiding marks this clinical record as invalid while preserving all clinical entries for legal medical audit. A clinical justification reason is mandatory.',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                key: const Key('voidReasonInput'),
+                controller: reasonController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Clinical Reason for Voiding *',
+                  hintText: 'e.g. Encounter entered under incorrect patient profile',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().length < 5) {
+                    return 'Clinical reason must be at least 5 characters.';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            key: const Key('confirmVoidConsultationButton'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(ctx).pop(reasonController.text.trim());
+              }
+            },
+            child: const Text('Void Record'),
+          ),
+        ],
+      ),
+    );
+
+    if (reason == null || reason.isEmpty || !mounted) return;
+
+    setState(() {
+      _isVoiding = true;
+    });
+
+    try {
+      final updated = await _consultationsService.voidConsultation(
+        _consultation!.id,
+        reason,
+      );
+      if (mounted) {
+        setState(() {
+          _consultation = updated.patient != null
+              ? updated
+              : updated.copyWith(patient: _consultation?.patient);
+          _isVoiding = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Consultation has been voided'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVoiding = false;
+          _errorMessage = e.message;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVoiding = false;
+          _errorMessage = 'Failed to void consultation: $e';
+        });
+      }
+    }
+  }
+
   Future<bool> _onWillPop() async {
     if (!_hasUnsavedChanges || (_consultation?.isFinalized ?? true)) {
       return true;
@@ -445,15 +633,17 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
         backgroundColor: AppTheme.backgroundLight,
         appBar: AppBar(
           title: Text(
-            _consultation?.isFinalized == true
-                ? 'Finalized Consultation'
-                : 'Consultation Note',
+            _consultation?.isVoided == true
+                ? 'Voided Consultation'
+                : (_consultation?.isFinalized == true
+                    ? 'Finalized Consultation'
+                    : 'Consultation Note'),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
           backgroundColor: Colors.white,
           elevation: 0,
           actions: [
-            if (_consultation != null) ...[
+            if (_consultation != null && !_consultation!.isVoided) ...[
               IconButton(
                 key: const Key('consultationPrescriptionAppBarButton'),
                 icon: const Icon(Icons.receipt_long_rounded),
@@ -477,10 +667,13 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
             ],
             if (_consultation != null &&
                 !_consultation!.isFinalized &&
+                !_consultation!.isVoided &&
                 _canCurrentUserEdit()) ...[
               TextButton.icon(
                 key: const Key('saveDraftButton'),
-                onPressed: _isSaving || _isFinalizing ? null : _handleSaveDraft,
+                onPressed: _isSaving || _isFinalizing || _isDeleting
+                    ? null
+                    : _handleSaveDraft,
                 icon: _isSaving
                     ? const SizedBox(
                         width: 14,
@@ -489,6 +682,55 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                       )
                     : const Icon(Icons.save_outlined, size: 18),
                 label: const Text('Save'),
+              ),
+              const SizedBox(width: 4),
+            ],
+            if (_consultation != null &&
+                _consultation!.isDraft &&
+                _canCurrentUserDeleteDraft()) ...[
+              IconButton(
+                key: const Key('deleteDraftConsultationAppBarButton'),
+                icon: _isDeleting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.errorRed,
+                        ),
+                      )
+                    : const Icon(Icons.delete_outline_rounded,
+                        color: AppTheme.errorRed),
+                tooltip: 'Delete Draft',
+                onPressed: _isDeleting || _isSaving || _isFinalizing
+                    ? null
+                    : _handleDeleteDraft,
+              ),
+            ],
+            if (_consultation != null &&
+                _consultation!.isFinalized &&
+                _canCurrentUserVoid()) ...[
+              TextButton.icon(
+                key: const Key('voidConsultationAppBarButton'),
+                onPressed: _isVoiding ? null : _handleVoidConsultation,
+                icon: _isVoiding
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.errorRed,
+                        ),
+                      )
+                    : const Icon(Icons.block_rounded,
+                        size: 18, color: AppTheme.errorRed),
+                label: const Text(
+                  'Void',
+                  style: TextStyle(
+                    color: AppTheme.errorRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               const SizedBox(width: 4),
             ],
@@ -512,6 +754,20 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     final userId = _currentUser?.id;
     final role = _currentUser?.role;
     return _consultation!.canFinalize(userId, role);
+  }
+
+  bool _canCurrentUserVoid() {
+    if (_consultation == null) return false;
+    final userId = _currentUser?.id;
+    final role = _currentUser?.role;
+    return _consultation!.canVoid(userId, role);
+  }
+
+  bool _canCurrentUserDeleteDraft() {
+    if (_consultation == null) return false;
+    final userId = _currentUser?.id;
+    final role = _currentUser?.role;
+    return _consultation!.canDeleteDraft(userId, role);
   }
 
   Widget _buildBody() {
@@ -630,7 +886,58 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
           ],
 
           // Status & Immutability Notice
-          if (c.isFinalized)
+          if (c.isVoided)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.errorRed.withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.errorRed.withAlpha(80)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.block_rounded,
+                      color: AppTheme.errorRed, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'VOIDED RECORD (CANCELLED)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.errorRed,
+                          ),
+                        ),
+                        if (c.voidReason != null && c.voidReason!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Reason: ${c.voidReason}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ],
+                        if (c.formattedVoidedAt != null)
+                          Text(
+                            'Voided on: ${c.formattedVoidedAt}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (c.isFinalized)
             Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
@@ -1097,7 +1404,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
   }
 
   Widget? _buildBottomBar() {
-    if (_consultation == null || _consultation!.isFinalized) {
+    if (_consultation == null ||
+        _consultation!.isFinalized ||
+        _consultation!.isVoided) {
       return null;
     }
 

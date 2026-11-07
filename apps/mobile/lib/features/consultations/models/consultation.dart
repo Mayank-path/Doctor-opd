@@ -4,10 +4,13 @@ import '../../../core/theme/app_theme.dart';
 /// Supported Consultation Status matching backend Prisma ConsultationStatus enum
 enum ConsultationStatus {
   draft,
-  finalized;
+  finalized,
+  voided;
 
   static ConsultationStatus fromString(String? value) {
     switch (value?.toUpperCase()) {
+      case 'VOIDED':
+        return ConsultationStatus.voided;
       case 'FINALIZED':
         return ConsultationStatus.finalized;
       case 'DRAFT':
@@ -18,6 +21,8 @@ enum ConsultationStatus {
 
   String toBackendString() {
     switch (this) {
+      case ConsultationStatus.voided:
+        return 'VOIDED';
       case ConsultationStatus.finalized:
         return 'FINALIZED';
       case ConsultationStatus.draft:
@@ -27,6 +32,8 @@ enum ConsultationStatus {
 
   String get label {
     switch (this) {
+      case ConsultationStatus.voided:
+        return 'Voided';
       case ConsultationStatus.finalized:
         return 'Finalized';
       case ConsultationStatus.draft:
@@ -36,6 +43,8 @@ enum ConsultationStatus {
 
   Color get color {
     switch (this) {
+      case ConsultationStatus.voided:
+        return AppTheme.errorRed;
       case ConsultationStatus.finalized:
         return AppTheme.successGreen;
       case ConsultationStatus.draft:
@@ -45,6 +54,8 @@ enum ConsultationStatus {
 
   IconData get icon {
     switch (this) {
+      case ConsultationStatus.voided:
+        return Icons.block_rounded;
       case ConsultationStatus.finalized:
         return Icons.verified_rounded;
       case ConsultationStatus.draft:
@@ -120,6 +131,8 @@ class Consultation {
   final String encounterDate;
   final ConsultationStatus status;
   final String? finalizedAt;
+  final String? voidedAt;
+  final String? voidReason;
 
   // Clinical narrative
   final String chiefComplaint;
@@ -151,6 +164,8 @@ class Consultation {
     required this.encounterDate,
     required this.status,
     this.finalizedAt,
+    this.voidedAt,
+    this.voidReason,
     required this.chiefComplaint,
     this.symptoms,
     this.examination,
@@ -179,6 +194,8 @@ class Consultation {
       encounterDate: json['encounterDate'] as String? ?? '',
       status: ConsultationStatus.fromString(json['status'] as String?),
       finalizedAt: json['finalizedAt'] as String?,
+      voidedAt: json['voidedAt'] as String?,
+      voidReason: json['voidReason'] as String?,
       chiefComplaint: json['chiefComplaint'] as String? ?? '',
       symptoms: json['symptoms'] as String?,
       examination: json['examination'] as String?,
@@ -212,6 +229,8 @@ class Consultation {
       'encounterDate': encounterDate,
       'status': status.toBackendString(),
       if (finalizedAt != null) 'finalizedAt': finalizedAt,
+      if (voidedAt != null) 'voidedAt': voidedAt,
+      if (voidReason != null) 'voidReason': voidReason,
       'chiefComplaint': chiefComplaint,
       if (symptoms != null) 'symptoms': symptoms,
       if (examination != null) 'examination': examination,
@@ -240,6 +259,8 @@ class Consultation {
     String? encounterDate,
     ConsultationStatus? status,
     String? finalizedAt,
+    String? voidedAt,
+    String? voidReason,
     String? chiefComplaint,
     String? symptoms,
     String? examination,
@@ -266,6 +287,8 @@ class Consultation {
       encounterDate: encounterDate ?? this.encounterDate,
       status: status ?? this.status,
       finalizedAt: finalizedAt ?? this.finalizedAt,
+      voidedAt: voidedAt ?? this.voidedAt,
+      voidReason: voidReason ?? this.voidReason,
       chiefComplaint: chiefComplaint ?? this.chiefComplaint,
       symptoms: symptoms ?? this.symptoms,
       examination: examination ?? this.examination,
@@ -292,13 +315,16 @@ class Consultation {
   /// Whether consultation is in draft state (editable by attending doctor)
   bool get isDraft => status == ConsultationStatus.draft;
 
+  /// Whether consultation is in voided state (permanently cancelled)
+  bool get isVoided => status == ConsultationStatus.voided;
+
   /// Helper getter for patient full name
   String? get patientName => patient?.fullName;
 
   /// Whether the user is authorized to edit this draft
   /// (Must be DRAFT status, DOCTOR role, and matching clinicianId)
   bool canEdit(String? currentUserId, String? currentUserRole) {
-    if (isFinalized) return false;
+    if (isFinalized || isVoided) return false;
     final isDoctorRole =
         currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
     return isDoctorRole && currentUserId == clinicianId;
@@ -307,7 +333,25 @@ class Consultation {
   /// Whether the user is authorized to finalize this draft
   /// (Must be DRAFT status, DOCTOR role, and matching clinicianId)
   bool canFinalize(String? currentUserId, String? currentUserRole) {
-    if (isFinalized) return false;
+    if (isFinalized || isVoided) return false;
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
+    return isDoctorRole && currentUserId == clinicianId;
+  }
+
+  /// Whether the user is authorized to void this consultation
+  /// (Must be FINALIZED status, DOCTOR role, and matching clinicianId)
+  bool canVoid(String? currentUserId, String? currentUserRole) {
+    if (!isFinalized) return false;
+    final isDoctorRole =
+        currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
+    return isDoctorRole && currentUserId == clinicianId;
+  }
+
+  /// Whether the user is authorized to delete this draft
+  /// (Must be DRAFT status, DOCTOR role, and matching clinicianId)
+  bool canDeleteDraft(String? currentUserId, String? currentUserRole) {
+    if (!isDraft) return false;
     final isDoctorRole =
         currentUserRole == null || currentUserRole.toUpperCase() == 'DOCTOR';
     return isDoctorRole && currentUserId == clinicianId;
@@ -364,6 +408,23 @@ class Consultation {
       return '$year-$month-$day $hour:$minute $ampm';
     } catch (_) {
       return finalizedAt;
+    }
+  }
+
+  /// Formatted voided timestamp string
+  String? get formattedVoidedAt {
+    if (voidedAt == null) return null;
+    try {
+      final dt = DateTime.parse(voidedAt!).toLocal();
+      final year = dt.year.toString().padLeft(4, '0');
+      final month = dt.month.toString().padLeft(2, '0');
+      final day = dt.day.toString().padLeft(2, '0');
+      final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final minute = dt.minute.toString().padLeft(2, '0');
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      return '$year-$month-$day $hour:$minute $ampm';
+    } catch (_) {
+      return voidedAt;
     }
   }
 

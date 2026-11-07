@@ -20,6 +20,8 @@ describe('PrescriptionsController', () => {
     approve: jest.Mock;
     amend: jest.Mock;
     generatePdf: jest.Mock;
+    deleteDraft: jest.Mock;
+    cancel: jest.Mock;
   };
   let reflector: Reflector;
 
@@ -36,6 +38,8 @@ describe('PrescriptionsController', () => {
       approve: jest.fn(),
       amend: jest.fn(),
       generatePdf: jest.fn(),
+      deleteDraft: jest.fn(),
+      cancel: jest.fn(),
     };
     reflector = new Reflector();
     controller = new PrescriptionsController(
@@ -94,6 +98,20 @@ describe('PrescriptionsController', () => {
     it('amend should restrict access to DOCTOR role', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const targetHandler = controller.amend;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
+    });
+
+    it('deleteDraft should restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.deleteDraft;
+      const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
+      expect(roles).toEqual([ClinicRole.DOCTOR]);
+    });
+
+    it('cancel should restrict access to DOCTOR role', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const targetHandler = controller.cancel;
       const roles = reflector.get<ClinicRole[]>(ROLES_KEY, targetHandler);
       expect(roles).toEqual([ClinicRole.DOCTOR]);
     });
@@ -254,6 +272,65 @@ describe('PrescriptionsController', () => {
       );
 
       expect(service.amend).toHaveBeenCalledWith(
+        mockClinicId,
+        mockPrescriptionId,
+        mockDoctorUserId,
+        dto,
+        '10.0.0.1',
+        'Chrome-Mobile',
+      );
+      expect(result).toBe(mockResponse);
+    });
+  });
+
+  describe('deleteDraft Handler', () => {
+    it('should delegate to service.deleteDraft with caller IP and user-agent', async () => {
+      const mockResult = { success: true, message: 'Draft prescription deleted successfully' };
+      service.deleteDraft.mockResolvedValue(mockResult);
+
+      const mockReq = {
+        ip: '10.0.0.1',
+        headers: { 'user-agent': 'Chrome-Mobile' },
+      } as any;
+
+      const result = await controller.deleteDraft(
+        mockClinicId,
+        mockDoctorUserId,
+        mockPrescriptionId,
+        mockReq,
+      );
+
+      expect(service.deleteDraft).toHaveBeenCalledWith(
+        mockClinicId,
+        mockPrescriptionId,
+        mockDoctorUserId,
+        '10.0.0.1',
+        'Chrome-Mobile',
+      );
+      expect(result).toBe(mockResult);
+    });
+  });
+
+  describe('cancel Handler', () => {
+    it('should delegate to service.cancel with cancellation reason, caller IP and user-agent', async () => {
+      const mockResponse = { id: mockPrescriptionId, status: PrescriptionStatus.CANCELLED };
+      service.cancel.mockResolvedValue(mockResponse as any);
+
+      const dto = { reason: 'Prescription cancelled: adverse drug reaction' };
+      const mockReq = {
+        ip: '10.0.0.1',
+        headers: { 'user-agent': 'Chrome-Mobile' },
+      } as any;
+
+      const result = await controller.cancel(
+        mockClinicId,
+        mockDoctorUserId,
+        mockPrescriptionId,
+        dto,
+        mockReq,
+      );
+
+      expect(service.cancel).toHaveBeenCalledWith(
         mockClinicId,
         mockPrescriptionId,
         mockDoctorUserId,

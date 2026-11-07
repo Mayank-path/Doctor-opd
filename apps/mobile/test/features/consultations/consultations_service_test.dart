@@ -289,5 +289,48 @@ void main() {
         ),
       );
     });
+
+    test('deleteDraft sends DELETE /consultations/:id', () async {
+      when(() => mockApiClient.delete('/consultations/$validConsultationId'))
+          .thenAnswer((_) async => _mockResponse({'success': true}));
+
+      await consultationsService.deleteDraft(validConsultationId);
+
+      verify(() => mockApiClient.delete('/consultations/$validConsultationId'))
+          .called(1);
+    });
+
+    test('voidConsultation validates reason length and sends POST /consultations/:id/void', () async {
+      final voidedJson = Map<String, dynamic>.from(sampleDraftJson);
+      voidedJson['status'] = 'VOIDED';
+      voidedJson['voidReason'] = 'Valid clinical justification';
+      voidedJson['voidedAt'] = '2026-10-26T12:00:00.000Z';
+
+      when(() => mockApiClient.post(
+            '/consultations/$validConsultationId/void',
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => _mockResponse(voidedJson));
+
+      // 1. Throws 400 client-side if reason < 5 chars
+      expect(
+        () => consultationsService.voidConsultation(validConsultationId, 'No'),
+        throwsA(
+          isA<ApiException>().having((e) => e.statusCode, 'statusCode', 400),
+        ),
+      );
+
+      // 2. Succeeds with valid reason
+      final result = await consultationsService.voidConsultation(
+        validConsultationId,
+        'Valid clinical justification',
+      );
+
+      expect(result.status, ConsultationStatus.voided);
+      expect(result.voidReason, 'Valid clinical justification');
+      verify(() => mockApiClient.post(
+            '/consultations/$validConsultationId/void',
+            data: {'reason': 'Valid clinical justification'},
+          )).called(1);
+    });
   });
 }
