@@ -36,7 +36,8 @@ import {
  *
  * Selector vs Proof:
  * - The clinic identifier from route params, query, or headers is strictly a selector.
- * - Authorization is verified against PostgreSQL `clinic_memberships` using composite (userId, clinicId).
+ * - Authorization is verified against PostgreSQL `clinic_memberships` using composite (userId, clinicId)
+ *   and ensures both `membership.status === ACTIVE` and `clinic.isActive === true`.
  */
 @Injectable()
 export class ClinicAuthGuard implements CanActivate {
@@ -76,12 +77,20 @@ export class ClinicAuthGuard implements CanActivate {
 
     const normalizedClinicId = clinicId.trim();
 
-    // Verify membership in database
+    // Verify membership and clinic lifecycle status in database
     const membership = await this.prisma.clinicMembership.findUnique({
       where: {
         userId_clinicId: {
           userId: user.id,
           clinicId: normalizedClinicId,
+        },
+      },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            isActive: true,
+          },
         },
       },
     });
@@ -97,6 +106,11 @@ export class ClinicAuthGuard implements CanActivate {
       throw new ForbiddenException(
         `Access denied: clinic membership status is ${membership.status}`,
       );
+    }
+
+    // Reject inactive clinics
+    if (!membership.clinic || !membership.clinic.isActive) {
+      throw new ForbiddenException('Access denied: clinic is inactive');
     }
 
     // Check RBAC roles if specified on route/handler

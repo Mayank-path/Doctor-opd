@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/models/auth_clinic.dart';
 import '../../auth/models/auth_user.dart';
 import '../../auth/services/auth_service.dart';
 import '../models/clinic_dashboard_stats.dart';
@@ -377,9 +378,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     // Multi-Tenant Clinic Context Selector
                     ClinicSelectorCard(
                       activeClinicId: _activeClinicId,
+                      activeClinic: () {
+                        try {
+                          return widget.authService.activeClinic;
+                        } catch (_) {
+                          return null;
+                        }
+                      }(),
+                      availableClinics: () {
+                        try {
+                          return widget.authService.availableClinics;
+                        } catch (_) {
+                          return const <AuthClinic>[];
+                        }
+                      }(),
                       isLoading: _isLoading,
                       validationError: _clinicValidationError,
                       onSaveClinicId: _handleSaveClinicId,
+                      onSelectClinic: (clinic) async {
+                        try {
+                          final success =
+                              await widget.authService.selectClinic(clinic);
+                          if (success && mounted) {
+                            setState(() {
+                              _activeClinicId = clinic.id;
+                            });
+                            await _loadDashboardData(clinic.id);
+                          }
+                        } catch (_) {
+                          await _handleSaveClinicId(clinic.id);
+                        }
+                      },
                       onContinueToDashboard: _scrollToDashboard,
                     ),
                     const SizedBox(height: 16),

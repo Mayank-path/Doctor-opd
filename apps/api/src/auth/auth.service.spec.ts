@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
+import { ClinicRole, MembershipStatus } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadAuthConfig } from './auth.config';
@@ -31,6 +32,9 @@ describe('AuthService', () => {
           useValue: {
             user: {
               findUnique: jest.fn(),
+            },
+            clinicMembership: {
+              findMany: jest.fn(),
             },
           },
         },
@@ -248,6 +252,13 @@ describe('AuthService', () => {
       };
 
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue([
+        {
+          clinicId: 'clinic-1',
+          role: ClinicRole.DOCTOR,
+          clinic: { id: 'clinic-1', name: 'Metro Health' },
+        },
+      ]);
 
       const result = await authService.login({
         email: 'DOCTOR@CLINIC.COM ', // Tests normalization (trim and lowercase)
@@ -262,6 +273,18 @@ describe('AuthService', () => {
         email: 'doctor@clinic.com',
         fullName: 'Dr. Anita Roy',
       });
+      expect(result.clinic).toEqual({
+        id: 'clinic-1',
+        name: 'Metro Health',
+        role: ClinicRole.DOCTOR,
+      });
+      expect(result.clinics).toEqual([
+        {
+          id: 'clinic-1',
+          name: 'Metro Health',
+          role: ClinicRole.DOCTOR,
+        },
+      ]);
 
       // Verify token signature, subject, claims
       const verified = await authService.verifyToken(result.accessToken);
@@ -347,6 +370,148 @@ describe('AuthService', () => {
           password: validPassword,
         }),
       ).rejects.toThrow(new UnauthorizedException('Invalid email or password'));
+    });
+  });
+
+  describe('Clinic Context Resolution (resolveUserClinicContext)', () => {
+    const singleMembership = [
+      {
+        clinicId: 'clinic-alpha-1',
+        role: ClinicRole.DOCTOR,
+        clinic: { id: 'clinic-alpha-1', name: 'Alpha Clinic' },
+      },
+    ];
+
+    const multipleMemberships = [
+      {
+        clinicId: 'clinic-alpha-1',
+        role: ClinicRole.ADMIN,
+        clinic: { id: 'clinic-alpha-1', name: 'Alpha Clinic' },
+      },
+      {
+        clinicId: 'clinic-beta-2',
+        role: ClinicRole.DOCTOR,
+        clinic: { id: 'clinic-beta-2', name: 'Beta Health' },
+      },
+    ];
+
+    it('should auto-select clinic when user has exactly 1 active membership', async () => {
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue(
+        singleMembership,
+      );
+
+      const result = await authService.resolveUserClinicContext('user-1');
+
+      expect(result.clinic).toEqual({
+        id: 'clinic-alpha-1',
+        name: 'Alpha Clinic',
+        role: ClinicRole.DOCTOR,
+      });
+      expect(result.clinics).toEqual([
+        {
+          id: 'clinic-alpha-1',
+          name: 'Alpha Clinic',
+          role: ClinicRole.DOCTOR,
+        },
+      ]);
+      expect(prisma.clinicMembership.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          status: MembershipStatus.ACTIVE,
+          clinic: { isActive: true },
+        },
+        select: {
+          clinicId: true,
+          role: true,
+          clinic: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+    });
+
+    it('should return clinic null and empty clinics list when user has 0 active memberships', async () => {
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await authService.resolveUserClinicContext('user-no-clinic');
+
+      expect(result.clinic).toBeNull();
+      expect(result.clinics).toEqual([]);
+    });
+
+    it('should return clinic null and all clinics when user has multiple active memberships and no requested clinicId', async () => {
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue(
+        multipleMemberships,
+      );
+
+      const result = await authService.resolveUserClinicContext('user-multi');
+
+      expect(result.clinic).toBeNull();
+      expect(result.clinics).toHaveLength(2);
+      expect(result.clinics[0].id).toBe('clinic-alpha-1');
+      expect(result.clinics[1].id).toBe('clinic-beta-2');
+    });
+
+    it('should resolve requested clinic when valid requestedClinicId is provided in multi-clinic context', async () => {
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue(
+        multipleMemberships,
+      );
+
+      const result = await authService.resolveUserClinicContext(
+        'user-multi',
+        'clinic-beta-2',
+      );
+
+      expect(result.clinic).toEqual({
+        id: 'clinic-beta-2',
+        name: 'Beta Health',
+        role: ClinicRole.DOCTOR,
+      });
+      expect(result.clinics).toHaveLength(2);
+    });
+
+    it('should return clinic null when requestedClinicId does not match any active memberships', async () => {
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue(
+        multipleMemberships,
+      );
+
+      const result = await authService.resolveUserClinicContext(
+        'user-multi',
+        'clinic-unauthorized-99',
+      );
+
+      expect(result.clinic).toBeNull();
+      expect(result.clinics).toHaveLength(2);
+    });
+  });
+
+  describe('User Profile with Clinic Resolution (getProfile)', () => {
+    it('should return user profile and resolved clinic context', async () => {
+      const mockUser = {
+        id: 'user-doc-1',
+        phone: '9876543210',
+        email: 'doc@example.com',
+        fullName: 'Dr. Anita Roy',
+        isActive: true,
+      };
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.clinicMembership.findMany as jest.Mock).mockResolvedValue([
+        {
+          clinicId: 'clinic-alpha-1',
+          role: ClinicRole.DOCTOR,
+          clinic: { id: 'clinic-alpha-1', name: 'Alpha Clinic' },
+        },
+      ]);
+
+      const profile = await authService.getProfile('user-doc-1');
+
+      expect(profile.user).toEqual(mockUser);
+      expect(profile.clinic).toEqual({
+        id: 'clinic-alpha-1',
+        name: 'Alpha Clinic',
+        role: ClinicRole.DOCTOR,
+      });
+      expect(profile.clinics).toHaveLength(1);
     });
   });
 });

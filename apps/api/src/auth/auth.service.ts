@@ -12,9 +12,11 @@ import { ClinicRole, MembershipStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadAuthConfig, AuthConfig } from './auth.config';
 import {
+  AuthClinicContext,
   AuthenticatedUser,
   JwtPayload,
   LoginResponse,
+  UserProfileResponse,
 } from './interfaces/auth.interfaces';
 import { LoginDto } from './dto/login.dto';
 import { RegisterClinicDto } from './dto/register-clinic.dto';
@@ -116,6 +118,10 @@ export class AuthService {
     }
 
     const token = await this.signToken(user.id, user.phone);
+    const { clinic, clinics } = await this.resolveUserClinicContext(
+      user.id,
+      loginDto.clinicId,
+    );
 
     return {
       accessToken: token,
@@ -126,6 +132,95 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
       },
+      clinic,
+      clinics,
+    };
+  }
+
+  /**
+   * Resolves clinic context for an authenticated user.
+   *
+   * Business & Determinism Rules:
+   * - Queries active memberships where the clinic is also active.
+   * - Ordered deterministically by createdAt ASC.
+   * - If requestedClinicId is provided: matches against active memberships.
+   *   If found, returns that clinic as selected. If not found, clinic is null.
+   * - If requestedClinicId is omitted:
+   *   - Exactly 1 active membership: returns that clinic as selected.
+   *   - 0 active memberships: returns clinic null, clinics [].
+   *   - >1 active memberships: returns clinic null, clinics [all], forcing client to choose.
+   */
+  async resolveUserClinicContext(
+    userId: string,
+    requestedClinicId?: string,
+  ): Promise<{ clinic: AuthClinicContext | null; clinics: AuthClinicContext[] }> {
+    const memberships = await this.prisma.clinicMembership.findMany({
+      where: {
+        userId,
+        status: MembershipStatus.ACTIVE,
+        clinic: {
+          isActive: true,
+        },
+      },
+      select: {
+        clinicId: true,
+        role: true,
+        clinic: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const clinics: AuthClinicContext[] = memberships.map((m) => ({
+      id: m.clinic.id,
+      name: m.clinic.name,
+      role: m.role,
+    }));
+
+    if (requestedClinicId) {
+      const match = clinics.find((c) => c.id === requestedClinicId);
+      return {
+        clinic: match || null,
+        clinics,
+      };
+    }
+
+    if (clinics.length === 1) {
+      return {
+        clinic: clinics[0],
+        clinics,
+      };
+    }
+
+    return {
+      clinic: null,
+      clinics,
+    };
+  }
+
+  /**
+   * Retrieves profile and authoritative clinic context for the authenticated user.
+   */
+  async getProfile(
+    userId: string,
+    requestedClinicId?: string,
+  ): Promise<UserProfileResponse> {
+    const user = await this.validateUser(userId);
+    const { clinic, clinics } = await this.resolveUserClinicContext(
+      user.id,
+      requestedClinicId,
+    );
+
+    return {
+      user,
+      clinic,
+      clinics,
     };
   }
 
@@ -219,8 +314,14 @@ export class AuthService {
       return { user, clinic };
     });
 
-    // 5. Sign token and assemble standard LoginResponse
+    // 5. Sign token and assemble standard LoginResponse with newly created clinic
     const token = await this.signToken(result.user.id, result.user.phone);
+
+    const clinicContext: AuthClinicContext = {
+      id: result.clinic.id,
+      name: result.clinic.name,
+      role: ClinicRole.ADMIN,
+    };
 
     return {
       accessToken: token,
@@ -231,6 +332,8 @@ export class AuthService {
         email: result.user.email,
         fullName: result.user.fullName,
       },
+      clinic: clinicContext,
+      clinics: [clinicContext],
     };
   }
 

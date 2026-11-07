@@ -96,6 +96,18 @@ describe('AuthService — Clinic Owner Registration (Phase 5D.1)', () => {
     expect(response.user.id).toBe('user-owner-uuid-1');
     expect(response.user.email).toBe('anita.desai@careclinic.in');
     expect(response.user.fullName).toBe('Dr. Anita Desai');
+    expect(response.clinic).toEqual({
+      id: 'clinic-uuid-1',
+      name: 'Desai Care Clinic',
+      role: ClinicRole.ADMIN,
+    });
+    expect(response.clinics).toEqual([
+      {
+        id: 'clinic-uuid-1',
+        name: 'Desai Care Clinic',
+        role: ClinicRole.ADMIN,
+      },
+    ]);
     // Ensure no password hash is returned
     expect((response as any).passwordHash).toBeUndefined();
     expect((response.user as any).passwordHash).toBeUndefined();

@@ -9,6 +9,7 @@ import '../../features/auth/models/auth_user.dart';
 /// - Tokens and sensitive identifiers are encrypted at rest.
 class SecureStorageService {
   static const String _keyAccessToken = 'opd_access_token';
+  static const String _keyRefreshToken = 'opd_refresh_token';
   static const String _keyActiveClinicId = 'opd_active_clinic_id';
   static const String _keyCachedUser = 'opd_cached_user';
 
@@ -31,6 +32,16 @@ class SecureStorageService {
   /// Retrieves the stored access token, if any.
   Future<String?> getAccessToken() async {
     return _storage.read(key: _keyAccessToken);
+  }
+
+  /// Saves the authenticated refresh token.
+  Future<void> saveRefreshToken(String token) async {
+    await _storage.write(key: _keyRefreshToken, value: token);
+  }
+
+  /// Retrieves the stored refresh token, if any.
+  Future<String?> getRefreshToken() async {
+    return _storage.read(key: _keyRefreshToken);
   }
 
   /// Saves the active clinic ID selector for multi-tenant requests.
@@ -64,10 +75,10 @@ class SecureStorageService {
   }
 
   /// Clears authentication tokens and cached user data (logout).
-  /// Preserves the selected active clinic identifier across logout sessions by default,
-  /// ensuring that clinical devices retain their configured clinic context.
-  Future<void> clearAuth({bool clearClinic = false}) async {
+  /// By default, clears active clinic ID to prevent account switching contamination.
+  Future<void> clearAuth({bool clearClinic = true}) async {
     await _storage.delete(key: _keyAccessToken);
+    await _storage.delete(key: _keyRefreshToken);
     await _storage.delete(key: _keyCachedUser);
     if (clearClinic) {
       await _storage.delete(key: _keyActiveClinicId);

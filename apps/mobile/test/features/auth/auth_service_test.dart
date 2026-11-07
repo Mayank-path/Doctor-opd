@@ -147,25 +147,26 @@ void main() {
       verifyNever(() => mockApiClient.post(any(), data: any(named: 'data')));
     });
 
-    test('logout clears secure storage and resets auth state while preserving active clinic by default', () async {
-      when(() => mockStorageService.clearAuth(clearClinic: false)).thenAnswer((_) async {});
+    test('logout clears secure storage, resets auth state, and clears active clinic context by default', () async {
+      when(() => mockStorageService.clearAuth(clearClinic: true)).thenAnswer((_) async {});
 
       await authService.logout();
 
       expect(authService.isAuthenticated, isFalse);
       expect(authService.currentUser, isNull);
+      expect(authService.activeClinicId, isNull);
       expect(authService.errorMessage, isNull);
-      verify(() => mockStorageService.clearAuth(clearClinic: false)).called(1);
+      verify(() => mockStorageService.clearAuth(clearClinic: true)).called(1);
     });
 
-    test('logout clears active clinic when clearClinic is true', () async {
-      when(() => mockStorageService.clearAuth(clearClinic: true)).thenAnswer((_) async {});
+    test('logout preserves active clinic only when clearClinic is explicitly false', () async {
+      when(() => mockStorageService.clearAuth(clearClinic: false)).thenAnswer((_) async {});
 
-      await authService.logout(clearClinic: true);
+      await authService.logout(clearClinic: false);
 
       expect(authService.isAuthenticated, isFalse);
-      expect(authService.activeClinicId, isNull);
-      verify(() => mockStorageService.clearAuth(clearClinic: true)).called(1);
+      expect(authService.currentUser, isNull);
+      verify(() => mockStorageService.clearAuth(clearClinic: false)).called(1);
     });
 
     test('initialize restores activeClinicId alongside token and user', () async {

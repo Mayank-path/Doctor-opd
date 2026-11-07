@@ -49,10 +49,16 @@ describe('Auth Login Endpoint (E2E)', () => {
       user: {
         findUnique: jest.fn(
           (args: { where: { email?: string; id?: string } }) => {
-            if (args.where.email === 'admin@clinic.com') {
+            if (
+              args.where.email === 'admin@clinic.com' ||
+              args.where.id === 'user-admin-1'
+            ) {
               return Promise.resolve(mockDbUser);
             }
-            if (args.where.email === 'inactive@clinic.com') {
+            if (
+              args.where.email === 'inactive@clinic.com' ||
+              args.where.id === 'user-inactive-1'
+            ) {
               return Promise.resolve(mockInactiveUser);
             }
             return Promise.resolve(null);
@@ -61,6 +67,18 @@ describe('Auth Login Endpoint (E2E)', () => {
       },
       clinicMembership: {
         findUnique: jest.fn(() => Promise.resolve(null)),
+        findMany: jest.fn(() =>
+          Promise.resolve([
+            {
+              clinicId: 'clinic-uuid-1',
+              role: 'ADMIN',
+              clinic: {
+                id: 'clinic-uuid-1',
+                name: 'Apex Healthcare Master Clinic',
+              },
+            },
+          ]),
+        ),
       },
     };
 
@@ -115,6 +133,18 @@ describe('Auth Login Endpoint (E2E)', () => {
         email: 'admin@clinic.com',
         fullName: 'Dr. System Administrator',
       });
+      expect(body.clinic).toEqual({
+        id: 'clinic-uuid-1',
+        name: 'Apex Healthcare Master Clinic',
+        role: 'ADMIN',
+      });
+      expect(body.clinics).toEqual([
+        {
+          id: 'clinic-uuid-1',
+          name: 'Apex Healthcare Master Clinic',
+          role: 'ADMIN',
+        },
+      ]);
 
       // Passwords or hashes must never be returned
       expect(body.password).toBeUndefined();
@@ -262,6 +292,57 @@ describe('Auth Login Endpoint (E2E)', () => {
       }
 
       expect(hit429).toBe(true);
+    });
+  });
+
+  describe('GET /api/v1/auth/me - Authenticated Profile & Clinic Context', () => {
+    let validToken: string;
+
+    beforeEach(async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({
+          email: 'admin@clinic.com',
+          password: validPassword,
+        });
+      validToken = (loginRes.body as { accessToken: string }).accessToken;
+    });
+
+    it('should return user profile and resolved clinic context when valid Bearer token provided', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${validToken}`)
+        .expect(200);
+
+      const body = response.body;
+      expect(body.user).toBeDefined();
+      expect(body.user.id).toBe('user-admin-1');
+      expect(body.user.email).toBe('admin@clinic.com');
+      expect(body.clinic).toEqual({
+        id: 'clinic-uuid-1',
+        name: 'Apex Healthcare Master Clinic',
+        role: 'ADMIN',
+      });
+      expect(body.clinics).toEqual([
+        {
+          id: 'clinic-uuid-1',
+          name: 'Apex Healthcare Master Clinic',
+          role: 'ADMIN',
+        },
+      ]);
+    });
+
+    it('should reject missing authorization token with 401', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .expect(401);
+    });
+
+    it('should reject invalid authorization token with 401', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', 'Bearer invalid-token')
+        .expect(401);
     });
   });
 });

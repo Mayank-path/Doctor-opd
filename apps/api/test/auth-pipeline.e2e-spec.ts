@@ -119,6 +119,10 @@ describe('Auth HTTP Pipeline (E2E)', () => {
       clinicId: string;
       role: ClinicRole;
       status: MembershipStatus;
+      clinic?: {
+        id: string;
+        isActive: boolean;
+      };
     }
   >([
     [
@@ -129,6 +133,10 @@ describe('Auth HTTP Pipeline (E2E)', () => {
         clinicId: 'clinic-100',
         role: ClinicRole.DOCTOR,
         status: MembershipStatus.ACTIVE,
+        clinic: {
+          id: 'clinic-100',
+          isActive: true,
+        },
       },
     ],
     [
@@ -139,6 +147,10 @@ describe('Auth HTTP Pipeline (E2E)', () => {
         clinicId: 'clinic-100',
         role: ClinicRole.STAFF,
         status: MembershipStatus.ACTIVE,
+        clinic: {
+          id: 'clinic-100',
+          isActive: true,
+        },
       },
     ],
     [
@@ -149,6 +161,24 @@ describe('Auth HTTP Pipeline (E2E)', () => {
         clinicId: 'clinic-100',
         role: ClinicRole.DOCTOR,
         status: MembershipStatus.SUSPENDED,
+        clinic: {
+          id: 'clinic-100',
+          isActive: true,
+        },
+      },
+    ],
+    [
+      'user-doctor-1:clinic-inactive',
+      {
+        id: 'membership-4',
+        userId: 'user-doctor-1',
+        clinicId: 'clinic-inactive',
+        role: ClinicRole.DOCTOR,
+        status: MembershipStatus.ACTIVE,
+        clinic: {
+          id: 'clinic-inactive',
+          isActive: false,
+        },
       },
     ],
   ]);
@@ -348,6 +378,18 @@ describe('Auth HTTP Pipeline (E2E)', () => {
           status: 'authorized',
           clinicId: 'clinic-100',
           role: 'STAFF',
+        });
+    });
+
+    it('should reject when clinic is inactive even if membership is ACTIVE (403)', async () => {
+      const token = await authService.signToken('user-doctor-1', '9876543210');
+
+      await request(app.getHttpServer())
+        .get('/test-auth/clinic/clinic-inactive')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403)
+        .expect((res: { body: { message?: string } }) => {
+          expect(res.body.message).toContain('clinic is inactive');
         });
     });
   });

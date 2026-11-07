@@ -148,6 +148,10 @@ describe('ClinicAuthGuard', () => {
       clinicId: 'clinic-1',
       role: ClinicRole.STAFF,
       status: MembershipStatus.ACTIVE,
+      clinic: {
+        id: 'clinic-1',
+        isActive: true,
+      },
     });
 
     // Route requires DOCTOR or ADMIN
@@ -163,7 +167,46 @@ describe('ClinicAuthGuard', () => {
     );
   });
 
-  it('should allow access and set request.clinic when active membership matches required role', async () => {
+  it('should throw ForbiddenException if clinic is inactive', async () => {
+    const { context } = createMockContext(mockValidUser, {
+      clinicId: 'clinic-1',
+    });
+    prisma.clinicMembership.findUnique.mockResolvedValue({
+      id: 'membership-1',
+      userId: 'user-1',
+      clinicId: 'clinic-1',
+      role: ClinicRole.DOCTOR,
+      status: MembershipStatus.ACTIVE,
+      clinic: {
+        id: 'clinic-1',
+        isActive: false,
+      },
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      new ForbiddenException('Access denied: clinic is inactive'),
+    );
+  });
+
+  it('should throw ForbiddenException if clinic relation is null or missing', async () => {
+    const { context } = createMockContext(mockValidUser, {
+      clinicId: 'clinic-1',
+    });
+    prisma.clinicMembership.findUnique.mockResolvedValue({
+      id: 'membership-1',
+      userId: 'user-1',
+      clinicId: 'clinic-1',
+      role: ClinicRole.DOCTOR,
+      status: MembershipStatus.ACTIVE,
+      clinic: null,
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      new ForbiddenException('Access denied: clinic is inactive'),
+    );
+  });
+
+  it('should allow access and set request.clinic when active membership matches required role and clinic is active', async () => {
     const { context, request } = createMockContext(mockValidUser, {
       clinicId: 'clinic-1',
     });
@@ -174,6 +217,10 @@ describe('ClinicAuthGuard', () => {
       clinicId: 'clinic-1',
       role: ClinicRole.DOCTOR,
       status: MembershipStatus.ACTIVE,
+      clinic: {
+        id: 'clinic-1',
+        isActive: true,
+      },
     });
 
     reflector.getAllAndOverride.mockReturnValue([
@@ -188,6 +235,22 @@ describe('ClinicAuthGuard', () => {
       membershipId: 'membership-1',
       role: ClinicRole.DOCTOR,
       status: MembershipStatus.ACTIVE,
+    });
+    expect(prisma.clinicMembership.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_clinicId: {
+          userId: 'user-1',
+          clinicId: 'clinic-1',
+        },
+      },
+      include: {
+        clinic: {
+          select: {
+            id: true,
+            isActive: true,
+          },
+        },
+      },
     });
   });
 
@@ -204,6 +267,10 @@ describe('ClinicAuthGuard', () => {
       clinicId: 'clinic-header-1',
       role: ClinicRole.ADMIN,
       status: MembershipStatus.ACTIVE,
+      clinic: {
+        id: 'clinic-header-1',
+        isActive: true,
+      },
     });
 
     reflector.getAllAndOverride.mockReturnValue(undefined);

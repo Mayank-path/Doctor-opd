@@ -1,7 +1,9 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  IsUUID,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -20,4 +22,8 @@ export class LoginDto {
   @MinLength(1, { message: 'Password cannot be empty' })
   @MaxLength(128, { message: 'Password exceeds maximum permitted length' })
   password!: string;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'clinicId must be a valid UUID v4' })
+  clinicId?: string;
 }

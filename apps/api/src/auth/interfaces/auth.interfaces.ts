@@ -24,6 +24,12 @@ export interface ActiveClinicContext {
   status: MembershipStatus;
 }
 
+export interface AuthClinicContext {
+  id: string;
+  name: string;
+  role: ClinicRole;
+}
+
 export interface RequestWithAuth {
   user?: AuthenticatedUser;
   clinic?: ActiveClinicContext;
@@ -41,4 +47,12 @@ export interface LoginResponse {
     email: string | null;
     fullName: string;
   };
+  clinic: AuthClinicContext | null;
+  clinics?: AuthClinicContext[];
+}
+
+export interface UserProfileResponse {
+  user: AuthenticatedUser;
+  clinic: AuthClinicContext | null;
+  clinics: AuthClinicContext[];
 }
