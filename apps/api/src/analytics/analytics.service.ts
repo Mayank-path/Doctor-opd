@@ -514,9 +514,9 @@ export class AnalyticsService {
     const uniquePatients = Number(aggResult[0]?.unique_patients ?? 0);
     const diagnosisMatchesCount = Number(aggResult[0]?.diagnosis_matches ?? 0);
     const clinicalNoteMatchesCount = Number(aggResult[0]?.clinical_note_matches ?? 0);
-    const totalPages = Math.ceil(totalConsultations / limit) || (totalConsultations === 0 ? 0 : 1);
+    const totalPages = Math.ceil(uniquePatients / limit) || (uniquePatients === 0 ? 0 : 1);
 
-    // 2. Fetch paginated records
+    // 2. Fetch paginated distinct matching patient records (latest consultation per patient)
     const rows = await this.prisma.$queryRawUnsafe<
       Array<{
         consultationId: string;
@@ -533,32 +533,52 @@ export class AnalyticsService {
       }>
     >(
       `
+      WITH ranked_consultations AS (
+        SELECT
+          c."id" AS "consultationId",
+          c."encounterDate" AS "consultationDate",
+          c."patientId" AS "patientId",
+          p."fullName" AS "patientName",
+          p."uhid" AS "patientUhid",
+          c."diagnosis" AS "recordedDiagnosis",
+          c."chiefComplaint" AS "chiefComplaint",
+          c."symptoms" AS "symptoms",
+          c."examination" AS "examination",
+          c."treatmentPlan" AS "treatmentPlan",
+          c."status" AS "status",
+          ROW_NUMBER() OVER (
+            PARTITION BY c."patientId"
+            ORDER BY c."encounterDate" DESC
+          ) AS rn
+        FROM "consultations" c
+        JOIN "patients" p ON p."id" = c."patientId" AND p."clinicId" = c."clinicId"
+        WHERE c."clinicId" = $1
+          AND c."status" = 'FINALIZED'
+          AND (
+            c."diagnosis" ILIKE $2
+            OR c."chiefComplaint" ILIKE $2
+            OR c."symptoms" ILIKE $2
+            OR c."examination" ILIKE $2
+            OR c."treatmentPlan" ILIKE $2
+          )
+          AND ($3::timestamptz IS NULL OR c."encounterDate" >= $3)
+          AND ($4::timestamptz IS NULL OR c."encounterDate" <= $4)
+      )
       SELECT
-        c."id" AS "consultationId",
-        c."encounterDate" AS "consultationDate",
-        c."patientId" AS "patientId",
-        p."fullName" AS "patientName",
-        p."uhid" AS "patientUhid",
-        c."diagnosis" AS "recordedDiagnosis",
-        c."chiefComplaint" AS "chiefComplaint",
-        c."symptoms" AS "symptoms",
-        c."examination" AS "examination",
-        c."treatmentPlan" AS "treatmentPlan",
-        c."status" AS "status"
-      FROM "consultations" c
-      JOIN "patients" p ON p."id" = c."patientId" AND p."clinicId" = c."clinicId"
-      WHERE c."clinicId" = $1
-        AND c."status" = 'FINALIZED'
-        AND (
-          c."diagnosis" ILIKE $2
-          OR c."chiefComplaint" ILIKE $2
-          OR c."symptoms" ILIKE $2
-          OR c."examination" ILIKE $2
-          OR c."treatmentPlan" ILIKE $2
-        )
-        AND ($3::timestamptz IS NULL OR c."encounterDate" >= $3)
-        AND ($4::timestamptz IS NULL OR c."encounterDate" <= $4)
-      ORDER BY c."encounterDate" DESC
+        "consultationId",
+        "consultationDate",
+        "patientId",
+        "patientName",
+        "patientUhid",
+        "recordedDiagnosis",
+        "chiefComplaint",
+        "symptoms",
+        "examination",
+        "treatmentPlan",
+        "status"
+      FROM ranked_consultations
+      WHERE rn = 1
+      ORDER BY "consultationDate" DESC
       LIMIT $5 OFFSET $6
     `,
       clinicId,

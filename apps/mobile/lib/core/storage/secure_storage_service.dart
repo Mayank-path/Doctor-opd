@@ -12,6 +12,7 @@ class SecureStorageService {
   static const String _keyRefreshToken = 'opd_refresh_token';
   static const String _keyActiveClinicId = 'opd_active_clinic_id';
   static const String _keyCachedUser = 'opd_cached_user';
+  static const String _keyThemeMode = 'opd_theme_mode';
 
   final FlutterSecureStorage _storage;
 
@@ -88,5 +89,15 @@ class SecureStorageService {
   /// Explicitly removes the active clinic identifier from secure storage.
   Future<void> clearActiveClinicId() async {
     await _storage.delete(key: _keyActiveClinicId);
+  }
+
+  /// Saves the persisted theme mode string representation.
+  Future<void> saveThemeMode(String mode) async {
+    await _storage.write(key: _keyThemeMode, value: mode);
+  }
+
+  /// Retrieves the persisted theme mode string representation.
+  Future<String?> getThemeMode() async {
+    return _storage.read(key: _keyThemeMode);
   }
 }

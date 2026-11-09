@@ -165,12 +165,13 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
   }
 
   Widget _buildSelectedPatientCard(Patient patient) {
+    final colors = context.colors;
     return Card(
       elevation: 0,
-      color: AppTheme.surfaceWhite,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppTheme.accentTeal, width: 1.5),
+        side: BorderSide(color: colors.primaryAccent, width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -179,18 +180,18 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle_rounded,
-                  color: AppTheme.accentTeal,
+                  color: colors.primaryAccent,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Selected Patient',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.accentTeal,
+                    color: colors.primaryAccent,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -199,19 +200,19 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentTeal.withAlpha(25),
+                    color: colors.primaryAccent.withAlpha(25),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: AppTheme.accentTeal.withAlpha(50),
+                      color: colors.primaryAccent.withAlpha(50),
                     ),
                   ),
                   child: Text(
                     'UHID: ${patient.uhid}',
                     key: const Key('selectedPatientUhidBadge'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryNavy,
+                      color: colors.primaryAccent,
                     ),
                   ),
                 ),
@@ -221,10 +222,10 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
             Text(
               patient.fullName,
               key: const Key('selectedPatientFullName'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
@@ -232,27 +233,27 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
               children: [
                 Text(
                   '${patient.gender} • ${patient.age != null ? '${patient.age} yrs' : 'Age N/A'}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                   ),
                 ),
                 if (patient.phone.isNotEmpty) ...[
                   const SizedBox(width: 12),
-                  const Text('•', style: TextStyle(color: AppTheme.textMuted)),
+                  Text('•', style: TextStyle(color: colors.textSecondary)),
                   const SizedBox(width: 12),
-                  const Icon(
+                  Icon(
                     Icons.phone_outlined,
                     size: 14,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     patient.phone,
                     key: const Key('selectedPatientPhone'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -302,12 +303,13 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
   }
 
   Widget _buildSearchPanel() {
+    final colors = context.colors;
     return Card(
       elevation: 0,
-      color: AppTheme.surfaceWhite,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -316,18 +318,18 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.person_search_outlined,
-                  color: AppTheme.primaryNavy,
+                  color: colors.primaryAccent,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Search Patient',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryNavy,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -383,6 +385,7 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
   }
 
   Widget _buildSearchFeedback() {
+    final colors = context.colors;
     if (_errorMessage != null) {
       return Container(
         margin: const EdgeInsets.only(top: 8),
@@ -416,8 +419,8 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
     }
 
     if (_isSearching) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -425,14 +428,17 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
               SizedBox(
                 width: 16,
                 height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.primaryAccent,
+                ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Text(
                 'Searching patient records...',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -447,35 +453,35 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
-          color: AppTheme.backgroundLight,
+          color: colors.surfaceContainer,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.borderSubtle),
+          border: Border.all(color: colors.border),
         ),
         child: Center(
           child: Column(
             children: [
-              const Icon(
+              Icon(
                 Icons.person_off_outlined,
-                color: AppTheme.textMuted,
+                color: colors.textMuted,
                 size: 28,
               ),
               const SizedBox(height: 6),
               Text(
                 'No patients found matching "$_lastQuery"',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'Try searching with a different name, full UHID (e.g. UHID-000001), or phone number.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -490,14 +496,14 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
         margin: const EdgeInsets.only(top: 8),
         constraints: const BoxConstraints(maxHeight: 240),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceWhite,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.borderSubtle),
+          border: Border.all(color: colors.border),
         ),
         child: ListView.separated(
           shrinkWrap: true,
           itemCount: _searchResults.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          separatorBuilder: (_, __) => Divider(height: 1, color: colors.divider),
           itemBuilder: (context, index) {
             final patient = _searchResults[index];
             return _buildResultTile(patient);
@@ -513,15 +519,16 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
         _searchController.text.isNotEmpty && _searchController.text.trim().length < 2
             ? 'Type at least 2 characters to search'
             : 'Enter patient name, UHID, or phone number to find record',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
-          color: AppTheme.textMuted,
+          color: colors.textSecondary,
         ),
       ),
     );
   }
 
   Widget _buildResultTile(Patient patient) {
+    final colors = context.colors;
     return InkWell(
       key: Key('patientResult_${patient.id}'),
       onTap: () => _selectPatient(patient),
@@ -532,13 +539,13 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: AppTheme.accentTeal.withAlpha(25),
+              backgroundColor: colors.primaryAccent.withAlpha(25),
               child: Text(
                 patient.fullName.isNotEmpty
                     ? patient.fullName[0].toUpperCase()
                     : 'P',
-                style: const TextStyle(
-                  color: AppTheme.accentTeal,
+                style: TextStyle(
+                  color: colors.primaryAccent,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -554,10 +561,10 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
                       Flexible(
                         child: Text(
                           patient.fullName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
+                            color: colors.textPrimary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -569,15 +576,15 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.accentTeal.withAlpha(20),
+                          color: colors.primaryAccent.withAlpha(20),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           patient.uhid,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.accentTeal,
+                            color: colors.primaryAccent,
                           ),
                         ),
                       ),
@@ -586,17 +593,17 @@ class _PatientSearchSelectorState extends State<PatientSearchSelector> {
                   const SizedBox(height: 2),
                   Text(
                     '${patient.gender} • ${patient.age != null ? '${patient.age} yrs' : 'Age N/A'}${patient.phone.isNotEmpty ? ' • ${patient.phone}' : ''}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: AppTheme.textMuted,
+              color: colors.textSecondary,
               size: 20,
             ),
           ],

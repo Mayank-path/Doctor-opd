@@ -166,14 +166,18 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     if (_isLoadingUser) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: colors.background,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_isForbidden) {
       return Scaffold(
+        backgroundColor: colors.background,
         appBar: AppBar(title: const Text('Consultations')),
         body: Center(
           child: Padding(
@@ -181,27 +185,27 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.lock_outline_rounded,
                   size: 64,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Access Restricted',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Consultation records contain sensitive clinical narratives and are strictly restricted to attending medical doctors. Administrative staff cannot view clinical consultation data.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -218,6 +222,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
     }
 
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Consultations'),
         actions: [
@@ -229,8 +234,8 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.primaryNavy,
-        foregroundColor: Colors.white,
+        backgroundColor: colors.primaryAccent,
+        foregroundColor: context.isDarkMode ? colors.background : Colors.white,
         onPressed: _navigateToCreate,
         icon: const Icon(Icons.add),
         label: const Text('Start Consultation'),
@@ -245,17 +250,18 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
   }
 
   Widget _buildFilterChips() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.white,
+      color: colors.surface,
       child: Row(
         children: [
           FilterChip(
             label: const Text('All'),
             selected: _selectedStatusFilter == null,
             onSelected: (_) => _onStatusFilterSelected(null),
-            selectedColor: AppTheme.primaryNavy.withAlpha(30),
-            checkmarkColor: AppTheme.primaryNavy,
+            selectedColor: colors.primaryAccent.withValues(alpha: 0.15),
+            checkmarkColor: colors.primaryAccent,
           ),
           const SizedBox(width: 8),
           FilterChip(
@@ -263,8 +269,12 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
             selected: _selectedStatusFilter == ConsultationStatus.draft,
             onSelected: (_) =>
                 _onStatusFilterSelected(ConsultationStatus.draft),
-            selectedColor: Colors.amber.shade100,
-            checkmarkColor: Colors.amber.shade900,
+            selectedColor: context.isDarkMode
+                ? colors.accentContainer
+                : Colors.amber.shade100,
+            checkmarkColor: context.isDarkMode
+                ? colors.primaryAccent
+                : Colors.amber.shade900,
           ),
           const SizedBox(width: 8),
           FilterChip(
@@ -272,8 +282,8 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
             selected: _selectedStatusFilter == ConsultationStatus.finalized,
             onSelected: (_) =>
                 _onStatusFilterSelected(ConsultationStatus.finalized),
-            selectedColor: AppTheme.accentTeal.withAlpha(30),
-            checkmarkColor: AppTheme.accentTeal,
+            selectedColor: colors.primaryAccent.withValues(alpha: 0.15),
+            checkmarkColor: colors.primaryAccent,
           ),
           const SizedBox(width: 8),
           FilterChip(
@@ -290,6 +300,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
   }
 
   Widget _buildBody() {
+    final colors = context.colors;
     if (_isLoadingConsultations) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -307,9 +318,9 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -334,15 +345,15 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
               Icon(
                 Icons.medical_information_outlined,
                 size: 64,
-                color: Colors.grey.shade400,
+                color: colors.textMuted,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'No Consultations Found',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -353,7 +364,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey.shade600,
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -377,15 +388,17 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
   }
 
   Widget _buildConsultationCard(Consultation item) {
+    final colors = context.colors;
     final isDraft = item.isDraft;
     final patientName = item.patient?.fullName ?? 'Patient ID: ${item.patientId.substring(0, 8)}...';
     final patientUhid = item.patient?.uhid;
 
     return Card(
       elevation: 0,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(color: colors.border),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -405,19 +418,19 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                       children: [
                         Text(
                           patientName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
+                            color: colors.textPrimary,
                           ),
                         ),
                         if (patientUhid != null) ...[
                           const SizedBox(height: 2),
                           Text(
                             'UHID: $patientUhid',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppTheme.textSecondary,
+                              color: colors.textSecondary,
                             ),
                           ),
                         ],
@@ -431,15 +444,15 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                       color: item.isVoided
                           ? AppTheme.errorRed.withAlpha(20)
                           : (isDraft
-                              ? Colors.amber.shade50
-                              : AppTheme.accentTeal.withAlpha(20)),
+                              ? (context.isDarkMode ? colors.accentContainer : Colors.amber.shade50)
+                              : colors.primaryAccent.withAlpha(20)),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: item.isVoided
                             ? AppTheme.errorRed
                             : (isDraft
-                                ? Colors.amber.shade700
-                                : AppTheme.accentTeal),
+                                ? (context.isDarkMode ? colors.primaryAccent : Colors.amber.shade700)
+                                : colors.primaryAccent),
                       ),
                     ),
                     child: Row(
@@ -452,11 +465,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                                   ? Icons.edit_note
                                   : Icons.check_circle_outline),
                           size: 13,
-                          color: item.isVoided
-                              ? AppTheme.errorRed
-                              : (isDraft
-                                  ? Colors.amber.shade800
-                                  : AppTheme.accentTeal),
+                          color: item.status.colorFor(isDark: context.isDarkMode),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -466,11 +475,7 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: item.isVoided
-                                ? AppTheme.errorRed
-                                : (isDraft
-                                    ? Colors.amber.shade900
-                                    : AppTheme.accentTeal),
+                            color: item.status.colorFor(isDark: context.isDarkMode),
                           ),
                         ),
                       ],
@@ -478,18 +483,18 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                   ),
                 ],
               ),
-              const Divider(height: 20),
+              Divider(height: 20, color: colors.divider),
 
               // Chief complaint
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Complaint: ',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                   Expanded(
@@ -497,9 +502,9 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                       item.chiefComplaint,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -511,12 +516,12 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Diagnosis: ',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                     Expanded(
@@ -524,10 +529,10 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                         item.diagnosis!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.primaryNavy,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
@@ -572,14 +577,14 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.event_outlined,
-                          size: 14, color: AppTheme.textSecondary),
+                      Icon(Icons.event_outlined,
+                          size: 14, color: colors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         item.formattedEncounterDate,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -589,7 +594,9 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                       Icon(
                         isDraft ? Icons.pending_actions : Icons.verified_user,
                         size: 14,
-                        color: isDraft ? Colors.amber.shade800 : AppTheme.accentTeal,
+                        color: isDraft
+                            ? (context.isDarkMode ? colors.primaryAccent : Colors.amber.shade800)
+                            : (context.isDarkMode ? colors.primaryAccent : AppTheme.accentTeal),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -598,8 +605,8 @@ class _ConsultationListScreenState extends State<ConsultationListScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: isDraft
-                              ? Colors.amber.shade800
-                              : AppTheme.accentTeal,
+                              ? (context.isDarkMode ? colors.primaryAccent : Colors.amber.shade800)
+                              : (context.isDarkMode ? colors.primaryAccent : AppTheme.accentTeal),
                         ),
                       ),
                     ],

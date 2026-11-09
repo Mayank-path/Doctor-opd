@@ -24,9 +24,9 @@ class AnalyticsStatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: backgroundColor ?? Colors.white,
+        color: backgroundColor ?? context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -44,10 +44,10 @@ class AnalyticsStatCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -66,10 +66,10 @@ class AnalyticsStatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
-              color: AppTheme.textPrimary,
+              color: context.colors.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
@@ -77,9 +77,9 @@ class AnalyticsStatCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppTheme.textMuted,
+                color: context.colors.textSecondary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

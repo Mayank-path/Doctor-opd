@@ -493,9 +493,9 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Cancelling marks this prescription as inactive while preserving medication history for medical audits. A clinical justification reason is mandatory.',
-                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12.5, color: context.colors.textSecondary),
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -639,7 +639,7 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundLight,
+        backgroundColor: context.colors.background,
         appBar: AppBar(
           title: Text(
             isCancelled
@@ -649,9 +649,13 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     : (isApproved
                         ? 'Approved Prescription'
                         : 'Superseded Prescription')),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+              color: context.colors.textPrimary,
+            ),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: context.colors.surface,
           elevation: 0,
           actions: [
             if (isApproved && _canCurrentUserCancel())
@@ -707,7 +711,7 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                       )
                     : const Icon(Icons.print_rounded),
                 tooltip: 'Preview & Print PDF',
-                color: AppTheme.primaryNavy,
+                color: context.colors.textPrimary,
                 onPressed: _isGeneratingPdf ? null : _handlePrintPdf,
               ),
             if (rx?.patientId != null)
@@ -715,7 +719,7 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                 key: const Key('priorPrescriptionsAction'),
                 icon: const Icon(Icons.history_edu_rounded),
                 tooltip: 'Prior Prescriptions History',
-                color: AppTheme.primaryNavy,
+                color: context.colors.textPrimary,
                 onPressed: _openPriorPrescriptionsSheet,
               ),
           ],
@@ -819,13 +823,13 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                   children: [
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'PRESCRIBED MEDICATIONS',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
-                            color: AppTheme.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -835,15 +839,17 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.accentTeal.withValues(alpha: 0.15),
+                            color: context.isDarkMode
+                                ? context.colors.accentContainer
+                                : AppTheme.accentTeal.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             '${isDraft ? _draftItems.length : rx.items.length}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.accentTeal,
+                              color: context.colors.primaryAccent,
                             ),
                           ),
                         ),
@@ -854,8 +860,10 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                         key: const Key('addMedicationDraftButton'),
                         onPressed: () => _openMedicationEditor(),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryNavy,
-                          foregroundColor: Colors.white,
+                          backgroundColor: context.colors.primaryAccent,
+                          foregroundColor: context.isDarkMode
+                              ? const Color(0xFF111315)
+                              : Colors.white,
                           minimumSize: const Size(0, 38),
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
@@ -884,11 +892,14 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                       padding: const EdgeInsets.all(24),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.colors.surface,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.borderGray),
+                        border: Border.all(color: context.colors.border),
                       ),
-                      child: const Text('No medications added.'),
+                      child: Text(
+                        'No medications added.',
+                        style: TextStyle(color: context.colors.textSecondary),
+                      ),
                     )
                   else
                     ..._draftItems.asMap().entries.map((entry) {
@@ -921,20 +932,20 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: context.colors.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.borderGray),
+                    border: Border.all(color: context.colors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'PRESCRIPTION NOTES & ADVICE',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
-                          color: AppTheme.textSecondary,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -967,8 +978,8 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             color: rx.notes != null && rx.notes!.trim().isNotEmpty
-                                ? AppTheme.textPrimary
-                                : AppTheme.textSecondary,
+                                ? context.colors.textPrimary
+                                : context.colors.textSecondary,
                             fontStyle: rx.notes != null &&
                                     rx.notes!.trim().isNotEmpty
                                 ? FontStyle.normal
@@ -990,31 +1001,32 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
 
   Widget _buildStatusBanner(Prescription rx) {
     if (rx.isCancelled) {
+      final cancelledColor = rx.status.colorFor(isDark: context.isDarkMode);
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.dangerRed.withValues(alpha: 0.08),
+          color: cancelledColor.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppTheme.dangerRed.withValues(alpha: 0.3),
+            color: cancelledColor.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.cancel_outlined,
-                color: AppTheme.dangerRed, size: 22),
+            Icon(Icons.cancel_outlined,
+                color: cancelledColor, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'CANCELLED PRESCRIPTION (IMMUTABLE)',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.dangerRed,
+                      color: cancelledColor,
                     ),
                   ),
                   if (rx.cancellationReason != null &&
@@ -1022,10 +1034,10 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     const SizedBox(height: 3),
                     Text(
                       'Reason: ${rx.cancellationReason}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: context.colors.textPrimary,
                       ),
                     ),
                   ],
@@ -1033,9 +1045,9 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     const SizedBox(height: 2),
                     Text(
                       'Cancelled on: ${rx.formattedCancelledAt}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppTheme.textSecondary,
+                        color: context.colors.textSecondary,
                       ),
                     ),
                   ],
@@ -1048,19 +1060,20 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     }
 
     if (rx.isApproved) {
+      final approvedColor = rx.status.colorFor(isDark: context.isDarkMode);
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.successGreen.withValues(alpha: 0.08),
+          color: approvedColor.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppTheme.successGreen.withValues(alpha: 0.3),
+            color: approvedColor.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.lock_rounded, color: AppTheme.successGreen, size: 22),
+            Icon(Icons.lock_rounded, color: approvedColor, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1068,12 +1081,12 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'APPROVED RECORD (IMMUTABLE)',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.successGreen,
+                          color: approvedColor,
                         ),
                       ),
                       if (rx.amendmentVersion > 1) ...[
@@ -1084,16 +1097,24 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                             vertical: 1.5,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.indigo.shade50,
+                            color: context.isDarkMode
+                                ? context.colors.accentContainer
+                                : Colors.indigo.shade50,
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.indigo.shade200),
+                            border: Border.all(
+                              color: context.isDarkMode
+                                  ? context.colors.accentBorder
+                                  : Colors.indigo.shade200,
+                            ),
                           ),
                           child: Text(
                             'Version ${rx.amendmentVersion}',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: Colors.indigo.shade800,
+                              color: context.isDarkMode
+                                  ? context.colors.primaryAccent
+                                  : Colors.indigo.shade800,
                             ),
                           ),
                         ),
@@ -1103,9 +1124,9 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                   const SizedBox(height: 2),
                   Text(
                     'Signed by Dr. ${rx.doctor?.fullName ?? "Attending Doctor"} • Legally binding prescription.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
-                      color: AppTheme.textSecondary,
+                      color: context.colors.textSecondary,
                     ),
                   ),
                 ],
@@ -1117,17 +1138,26 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     }
 
     if (rx.isSuperseded) {
+      final supersededColor = rx.status.colorFor(isDark: context.isDarkMode);
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: context.isDarkMode
+              ? context.colors.surfaceContainer
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade400),
+          border: Border.all(
+            color: context.isDarkMode
+                ? context.colors.border
+                : Colors.grey.shade400,
+          ),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.history_rounded, color: Colors.blueGrey, size: 22),
-            SizedBox(width: 10),
+            Icon(Icons.history_rounded,
+                color: supersededColor,
+                size: 22),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1137,15 +1167,15 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blueGrey,
+                      color: supersededColor,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     'This version has been superseded by a clinical amendment and is kept for audit history.',
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: AppTheme.textSecondary,
+                      color: context.colors.textSecondary,
                     ),
                   ),
                 ],
@@ -1156,17 +1186,27 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
       );
     }
 
+    final draftColor = rx.status.colorFor(isDark: context.isDarkMode);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: context.isDarkMode
+            ? context.colors.accentContainer
+            : Colors.orange.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(
+          color: context.isDarkMode
+              ? context.colors.accentBorder
+              : Colors.orange.shade200,
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.edit_note_rounded,
-              color: Colors.orange.shade900, size: 22),
+          Icon(
+            Icons.edit_note_rounded,
+            color: draftColor,
+            size: 22,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1177,15 +1217,15 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Colors.orange.shade900,
+                    color: draftColor,
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
+                Text(
                   'This prescription is currently an editable draft and has not been locked or issued.',
                   style: TextStyle(
                     fontSize: 11.5,
-                    color: AppTheme.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                 ),
               ],
@@ -1200,9 +1240,9 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1211,10 +1251,14 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: AppTheme.primaryNavy.withValues(alpha: 0.1),
-                child: const Icon(
+                backgroundColor: context.isDarkMode
+                    ? context.colors.accentContainer
+                    : AppTheme.primaryNavy.withValues(alpha: 0.1),
+                child: Icon(
                   Icons.person_rounded,
-                  color: AppTheme.primaryNavy,
+                  color: context.isDarkMode
+                      ? context.colors.primaryAccent
+                      : AppTheme.primaryNavy,
                   size: 20,
                 ),
               ),
@@ -1225,19 +1269,19 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                   children: [
                     Text(
                       rx.patient?.fullName ?? 'Patient ID: ${rx.patientId}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
+                        color: context.colors.textPrimary,
                       ),
                     ),
                     if (rx.patient != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         '${rx.patient!.gender.toUpperCase()} • Phone: ${rx.patient!.phone}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                     ],
@@ -1251,24 +1295,35 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentTeal.withValues(alpha: 0.1),
+                    color: context.isDarkMode
+                        ? context.colors.accentContainer
+                        : AppTheme.accentTeal.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: AppTheme.accentTeal.withValues(alpha: 0.3),
+                      color: context.isDarkMode
+                          ? context.colors.accentBorder
+                          : AppTheme.accentTeal.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.link_rounded,
-                          size: 13, color: AppTheme.accentTeal),
-                      SizedBox(width: 4),
+                      Icon(
+                        Icons.link_rounded,
+                        size: 13,
+                        color: context.isDarkMode
+                            ? context.colors.primaryAccent
+                            : AppTheme.accentTeal,
+                      ),
+                      const SizedBox(width: 4),
                       Text(
                         'OPD Visit',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.accentTeal,
+                          color: context.isDarkMode
+                              ? context.colors.primaryAccent
+                              : AppTheme.accentTeal,
                         ),
                       ),
                     ],
@@ -1290,8 +1345,8 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          color: context.colors.surface,
+          border: Border(top: BorderSide(color: context.colors.divider)),
         ),
         child: SafeArea(
           child: Row(
@@ -1320,8 +1375,10 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                   key: const Key('printPdfButton'),
                   onPressed: _isGeneratingPdf ? null : _handlePrintPdf,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryNavy,
-                    foregroundColor: Colors.white,
+                    backgroundColor: context.colors.primaryAccent,
+                    foregroundColor: context.isDarkMode
+                        ? const Color(0xFF111315)
+                        : Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1329,12 +1386,14 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     elevation: 0,
                   ),
                   icon: _isGeneratingPdf
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: context.isDarkMode
+                                ? const Color(0xFF111315)
+                                : Colors.white,
                           ),
                         )
                       : const Icon(Icons.print_rounded, size: 20),
@@ -1355,8 +1414,8 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          color: context.colors.surface,
+          border: Border(top: BorderSide(color: context.colors.divider)),
         ),
         child: SafeArea(
           child: Row(
@@ -1373,15 +1432,15 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     ),
                   ),
                   child: _isSavingDraft
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(
-                          'Save Changes',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Save Changes',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1392,8 +1451,10 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                   onPressed:
                       _isSavingDraft || _isApproving ? null : _handleApprove,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentTeal,
-                    foregroundColor: Colors.white,
+                    backgroundColor: context.colors.primaryAccent,
+                    foregroundColor: context.isDarkMode
+                        ? const Color(0xFF111315)
+                        : Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1401,12 +1462,14 @@ class _PrescriptionDetailsScreenState extends State<PrescriptionDetailsScreen> {
                     elevation: 0,
                   ),
                   icon: _isApproving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: context.isDarkMode
+                                ? const Color(0xFF111315)
+                                : Colors.white,
                           ),
                         )
                       : const Icon(Icons.verified_rounded, size: 20),

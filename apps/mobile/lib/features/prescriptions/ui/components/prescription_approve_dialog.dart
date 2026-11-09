@@ -48,21 +48,22 @@ class _PrescriptionApproveDialogState extends State<PrescriptionApproveDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: context.colors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.verified_rounded, color: AppTheme.successGreen, size: 26),
-          SizedBox(width: 10),
+          const Icon(Icons.verified_rounded, color: AppTheme.successGreen, size: 26),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Approve Prescription',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
           ),
@@ -75,9 +76,9 @@ class _PrescriptionApproveDialogState extends State<PrescriptionApproveDialog> {
           children: [
             Text(
               'You are approving ${widget.itemCount} medication item(s) for ${widget.patientName}.',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
-                color: AppTheme.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(height: 12),
@@ -108,7 +109,9 @@ class _PrescriptionApproveDialogState extends State<PrescriptionApproveDialog> {
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         height: 1.35,
-                        color: Colors.red.shade900,
+                        color: context.isDarkMode
+                            ? const Color(0xFFFCA5A5)
+                            : Colors.red.shade900,
                       ),
                     ),
                   ),
@@ -157,13 +160,13 @@ class _PrescriptionApproveDialogState extends State<PrescriptionApproveDialog> {
                         });
                       },
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'I have reviewed all medication items, strengths, frequencies, and instructions for clinical accuracy.',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                     ),
@@ -194,8 +197,10 @@ class _PrescriptionApproveDialogState extends State<PrescriptionApproveDialog> {
                 }
               : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentTeal,
-            foregroundColor: Colors.white,
+            backgroundColor: context.colors.primaryAccent,
+            foregroundColor: context.isDarkMode
+                ? const Color(0xFF111315)
+                : Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

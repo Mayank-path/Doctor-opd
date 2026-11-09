@@ -160,19 +160,6 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 1)),
       initialDateRange: initialDateRange,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.accentTeal,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppTheme.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null && mounted) {
@@ -206,20 +193,20 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Disease Search',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 20,
-            color: AppTheme.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: AppTheme.textPrimary),
+        iconTheme: IconThemeData(color: context.colors.textPrimary),
       ),
       body: Column(
         children: [
@@ -232,7 +219,7 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
 
   Widget _buildSearchAndFiltersHeader() {
     return Container(
-      color: Colors.white,
+      color: context.colors.surface,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,8 +232,8 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
             onSubmitted: (_) => _executeSearch(),
             decoration: InputDecoration(
               hintText: 'Search disease, diagnosis or clinical term...',
-              hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-              prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.accentTeal),
+              hintStyle: TextStyle(color: context.colors.textMuted, fontSize: 14),
+              prefixIcon: Icon(Icons.search_rounded, color: context.colors.primaryAccent),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 20),
@@ -262,18 +249,18 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                   : null,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               filled: true,
-              fillColor: AppTheme.backgroundLight,
+              fillColor: context.colors.surfaceContainer,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.borderGray),
+                borderSide: BorderSide(color: context.colors.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.borderGray),
+                borderSide: BorderSide(color: context.colors.border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.accentTeal, width: 2),
+                borderSide: BorderSide(color: context.colors.primaryAccent, width: 2),
               ),
             ),
           ),
@@ -305,14 +292,17 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
         label: Text(label),
         selected: isSelected,
         onSelected: (_) => _onPeriodChanged(key),
-        selectedColor: AppTheme.accentTeal.withValues(alpha: 0.15),
+        selectedColor: context.colors.primaryAccent,
+        backgroundColor: context.colors.surfaceContainer,
         labelStyle: TextStyle(
-          color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+          color: isSelected
+              ? (context.isDarkMode ? const Color(0xFF111315) : Colors.white)
+              : context.colors.textPrimary,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           fontSize: 12,
         ),
         side: BorderSide(
-          color: isSelected ? AppTheme.accentTeal : AppTheme.borderGray,
+          color: isSelected ? context.colors.primaryAccent : context.colors.border,
         ),
       ),
     );
@@ -320,8 +310,8 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.accentTeal),
+      return Center(
+        child: CircularProgressIndicator(color: context.colors.primaryAccent),
       );
     }
 
@@ -337,14 +327,19 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
+                style: TextStyle(color: context.colors.textPrimary, fontSize: 15),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => _executeSearch(),
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentTeal),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: context.colors.primaryAccent,
+                  foregroundColor: context.isDarkMode
+                      ? const Color(0xFF111315)
+                      : Colors.white,
+                ),
               ),
             ],
           ),
@@ -365,22 +360,22 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.manage_search_rounded, size: 56, color: AppTheme.textMuted),
+              Icon(Icons.manage_search_rounded, size: 56, color: context.colors.textMuted),
               const SizedBox(height: 12),
               Text(
                 'No consultations found matching "${_searchResponse!.searchTerm}"',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Try broadening your date filter or searching a different clinical term.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: context.colors.textSecondary),
               ),
             ],
           ),
@@ -392,20 +387,22 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         _buildAggregationMetricsBanner(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        _buildResultsSummaryBar(),
+        const SizedBox(height: 12),
         ..._results.map(_buildResultCard),
         if (_searchResponse!.page < _searchResponse!.totalPages) ...[
           const SizedBox(height: 16),
           Center(
             child: _isLoadingMore
-                ? const CircularProgressIndicator(color: AppTheme.accentTeal)
+                ? CircularProgressIndicator(color: context.colors.primaryAccent)
                 : OutlinedButton.icon(
                     onPressed: () => _executeSearch(isLoadMore: true),
                     icon: const Icon(Icons.expand_more_rounded),
-                    label: const Text('Load More Results'),
+                    label: Text('Load More Patients (${_results.length} of ${_searchResponse!.uniquePatients})'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.accentTeal,
-                      side: const BorderSide(color: AppTheme.accentTeal),
+                      foregroundColor: context.colors.primaryAccent,
+                      side: BorderSide(color: context.colors.primaryAccent),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                   ),
@@ -413,6 +410,45 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
         ],
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildResultsSummaryBar() {
+    final r = _searchResponse!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.colors.border),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.people_alt_rounded, size: 16, color: context.colors.primaryAccent),
+              const SizedBox(width: 6),
+              Text(
+                'Total unique patients: ${r.uniquePatients}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'Showing: Latest ${_results.length} patients',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: context.colors.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -424,52 +460,52 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.accentTeal.withValues(alpha: 0.1),
+              color: context.colors.primaryAccent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.manage_search_rounded,
-              color: AppTheme.accentTeal,
+              color: context.colors.primaryAccent,
               size: 40,
             ),
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'Search Historical Consultations',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Find finalized clinical records by confirmed diagnosis, symptoms, chief complaints, or examination findings.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+          style: TextStyle(fontSize: 13, color: context.colors.textSecondary, height: 1.4),
         ),
         const SizedBox(height: 24),
         if (_isLoadingSuggestions)
-          const Center(
+          Center(
             child: SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accentTeal),
+              child: CircularProgressIndicator(strokeWidth: 2, color: context.colors.primaryAccent),
             ),
           )
         else if (_suggestions.isNotEmpty) ...[
           Row(
-            children: const [
-              Icon(Icons.lightbulb_outline_rounded, size: 16, color: AppTheme.accentTeal),
-              SizedBox(width: 6),
+            children: [
+              Icon(Icons.lightbulb_outline_rounded, size: 16, color: context.colors.primaryAccent),
+              const SizedBox(width: 6),
               Text(
                 'Recorded Diagnoses in Practice',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ],
@@ -481,13 +517,19 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
             children: _suggestions.map((s) {
               return ActionChip(
                 label: Text(s),
-                labelStyle: const TextStyle(
+                labelStyle: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.accentTeal,
+                  color: context.colors.primaryAccent,
                 ),
-                backgroundColor: AppTheme.accentTeal.withValues(alpha: 0.08),
-                side: BorderSide(color: AppTheme.accentTeal.withValues(alpha: 0.3)),
+                backgroundColor: context.isDarkMode
+                    ? context.colors.surfaceContainer
+                    : AppTheme.accentTeal.withValues(alpha: 0.08),
+                side: BorderSide(
+                  color: context.isDarkMode
+                      ? context.colors.border
+                      : AppTheme.accentTeal.withValues(alpha: 0.3),
+                ),
                 onPressed: () => _applySuggestion(s),
               );
             }).toList(),
@@ -502,9 +544,9 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -524,10 +566,10 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                   'Results for "${r.searchTerm}"',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
               ),
@@ -535,21 +577,26 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                  color: context.isDarkMode
+                      ? context.colors.accentContainer
+                      : AppTheme.accentTeal.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
+                  border: context.isDarkMode
+                      ? Border.all(color: context.colors.accentBorder)
+                      : null,
                 ),
                 child: Text(
                   '${r.totalConsultations} Consultations',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.accentTeal,
+                    color: context.colors.primaryAccent,
                   ),
                 ),
               ),
             ],
           ),
-          const Divider(height: 20, color: AppTheme.borderGray),
+          Divider(height: 20, color: context.colors.divider),
           Row(
             children: [
               _buildMiniMetric('Unique Patients', '${r.uniquePatients}', Icons.people_outline_rounded),
@@ -569,14 +616,14 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: AppTheme.textSecondary),
+              Icon(icon, size: 14, color: context.colors.textSecondary),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
                 ),
               ),
             ],
@@ -584,10 +631,10 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
           const SizedBox(height: 3),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: AppTheme.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
         ],
@@ -602,18 +649,28 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
 
     switch (item.matchCategory) {
       case MatchCategory.diagnosis:
-        badgeColor = AppTheme.accentTeal.withValues(alpha: 0.15);
-        badgeTextColor = AppTheme.accentTeal;
+        badgeColor = context.isDarkMode
+            ? context.colors.accentContainer
+            : AppTheme.accentTeal.withValues(alpha: 0.15);
+        badgeTextColor = context.colors.primaryAccent;
         badgeIcon = Icons.verified_rounded;
         break;
       case MatchCategory.both:
-        badgeColor = Colors.purple.withValues(alpha: 0.15);
-        badgeTextColor = Colors.purple.shade700;
+        badgeColor = context.isDarkMode
+            ? const Color(0xFF581C87).withValues(alpha: 0.3)
+            : Colors.purple.withValues(alpha: 0.15);
+        badgeTextColor = context.isDarkMode
+            ? const Color(0xFFD8B4FE)
+            : Colors.purple.shade700;
         badgeIcon = Icons.library_books_rounded;
         break;
       case MatchCategory.clinicalNote:
-        badgeColor = Colors.amber.withValues(alpha: 0.2);
-        badgeTextColor = Colors.brown.shade800;
+        badgeColor = context.isDarkMode
+            ? const Color(0xFF78350F).withValues(alpha: 0.3)
+            : Colors.amber.withValues(alpha: 0.2);
+        badgeTextColor = context.isDarkMode
+            ? const Color(0xFFFDE68A)
+            : Colors.brown.shade800;
         badgeIcon = Icons.edit_note_rounded;
         break;
     }
@@ -624,9 +681,9 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -653,18 +710,18 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                       children: [
                         Text(
                           item.patientName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                            color: context.colors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'UHID: ${item.patientUhid} • $formattedDate',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                       ],
@@ -700,19 +757,19 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundLight,
+                  color: context.colors.surfaceContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderGray),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'RECORDED DIAGNOSIS',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.textMuted,
+                        color: context.colors.textSecondary,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -725,8 +782,8 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: item.recordedDiagnosis != null && item.recordedDiagnosis!.trim().isNotEmpty
-                            ? AppTheme.textPrimary
-                            : AppTheme.textMuted,
+                            ? context.colors.textPrimary
+                            : context.colors.textSecondary,
                         fontStyle: item.recordedDiagnosis != null && item.recordedDiagnosis!.trim().isNotEmpty
                             ? FontStyle.normal
                             : FontStyle.italic,
@@ -740,16 +797,16 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.format_quote_rounded, size: 14, color: AppTheme.accentTeal),
+                    Icon(Icons.format_quote_rounded, size: 14, color: context.colors.primaryAccent),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         item.snippet,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: context.colors.textSecondary,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -768,32 +825,32 @@ class _DiseaseSearchScreenState extends State<DiseaseSearchScreen> {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
+                          color: context.colors.surfaceContainer,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.borderGray),
+                          border: Border.all(color: context.colors.border),
                         ),
                         child: Text(
                           f,
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                       );
                     }).toList(),
                   ),
                   Row(
-                    children: const [
+                    children: [
                       Text(
                         'View Record',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.accentTeal,
+                          color: context.colors.primaryAccent,
                         ),
                       ),
-                      Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.accentTeal),
+                      Icon(Icons.chevron_right_rounded, size: 16, color: context.colors.primaryAccent),
                     ],
                   ),
                 ],

@@ -15,14 +15,15 @@ class SystemStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isOnline = healthStatus.toLowerCase() == 'online' || healthStatus.toLowerCase() == 'ok';
 
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppTheme.borderGray),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -31,20 +32,20 @@ class SystemStatusCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.dns_rounded,
                   size: 18,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'SYSTEM INFRASTRUCTURE',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ),
@@ -86,34 +87,34 @@ class SystemStatusCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundLight,
+                color: colors.surfaceContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 AppConfig.apiBaseUrl,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontFamily: 'monospace',
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.security_rounded, size: 14, color: AppTheme.accentTeal),
+                Icon(Icons.security_rounded, size: 14, color: colors.primaryAccent),
                 const SizedBox(width: 6),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Tokens encrypted with Android Keystore / AES-GCM.',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 11, color: colors.textSecondary),
                   ),
                 ),
                 if (lastRefreshed != null) ...[
                   const SizedBox(width: 8),
                   Text(
                     'Refreshed ${_formatTime(lastRefreshed!)}',
-                    style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 10, color: colors.textSecondary),
                   ),
                 ],
               ],

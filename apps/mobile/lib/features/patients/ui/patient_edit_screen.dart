@@ -183,8 +183,10 @@ class _PatientEditScreenState extends State<PatientEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: Text('Edit ${widget.patient.fullName}'),
         actions: [
@@ -196,12 +198,12 @@ class _PatientEditScreenState extends State<PatientEditScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text(
+                : Text(
                     'Save',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.accentTeal,
+                      color: colors.primaryAccent,
                     ),
                   ),
           ),
@@ -220,21 +222,21 @@ class _PatientEditScreenState extends State<PatientEditScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryNavy.withValues(alpha: 0.05),
+                      color: colors.surfaceContainer,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.borderSubtle),
+                      border: Border.all(color: colors.border),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.lock_outline_rounded, size: 18, color: AppTheme.textSecondary),
+                        Icon(Icons.lock_outline_rounded, size: 18, color: colors.textSecondary),
                         const SizedBox(width: 8),
                         Text(
                           'UHID: ${widget.patient.uhid} (Permanent Identifier)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
-                            color: AppTheme.primaryNavy,
+                            color: colors.textPrimary,
                           ),
                         ),
                       ],
@@ -377,7 +379,8 @@ class _PatientEditScreenState extends State<PatientEditScreen> {
 
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryNavy,
+                      backgroundColor: colors.primaryAccent,
+                      foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: _isSaving ? null : _saveChanges,

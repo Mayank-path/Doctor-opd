@@ -29,8 +29,10 @@ class QuickActionsGrid extends StatelessWidget {
     required IconData icon,
     required String description,
   }) {
+    final colors = context.colors;
     showModalBottomSheet(
       context: context,
+      backgroundColor: colors.elevatedSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -46,10 +48,10 @@ class QuickActionsGrid extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                      color: colors.primaryAccent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(icon, color: AppTheme.accentTeal, size: 28),
+                    child: Icon(icon, color: colors.primaryAccent, size: 28),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -58,18 +60,18 @@ class QuickActionsGrid extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                            color: colors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
+                        Text(
                           'Upcoming OPD Module',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.textSecondary,
+                            color: colors.textSecondary,
                           ),
                         ),
                       ],
@@ -80,10 +82,10 @@ class QuickActionsGrid extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 description,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.4,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -91,9 +93,9 @@ class QuickActionsGrid extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.backgroundLight,
+                    color: colors.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.borderGray),
+                    border: Border.all(color: colors.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -106,9 +108,9 @@ class QuickActionsGrid extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         'Clinic Active: ${activeClinicId!.substring(0, activeClinicId!.length.clamp(0, 8))}...',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -121,13 +123,14 @@ class QuickActionsGrid extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryNavy,
+                    backgroundColor: colors.primaryAccent,
+                    foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text('Understood', style: TextStyle(color: Colors.white)),
+                  child: const Text('Understood'),
                 ),
               ),
             ],
@@ -142,15 +145,15 @@ class QuickActionsGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'QUICK ACTIONS',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
-              color: AppTheme.textSecondary,
+              color: context.colors.textSecondary,
             ),
           ),
         ),
@@ -280,15 +283,16 @@ class QuickActionsGrid extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.borderGray),
+          border: Border.all(color: colors.border),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
@@ -316,10 +320,10 @@ class QuickActionsGrid extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -327,9 +331,9 @@ class QuickActionsGrid extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],

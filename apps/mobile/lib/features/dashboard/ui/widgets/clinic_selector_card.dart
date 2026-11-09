@@ -116,16 +116,18 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
   Widget build(BuildContext context) {
     final hasActiveClinic =
         widget.activeClinicId != null && widget.activeClinicId!.isNotEmpty;
+    final colors = context.colors;
 
     return Card(
       elevation: 1,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: widget.validationError != null
               ? AppTheme.errorRed.withValues(alpha: 0.5)
               : hasActiveClinic
-                  ? AppTheme.accentTeal.withValues(alpha: 0.3)
+                  ? colors.primaryAccent.withValues(alpha: 0.3)
                   : Colors.amber.withValues(alpha: 0.5),
         ),
       ),
@@ -139,12 +141,12 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                    color: colors.primaryAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.apartment_rounded,
-                    color: AppTheme.accentTeal,
+                    color: colors.primaryAccent,
                     size: 22,
                   ),
                 ),
@@ -157,12 +159,12 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 6,
                         children: [
-                          const Text(
+                          Text(
                             'Active Clinic Tenant',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
+                              color: colors.textPrimary,
                             ),
                           ),
                           if (hasActiveClinic &&
@@ -204,9 +206,9 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                         hasActiveClinic
                             ? 'Tenant-isolated PostgreSQL context'
                             : 'Clinic context required',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -215,7 +217,7 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                 if (hasActiveClinic && !_isEditing)
                   TextButton.icon(
                     style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.accentTeal,
+                      foregroundColor: colors.primaryAccent,
                       visualDensity: VisualDensity.compact,
                     ),
                     icon: const Icon(Icons.swap_horiz_rounded, size: 16),
@@ -236,27 +238,27 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentTeal.withValues(alpha: 0.08),
+                    color: colors.primaryAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppTheme.accentTeal.withValues(alpha: 0.2),
+                      color: colors.primaryAccent.withValues(alpha: 0.25),
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.medical_services_outlined,
                         size: 20,
-                        color: AppTheme.accentTeal,
+                        color: colors.primaryAccent,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           widget.activeClinic!.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.primaryNavy,
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -267,15 +269,19 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryNavy,
+                            color: context.isDarkMode
+                                ? colors.accentContainer
+                                : AppTheme.primaryNavy,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             widget.activeClinic!.role,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: context.isDarkMode
+                                  ? colors.primaryAccent
+                                  : Colors.white,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -292,30 +298,30 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundLight,
+                  color: colors.surfaceContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderGray),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'CLINIC IDENTIFIER (UUID)',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     SelectableText(
                       widget.activeClinicId!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
@@ -328,8 +334,8 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                   child: ElevatedButton.icon(
                     key: const Key('continue_to_dashboard_button'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentTeal,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colors.primaryAccent,
+                      foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -352,11 +358,11 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
             ] else ...[
               // Multiple clinic memberships selection UI (names-based)
               if (widget.availableClinics.length > 1) ...[
-                const Text(
+                Text(
                   'Select your clinic workspace from verified memberships:',
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -384,13 +390,13 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                         ),
                         decoration: BoxDecoration(
                           color: isCurrent
-                              ? AppTheme.accentTeal.withValues(alpha: 0.08)
-                              : Colors.white,
+                              ? colors.primaryAccent.withValues(alpha: 0.08)
+                              : colors.surface,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isCurrent
-                                ? AppTheme.accentTeal
-                                : AppTheme.borderGray,
+                                ? colors.primaryAccent
+                                : colors.border,
                             width: isCurrent ? 1.5 : 1.0,
                           ),
                         ),
@@ -400,8 +406,8 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                               Icons.apartment_rounded,
                               size: 20,
                               color: isCurrent
-                                  ? AppTheme.accentTeal
-                                  : AppTheme.textSecondary,
+                                  ? colors.primaryAccent
+                                  : colors.textSecondary,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -415,16 +421,16 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
                                       color: isCurrent
-                                          ? AppTheme.accentTeal
-                                          : AppTheme.textPrimary,
+                                          ? colors.primaryAccent
+                                          : colors.textPrimary,
                                     ),
                                   ),
                                   Text(
                                     clinic.id,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 10,
                                       fontFamily: 'monospace',
-                                      color: AppTheme.textSecondary,
+                                      color: colors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -437,27 +443,27 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryNavy
-                                      .withValues(alpha: 0.08),
+                                  color: colors.primaryAccent
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   clinic.role,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: AppTheme.primaryNavy,
+                                    color: colors.primaryAccent,
                                   ),
                                 ),
                               ),
                             const SizedBox(width: 8),
                             if (isInFlight)
-                              const SizedBox(
+                              SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.accentTeal,
+                                  color: colors.primaryAccent,
                                 ),
                               )
                             else
@@ -466,8 +472,8 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                                     ? Icons.check_circle_rounded
                                     : Icons.chevron_right_rounded,
                                 color: isCurrent
-                                    ? AppTheme.accentTeal
-                                    : AppTheme.textSecondary,
+                                    ? colors.primaryAccent
+                                    : colors.textSecondary,
                                 size: 20,
                               ),
                           ],
@@ -488,11 +494,11 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                 ],
               ] else ...[
                 // Single or zero clinics: manual entry / UUID configuration
-                const Text(
+                Text(
                   'Enter the Clinic UUID to scope all patient, consultation, and prescription operations to that tenant:',
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -517,17 +523,18 @@ class _ClinicSelectorCardState extends State<ClinicSelectorCard> {
                     const SizedBox(width: 10),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentTeal,
+                        backgroundColor: colors.primaryAccent,
+                        foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                         minimumSize: const Size(80, 48),
                       ),
                       onPressed: _isSaving ? null : _handleSave,
                       child: _isSaving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: context.isDarkMode ? colors.background : Colors.white,
                               ),
                             )
                           : const Text('Save'),

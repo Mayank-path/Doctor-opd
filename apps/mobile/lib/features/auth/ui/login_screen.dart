@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../models/register_clinic_request.dart';
 import '../services/auth_service.dart';
 
@@ -106,12 +107,31 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: colors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(
+              context.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
+              color: context.isDarkMode ? AppTheme.goldenEmber : AppTheme.primaryNavy,
+            ),
+            tooltip: context.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              ThemeControllerScope.of(context).toggleTheme();
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: AnimatedBuilder(
@@ -130,41 +150,41 @@ class _LoginScreenState extends State<LoginScreen>
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryNavy,
+                            color: context.isDarkMode ? colors.accentContainer : AppTheme.primaryNavy,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.primaryNavy.withValues(alpha: 0.15),
+                                color: colors.primaryAccent.withValues(alpha: 0.15),
                                 blurRadius: 16,
                                 offset: const Offset(0, 6),
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.local_hospital_rounded,
-                            color: AppTheme.accentTealLight,
+                            color: colors.primaryAccent,
                             size: 34,
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
+                      Text(
                         'DOCTOR-OPD',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
+                          color: colors.textPrimary,
                           letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Outpatient Department Clinic Portal',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -172,13 +192,13 @@ class _LoginScreenState extends State<LoginScreen>
                       // Navigation Tabs: Sign In / Create Clinic Account
                       Container(
                         decoration: BoxDecoration(
-                          color: AppTheme.borderGray.withValues(alpha: 0.35),
+                          color: colors.border.withValues(alpha: 0.35),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: TabBar(
                           controller: _tabController,
                           indicator: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
@@ -190,8 +210,8 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           indicatorSize: TabBarIndicatorSize.tab,
                           dividerColor: Colors.transparent,
-                          labelColor: AppTheme.primaryNavy,
-                          unselectedLabelColor: AppTheme.textSecondary,
+                          labelColor: colors.primaryAccent,
+                          unselectedLabelColor: colors.textSecondary,
                           labelStyle: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
@@ -250,8 +270,10 @@ class _LoginScreenState extends State<LoginScreen>
                       // Card containing TabBarView
                       Card(
                         elevation: 1.5,
+                        color: colors.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: colors.border),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(24),
@@ -278,7 +300,7 @@ class _LoginScreenState extends State<LoginScreen>
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceMuted,
+                            color: colors.surfaceContainer,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -287,17 +309,17 @@ class _LoginScreenState extends State<LoginScreen>
                               Container(
                                 width: 8,
                                 height: 8,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.accentTeal,
+                                decoration: BoxDecoration(
+                                  color: colors.primaryAccent,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 'API: ${AppConfig.apiBaseUrl}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: AppTheme.textSecondary,
+                                  color: colors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -317,17 +339,18 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildSignInForm(bool isLoading) {
+    final colors = context.colors;
     return Form(
       key: _loginFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Sign In',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 18),
@@ -338,13 +361,13 @@ class _LoginScreenState extends State<LoginScreen>
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             enabled: !isLoading,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Work Email',
               hintText: 'doctor@clinic.com',
               prefixIcon: Icon(
                 Icons.alternate_email_rounded,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ),
             validator: (value) {
@@ -369,10 +392,10 @@ class _LoginScreenState extends State<LoginScreen>
             enabled: !isLoading,
             decoration: InputDecoration(
               labelText: 'Password',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.lock_outline_rounded,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -380,7 +403,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
                   size: 20,
-                  color: AppTheme.textMuted,
+                  color: colors.textSecondary,
                 ),
                 onPressed: () {
                   setState(() {
@@ -402,12 +425,14 @@ class _LoginScreenState extends State<LoginScreen>
           ElevatedButton(
             onPressed: isLoading ? null : _handleLogin,
             child: isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        context.isDarkMode ? colors.background : Colors.white,
+                      ),
                     ),
                   )
                 : const Text('Log In to Clinic Portal'),
@@ -418,25 +443,26 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildRegisterForm(bool isLoading) {
+    final colors = context.colors;
     return Form(
       key: _registerFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Clinic Owner Registration',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Create your clinic account and owner administrator credentials.',
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
             ),
           ),
           const SizedBox(height: 20),
@@ -446,13 +472,13 @@ class _LoginScreenState extends State<LoginScreen>
             controller: _regFullNameController,
             textCapitalization: TextCapitalization.words,
             enabled: !isLoading,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Full Name *',
               hintText: 'Dr. Jane Doe',
               prefixIcon: Icon(
                 Icons.person_outline_rounded,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ),
             validator: (value) {
@@ -473,13 +499,13 @@ class _LoginScreenState extends State<LoginScreen>
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             enabled: !isLoading,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Work Email *',
               hintText: 'owner@clinic.com',
               prefixIcon: Icon(
                 Icons.alternate_email_rounded,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ),
             validator: (value) {
@@ -502,13 +528,13 @@ class _LoginScreenState extends State<LoginScreen>
             controller: _regPhoneController,
             keyboardType: TextInputType.phone,
             enabled: !isLoading,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Phone Number (Optional)',
               hintText: '+91 98765 43210',
               prefixIcon: Icon(
                 Icons.phone_outlined,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -519,13 +545,13 @@ class _LoginScreenState extends State<LoginScreen>
             controller: _regClinicNameController,
             textCapitalization: TextCapitalization.words,
             enabled: !isLoading,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Clinic Name *',
               hintText: 'City Care Polyclinic',
               prefixIcon: Icon(
                 Icons.local_hospital_outlined,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ),
             validator: (value) {
@@ -544,13 +570,13 @@ class _LoginScreenState extends State<LoginScreen>
           TextFormField(
             controller: _regClinicAddressController,
             enabled: !isLoading,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Clinic Address (Optional)',
               hintText: '123 Health Street, Suite 4',
               prefixIcon: Icon(
                 Icons.location_on_outlined,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -563,10 +589,10 @@ class _LoginScreenState extends State<LoginScreen>
             enabled: !isLoading,
             decoration: InputDecoration(
               labelText: 'Password (min. 8 characters) *',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.lock_outline_rounded,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -574,7 +600,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
                   size: 20,
-                  color: AppTheme.textMuted,
+                  color: colors.textSecondary,
                 ),
                 onPressed: () {
                   setState(() {
@@ -602,10 +628,10 @@ class _LoginScreenState extends State<LoginScreen>
             enabled: !isLoading,
             decoration: InputDecoration(
               labelText: 'Confirm Password *',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.lock_reset_rounded,
                 size: 20,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -613,7 +639,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
                   size: 20,
-                  color: AppTheme.textMuted,
+                  color: colors.textSecondary,
                 ),
                 onPressed: () {
                   setState(() {
@@ -638,16 +664,18 @@ class _LoginScreenState extends State<LoginScreen>
           ElevatedButton(
             onPressed: isLoading ? null : _handleRegister,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentTeal,
-              foregroundColor: Colors.white,
+              backgroundColor: colors.primaryAccent,
+              foregroundColor: context.isDarkMode ? colors.background : Colors.white,
             ),
             child: isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        context.isDarkMode ? colors.background : Colors.white,
+                      ),
                     ),
                   )
                 : const Text(

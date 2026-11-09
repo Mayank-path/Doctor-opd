@@ -65,26 +65,31 @@ class _ConsultationFinalizeDialogState
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final patientName =
         widget.consultation.patient?.fullName ?? 'Patient';
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
+      backgroundColor: colors.elevatedSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colors.border),
+      ),
+      title: Row(
         children: [
           Icon(
             Icons.lock_outline_rounded,
-            color: AppTheme.accentTeal,
+            color: colors.primaryAccent,
             size: 26,
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Finalize Consultation',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -97,26 +102,28 @@ class _ConsultationFinalizeDialogState
           children: [
             Text(
               'Are you ready to lock and finalize the consultation for $patientName?',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.4,
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: context.isDarkMode ? colors.accentContainer : Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber.shade300),
+                border: Border.all(
+                  color: context.isDarkMode ? colors.accentBorder : Colors.amber.shade300,
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
                     Icons.info_outline_rounded,
-                    color: Colors.amber.shade900,
+                    color: context.isDarkMode ? colors.primaryAccent : Colors.amber.shade900,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -126,7 +133,7 @@ class _ConsultationFinalizeDialogState
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.35,
-                        color: Colors.amber.shade900,
+                        color: context.isDarkMode ? colors.primaryAccent : Colors.amber.shade900,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -139,10 +146,10 @@ class _ConsultationFinalizeDialogState
               const SizedBox(height: 12),
               Text(
                 'Diagnosis: ${widget.consultation.diagnosis}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontStyle: FontStyle.italic,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -189,8 +196,8 @@ class _ConsultationFinalizeDialogState
           key: const Key('confirmFinalizeButton'),
           onPressed: _isSubmitting ? null : _handleFinalize,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentTeal,
-            foregroundColor: Colors.white,
+            backgroundColor: colors.primaryAccent,
+            foregroundColor: context.isDarkMode ? colors.background : Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

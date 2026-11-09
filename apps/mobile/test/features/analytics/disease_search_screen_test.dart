@@ -98,6 +98,10 @@ void main() {
       expect(find.text('Diagnosis Matches'), findsOneWidget);
       expect(find.text('Clinical Note Matches'), findsOneWidget);
 
+      // Verify Results Summary Bar
+      expect(find.text('Total unique patients: 2'), findsOneWidget);
+      expect(find.text('Showing: Latest 2 patients'), findsOneWidget);
+
       // Verify patient names and UHIDs
       expect(find.text('Mayan Kumar'), findsOneWidget);
       expect(find.text('Priya Sharma'), findsOneWidget);

@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../patients/models/patient.dart';
 import 'prescription_item.dart';
 
@@ -20,6 +22,19 @@ enum PrescriptionStatus {
         return 'Superseded';
       case PrescriptionStatus.cancelled:
         return 'Cancelled';
+    }
+  }
+
+  Color colorFor({required bool isDark}) {
+    switch (this) {
+      case PrescriptionStatus.approved:
+        return isDark ? AppTheme.statusApprovedDark : AppTheme.statusApprovedLight;
+      case PrescriptionStatus.draft:
+        return isDark ? AppTheme.statusDraftDark : AppTheme.statusDraftLight;
+      case PrescriptionStatus.superseded:
+        return isDark ? AppTheme.statusSupersededDark : AppTheme.statusSupersededLight;
+      case PrescriptionStatus.cancelled:
+        return isDark ? AppTheme.statusVoidedDark : AppTheme.statusVoidedLight;
     }
   }
 

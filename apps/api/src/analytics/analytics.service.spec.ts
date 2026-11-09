@@ -273,6 +273,52 @@ describe('AnalyticsService', () => {
       expect(res.results[0].matchCategory).toBe('DIAGNOSIS');
       expect(res.results[0].matchedFields).toEqual(['Diagnosis']);
     });
+
+    it('correctly calculates totalPages based on unique patients and handles multiple consultations per patient', async () => {
+      // 35 unique patients with 50 total consultations, limit 20 -> 2 pages
+      prisma.$queryRawUnsafe
+        .mockResolvedValueOnce([
+          {
+            total_consultations: 50,
+            unique_patients: 35,
+            diagnosis_matches: 40,
+            clinical_note_matches: 10,
+          },
+        ])
+        .mockResolvedValueOnce(
+          Array.from({ length: 20 }, (_, i) => ({
+            consultationId: `c-${i + 1}`,
+            consultationDate: new Date(Date.UTC(2026, 10, 1, (i % 24), 0, 0)),
+            patientId: `p-${i + 1}`,
+            patientName: `Patient ${i + 1}`,
+            patientUhid: `UHID-${String(i + 1).padStart(3, '0')}`,
+            recordedDiagnosis: 'Malaria (Plasmodium vivax)',
+            chiefComplaint: 'High fever',
+            symptoms: 'Chills and rigors',
+            examination: 'Febrile',
+            treatmentPlan: 'Chloroquine',
+            status: 'FINALIZED',
+          })),
+        );
+
+      const res = await service.searchDiseases(mockClinicId, {
+        q: 'Malaria',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(res.searchTerm).toBe('Malaria');
+      expect(res.totalConsultations).toBe(50);
+      expect(res.uniquePatients).toBe(35);
+      expect(res.totalPages).toBe(2);
+      expect(res.page).toBe(1);
+      expect(res.limit).toBe(20);
+      expect(res.results).toHaveLength(20);
+      // Ensure all 20 results belong to distinct patients
+      const patientIds = res.results.map((r) => r.patientId);
+      const uniqueIds = new Set(patientIds);
+      expect(uniqueIds.size).toBe(20);
+    });
   });
 
   describe('getDiseaseSuggestions', () => {

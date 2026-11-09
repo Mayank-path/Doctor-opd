@@ -158,14 +158,21 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
               label: Text(p['label']!),
               selected: isSelected,
               onSelected: (_) => _onPeriodChanged(p['key']!),
-              selectedColor: AppTheme.accentTeal.withValues(alpha: 0.15),
+              selectedColor: context.colors.primaryAccent,
+              backgroundColor: context.colors.surfaceContainer,
               labelStyle: TextStyle(
-                color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+                color: isSelected
+                    ? (context.isDarkMode
+                        ? const Color(0xFF111315)
+                        : Colors.white)
+                    : context.colors.textPrimary,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 12,
               ),
               side: BorderSide(
-                color: isSelected ? AppTheme.accentTeal : AppTheme.borderGray,
+                color: isSelected
+                    ? context.colors.primaryAccent
+                    : context.colors.border,
               ),
             ),
           );
@@ -180,7 +187,7 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
 
     return RefreshIndicator(
       onRefresh: _loadAllAnalytics,
-      color: AppTheme.accentTeal,
+      color: context.colors.primaryAccent,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -300,7 +307,7 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
 
     return RefreshIndicator(
       onRefresh: _loadAllAnalytics,
-      color: AppTheme.accentTeal,
+      color: context.colors.primaryAccent,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -356,7 +363,7 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
 
     return RefreshIndicator(
       onRefresh: _loadAllAnalytics,
-      color: AppTheme.accentTeal,
+      color: context.colors.primaryAccent,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -427,24 +434,31 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
-        title: const Text('Practice Analytics'),
+        title: Text(
+          'Practice Analytics',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: context.colors.textPrimary,
+          ),
+        ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimary,
+        backgroundColor: context.colors.surface,
+        foregroundColor: context.colors.textPrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Analytics',
+            color: context.colors.textPrimary,
             onPressed: _loadAllAnalytics,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppTheme.accentTeal,
-          unselectedLabelColor: AppTheme.textSecondary,
-          indicatorColor: AppTheme.accentTeal,
+          labelColor: context.colors.primaryAccent,
+          unselectedLabelColor: context.colors.textSecondary,
+          indicatorColor: context.colors.primaryAccent,
           tabs: const [
             Tab(text: 'Overview', icon: Icon(Icons.dashboard_rounded, size: 20)),
             Tab(text: 'Patients', icon: Icon(Icons.people_alt_rounded, size: 20)),
@@ -457,9 +471,9 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
           _buildPeriodFilterChips(),
           Expanded(
             child: _isLoading
-                ? const Center(
+                ? Center(
                     child: CircularProgressIndicator(
-                      color: AppTheme.accentTeal,
+                      color: context.colors.primaryAccent,
                     ),
                   )
                 : _errorMessage != null
@@ -469,7 +483,7 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.error_outline_rounded,
                                 size: 48,
                                 color: AppTheme.errorRed,
@@ -478,9 +492,9 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
                               Text(
                                 _errorMessage!,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: AppTheme.textPrimary,
+                                  color: context.colors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -489,8 +503,10 @@ class _PracticeAnalyticsScreenState extends State<PracticeAnalyticsScreen>
                                 icon: const Icon(Icons.refresh_rounded, size: 18),
                                 label: const Text('Retry'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.accentTeal,
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: context.colors.primaryAccent,
+                                  foregroundColor: context.isDarkMode
+                                      ? const Color(0xFF111315)
+                                      : Colors.white,
                                   minimumSize: Size.zero,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 20,

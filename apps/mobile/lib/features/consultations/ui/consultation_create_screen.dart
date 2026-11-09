@@ -326,14 +326,18 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: colors.background,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_isForbidden) {
       return Scaffold(
+        backgroundColor: colors.background,
         appBar: AppBar(title: const Text('Access Restricted')),
         body: Center(
           child: Padding(
@@ -341,27 +345,27 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.lock_outline_rounded,
                   size: 64,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Doctor Role Required',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Clinical consultations may only be started and managed by authorized attending doctors. Clinical data is protected under medical privacy protocols.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -388,19 +392,20 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: colors.background,
         appBar: AppBar(
           title: const Text('Start Consultation'),
           actions: [
             if (_isCreating)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: colors.primaryAccent,
                     ),
                   ),
                 ),
@@ -408,11 +413,11 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
             else
               TextButton.icon(
                 onPressed: _submitCreateDraft,
-                icon: const Icon(Icons.check, color: AppTheme.accentTeal),
-                label: const Text(
+                icon: Icon(Icons.check, color: colors.primaryAccent),
+                label: Text(
                   'Create Draft',
                   style: TextStyle(
-                    color: AppTheme.accentTeal,
+                    color: colors.primaryAccent,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -471,7 +476,7 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  side: BorderSide(color: colors.border),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -480,15 +485,15 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.assignment_outlined,
-                              size: 18, color: AppTheme.primaryNavy),
+                          Icon(Icons.assignment_outlined,
+                              size: 18, color: colors.primaryAccent),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Chief Complaint',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryNavy,
+                              color: colors.textPrimary,
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -531,19 +536,19 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  side: BorderSide(color: colors.border),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Clinical Notes',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryNavy,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -613,7 +618,7 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  side: BorderSide(color: colors.border),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -635,8 +640,8 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
               // Bottom Submit Button
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryNavy,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.primaryAccent,
+                  foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -644,12 +649,12 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                 ),
                 onPressed: _isCreating ? null : _submitCreateDraft,
                 icon: _isCreating
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: context.isDarkMode ? colors.background : Colors.white,
                         ),
                       )
                     : const Icon(Icons.post_add_outlined),

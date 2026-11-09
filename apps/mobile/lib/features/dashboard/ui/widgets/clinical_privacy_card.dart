@@ -13,12 +13,15 @@ class ClinicalPrivacyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     if (stats.isDoctor) {
       return Card(
         elevation: 1,
+        color: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppTheme.accentTeal.withValues(alpha: 0.3)),
+          side: BorderSide(color: colors.primaryAccent.withValues(alpha: 0.3)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -27,17 +30,17 @@ class ClinicalPrivacyCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                  color: colors.primaryAccent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.medical_information_rounded,
-                  color: AppTheme.accentTeal,
+                  color: colors.primaryAccent,
                   size: 24,
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -46,15 +49,15 @@ class ClinicalPrivacyCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Authorized to draft, update, and finalize clinical consultations.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -68,9 +71,10 @@ class ClinicalPrivacyCard extends StatelessWidget {
 
     return Card(
       elevation: 1,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.2)),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -96,12 +100,12 @@ class ClinicalPrivacyCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Clinical Records Privacy',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -126,10 +130,10 @@ class ClinicalPrivacyCard extends StatelessWidget {
                   Text(
                     stats.consultationRestrictionMessage ??
                         'Clinical consultation narratives and diagnostic records are strictly restricted to DOCTOR memberships under OPD medical privacy regulations.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       height: 1.4,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],

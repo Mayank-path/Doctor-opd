@@ -48,7 +48,7 @@ class VitalsInputGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isReadOnly) {
-      return _buildReadOnlyView();
+      return _buildReadOnlyView(context);
     }
 
     return Column(
@@ -287,55 +287,56 @@ class VitalsInputGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildReadOnlyView() {
+  Widget _buildReadOnlyView(BuildContext context) {
+    final colors = context.colors;
     final items = <Widget>[];
 
     if (bpSystolic != null || bpDiastolic != null) {
       final val = '${bpSystolic ?? "-"} / ${bpDiastolic ?? "-"} mmHg';
-      items.add(_buildReadOnlyBadge('Blood Pressure', val, Icons.favorite));
+      items.add(_buildReadOnlyBadge(context, 'Blood Pressure', val, Icons.favorite));
     }
 
     if (pulse != null) {
-      items.add(_buildReadOnlyBadge('Pulse / HR', '$pulse bpm', Icons.monitor_heart));
+      items.add(_buildReadOnlyBadge(context, 'Pulse / HR', '$pulse bpm', Icons.monitor_heart));
     }
 
     if (temperature != null) {
-      items.add(_buildReadOnlyBadge('Temperature', '$temperature °F', Icons.thermostat));
+      items.add(_buildReadOnlyBadge(context, 'Temperature', '$temperature °F', Icons.thermostat));
     }
 
     if (spo2 != null) {
-      items.add(_buildReadOnlyBadge('SpO2', '$spo2 %', Icons.air));
+      items.add(_buildReadOnlyBadge(context, 'SpO2', '$spo2 %', Icons.air));
     }
 
     if (respiratoryRate != null) {
-      items.add(_buildReadOnlyBadge('Resp Rate', '$respiratoryRate /min', Icons.speed));
+      items.add(_buildReadOnlyBadge(context, 'Resp Rate', '$respiratoryRate /min', Icons.speed));
     }
 
     if (weightKg != null) {
-      items.add(_buildReadOnlyBadge('Weight', '$weightKg kg', Icons.scale));
+      items.add(_buildReadOnlyBadge(context, 'Weight', '$weightKg kg', Icons.scale));
     }
 
     if (heightCm != null) {
-      items.add(_buildReadOnlyBadge('Height', '$heightCm cm', Icons.height));
+      items.add(_buildReadOnlyBadge(context, 'Height', '$heightCm cm', Icons.height));
     }
 
     if (weightKg != null && heightCm != null && heightCm! > 0) {
       final h = heightCm! / 100.0;
       final bmi = (weightKg! / (h * h)).toStringAsFixed(1);
-      items.add(_buildReadOnlyBadge('BMI', '$bmi kg/m²', Icons.accessibility_new));
+      items.add(_buildReadOnlyBadge(context, 'BMI', '$bmi kg/m²', Icons.accessibility_new));
     }
 
     if (items.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: colors.surfaceContainer,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: colors.border),
         ),
         child: Text(
           'No vital signs recorded during this encounter.',
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 13, color: colors.textSecondary),
         ),
       );
     }
@@ -347,18 +348,19 @@ class VitalsInputGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildReadOnlyBadge(String label, String value, IconData icon) {
+  Widget _buildReadOnlyBadge(BuildContext context, String label, String value, IconData icon) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundLight,
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderSubtle),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppTheme.accentTeal),
+          Icon(icon, size: 16, color: colors.primaryAccent),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,18 +368,18 @@ class VitalsInputGrid extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
             ],

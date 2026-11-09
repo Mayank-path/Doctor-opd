@@ -126,9 +126,9 @@ class _MedicationItemEditorSheetState extends State<MedicationItemEditorSheet> {
     final keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
         top: 20,
@@ -149,19 +149,19 @@ class _MedicationItemEditorSheetState extends State<MedicationItemEditorSheet> {
                 children: [
                   Text(
                     isEditing ? 'Edit Medication' : 'Add Medication Item',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.darkSlate,
+                      color: context.colors.textPrimary,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close, color: context.colors.textPrimary),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-              const Divider(height: 16),
+              Divider(height: 16, color: context.colors.divider),
 
               // Medication & Brand
               TextFormField(
@@ -280,10 +280,20 @@ class _MedicationItemEditorSheetState extends State<MedicationItemEditorSheet> {
                 children: _quickFrequencies.map((freq) {
                   final isSelected = _frequencyController.text.trim() == freq;
                   return ChoiceChip(
-                    label: Text(freq, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppTheme.darkSlate)),
+                    label: Text(
+                      freq,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected
+                            ? (context.isDarkMode
+                                ? const Color(0xFF111315)
+                                : Colors.white)
+                            : context.colors.textPrimary,
+                      ),
+                    ),
                     selected: isSelected,
-                    selectedColor: AppTheme.primaryTeal,
-                    backgroundColor: Colors.grey.shade100,
+                    selectedColor: context.colors.primaryAccent,
+                    backgroundColor: context.colors.surfaceContainer,
                     onSelected: (_) {
                       setState(() {
                         _frequencyController.text = freq;
@@ -371,8 +381,10 @@ class _MedicationItemEditorSheetState extends State<MedicationItemEditorSheet> {
               ElevatedButton.icon(
                 key: const Key('submitMedicationButton'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryTeal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.colors.primaryAccent,
+                  foregroundColor: context.isDarkMode
+                      ? const Color(0xFF111315)
+                      : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),

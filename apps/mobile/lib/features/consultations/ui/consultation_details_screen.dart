@@ -465,9 +465,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Voiding marks this clinical record as invalid while preserving all clinical entries for legal medical audit. A clinical justification reason is mandatory.',
-                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12.5, color: context.colors.textSecondary),
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -620,6 +620,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return PopScope(
       canPop: !_hasUnsavedChanges || (_consultation?.isFinalized ?? true),
       onPopInvokedWithResult: (didPop, result) async {
@@ -630,7 +631,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundLight,
+        backgroundColor: colors.background,
         appBar: AppBar(
           title: Text(
             _consultation?.isVoided == true
@@ -640,7 +641,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                     : 'Consultation Note'),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: colors.surface,
           elevation: 0,
           actions: [
             if (_consultation != null && !_consultation!.isVoided) ...[
@@ -648,7 +649,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                 key: const Key('consultationPrescriptionAppBarButton'),
                 icon: const Icon(Icons.receipt_long_rounded),
                 tooltip: 'Prescription Builder',
-                color: AppTheme.primaryNavy,
+                color: colors.primaryAccent,
                 onPressed: () {
                   final c = _consultation!;
                   Navigator.of(context).push(
@@ -771,6 +772,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
   }
 
   Widget _buildBody() {
+    final colors = context.colors;
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(strokeWidth: 2.5),
@@ -797,19 +799,19 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Access Restricted',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Clinical consultation records are restricted to authorized Doctor memberships under healthcare privacy regulations.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: colors.textSecondary),
               ),
             ],
           ),
@@ -829,7 +831,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
               Text(
                 _errorMessage ?? 'Consultation not found',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+                style: TextStyle(fontSize: 14, color: colors.textPrimary),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -916,19 +918,19 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                           const SizedBox(height: 2),
                           Text(
                             'Reason: ${c.voidReason}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
+                              color: colors.textPrimary,
                             ),
                           ),
                         ],
                         if (c.formattedVoidedAt != null)
                           Text(
                             'Voided on: ${c.formattedVoidedAt}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: AppTheme.textSecondary,
+                              color: colors.textSecondary,
                             ),
                           ),
                       ],
@@ -966,9 +968,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                         if (c.formattedFinalizedAt != null)
                           Text(
                             'Finalized: ${c.formattedFinalizedAt}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: AppTheme.textSecondary,
+                              color: colors.textSecondary,
                             ),
                           ),
                       ],
@@ -982,20 +984,34 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: context.isDarkMode
+                    ? colors.accentContainer
+                    : Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade300),
+                border: Border.all(
+                  color: context.isDarkMode
+                      ? colors.primaryAccent.withValues(alpha: 0.3)
+                      : Colors.amber.shade300,
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.edit, size: 16, color: Colors.amber.shade900),
+                  Icon(
+                    Icons.edit,
+                    size: 16,
+                    color: context.isDarkMode
+                        ? colors.primaryAccent
+                        : Colors.amber.shade900,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Unsaved draft changes',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.amber.shade900,
+                      color: context.isDarkMode
+                          ? colors.primaryAccent
+                          : Colors.amber.shade900,
                     ),
                   ),
                 ],
@@ -1029,9 +1045,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                   )
                 : Text(
                     c.chiefComplaint,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
           ),
@@ -1124,9 +1140,9 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                     _consultation?.isFinalized == true
                         ? 'Prescription orders linked to this consultation.'
                         : 'Draft or review prescription orders for this visit.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ),
@@ -1148,8 +1164,8 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentTeal,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colors.primaryAccent,
+                    foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                     minimumSize: Size.zero,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
@@ -1189,7 +1205,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                       fontWeight: _followUpDateController.text.isNotEmpty
                           ? FontWeight.w600
                           : FontWeight.normal,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -1220,13 +1236,15 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
   }
 
   Widget _buildPatientHeader(Consultation c) {
+    final colors = context.colors;
     final p = c.patient;
 
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1241,18 +1259,18 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                     children: [
                       Text(
                         p?.fullName ?? 'Patient',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'UHID: ${p?.uhid ?? "N/A"} • ${p?.gender ?? ""} • ${p?.age != null ? "${p!.age} yrs" : ""}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -1264,20 +1282,20 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: c.status.color.withAlpha(20),
+                    color: c.status.colorFor(isDark: context.isDarkMode).withAlpha(20),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(c.status.icon, size: 14, color: c.status.color),
+                      Icon(c.status.icon, size: 14, color: c.status.colorFor(isDark: context.isDarkMode)),
                       const SizedBox(width: 4),
                       Text(
                         c.status.label,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: c.status.color,
+                          color: c.status.colorFor(isDark: context.isDarkMode),
                         ),
                       ),
                     ],
@@ -1291,14 +1309,14 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                 Icon(
                   Icons.event_note,
                   size: 14,
-                  color: Colors.grey.shade600,
+                  color: colors.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Encounter: ${c.formattedEncounterDate}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade700,
+                    color: colors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1315,11 +1333,13 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     required IconData icon,
     required Widget child,
   }) {
+    final colors = context.colors;
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1328,14 +1348,14 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, size: 18, color: AppTheme.accentTeal),
+                Icon(icon, size: 18, color: colors.primaryAccent),
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
               ],
@@ -1356,15 +1376,16 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     required String hintText,
     Widget? suffixIcon,
   }) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
           ),
         ),
         const SizedBox(height: 6),
@@ -1393,17 +1414,17 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundLight,
+              color: colors.surfaceContainer,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderSubtle),
+              border: Border.all(color: colors.border),
             ),
             child: Text(
               text != null && text.isNotEmpty ? text : 'None recorded',
               style: TextStyle(
                 fontSize: 13,
                 color: text != null && text.isNotEmpty
-                    ? AppTheme.textPrimary
-                    : Colors.grey.shade500,
+                    ? colors.textPrimary
+                    : colors.textSecondary,
               ),
             ),
           ),
@@ -1422,11 +1443,13 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
       return null;
     }
 
+    final colors = context.colors;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: SafeArea(
         child: Row(
@@ -1460,8 +1483,8 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                 key: const Key('finalizeConsultationButton'),
                 onPressed: _isSaving || _isFinalizing ? null : _handleFinalize,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentTeal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.primaryAccent,
+                  foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

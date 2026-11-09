@@ -70,22 +70,26 @@ class _PrescriptionAmendDialogState extends State<PrescriptionAmendDialog> {
     final nextVersion = widget.currentVersion + 1;
 
     return AlertDialog(
+      backgroundColor: context.colors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       title: Row(
         children: [
-          Icon(Icons.edit_note_rounded,
-              color: Colors.amber.shade800, size: 28),
+          Icon(
+            Icons.edit_note_rounded,
+            color: context.colors.primaryAccent,
+            size: 28,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Create Amendment (v$nextVersion)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
           ),
@@ -100,9 +104,9 @@ class _PrescriptionAmendDialogState extends State<PrescriptionAmendDialog> {
             children: [
               Text(
                 'Approved prescription v${widget.currentVersion} will be preserved and superseded. An audited v$nextVersion will be created with your revised medication list.',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: context.colors.textSecondary,
                   height: 1.35,
                 ),
               ),
@@ -171,8 +175,10 @@ class _PrescriptionAmendDialogState extends State<PrescriptionAmendDialog> {
           key: const Key('confirmAmendmentButton'),
           onPressed: _submit,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentTeal,
-            foregroundColor: Colors.white,
+            backgroundColor: context.colors.primaryAccent,
+            foregroundColor: context.isDarkMode
+                ? const Color(0xFF111315)
+                : Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

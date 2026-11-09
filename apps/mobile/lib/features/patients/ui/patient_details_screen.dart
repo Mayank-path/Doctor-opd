@@ -117,9 +117,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
         _patient = updated;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Patient demographics updated successfully'),
-          backgroundColor: AppTheme.accentTeal,
+        SnackBar(
+          content: const Text('Patient demographics updated successfully'),
+          backgroundColor: context.colors.primaryAccent,
         ),
       );
     }
@@ -127,8 +127,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: Text(_patient != null ? _patient!.fullName : 'Patient Details'),
         actions: [
@@ -142,7 +143,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: AppTheme.accentTeal,
+          color: colors.primaryAccent,
           onRefresh: _loadPatientDetails,
           child: _buildBody(),
         ),
@@ -151,10 +152,11 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildBody() {
+    final colors = context.colors;
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentTeal),
+          valueColor: AlwaysStoppedAnimation<Color>(colors.primaryAccent),
         ),
       );
     }
@@ -185,13 +187,13 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                   const SizedBox(height: 16),
                   Text(
                     _isNotFound ? 'Patient Not Found' : 'Error Loading Patient',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _errorMessage ?? 'An error occurred while loading this patient.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
@@ -240,11 +242,13 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildHeaderCard(Patient p) {
+    final colors = context.colors;
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -252,13 +256,13 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: AppTheme.accentTeal.withValues(alpha: 0.15),
+              backgroundColor: colors.primaryAccent.withValues(alpha: 0.15),
               child: Text(
                 p.fullName.isNotEmpty ? p.fullName[0].toUpperCase() : 'P',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.accentTeal,
+                  color: colors.primaryAccent,
                 ),
               ),
             ),
@@ -269,10 +273,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                 children: [
                   Text(
                     p.fullName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -281,16 +285,16 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryNavy,
+                          color: context.isDarkMode ? colors.accentContainer : AppTheme.primaryNavy,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           p.uhid,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
-                            color: Colors.white,
+                            color: context.isDarkMode ? colors.primaryAccent : Colors.white,
                           ),
                         ),
                       ),
@@ -322,27 +326,29 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildContactCard(Patient p) {
+    final colors = context.colors;
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.contact_phone_outlined, size: 20, color: AppTheme.accentTeal),
-                SizedBox(width: 8),
+                Icon(Icons.contact_phone_outlined, size: 20, color: colors.primaryAccent),
+                const SizedBox(width: 8),
                 Text(
                   'Contact Information',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
               ],
@@ -366,27 +372,29 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildDemographicsCard(Patient p) {
+    final colors = context.colors;
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.badge_outlined, size: 20, color: AppTheme.primaryNavy),
-                SizedBox(width: 8),
+                Icon(Icons.badge_outlined, size: 20, color: colors.primaryAccent),
+                const SizedBox(width: 8),
                 Text(
                   'Demographics & Record Info',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
               ],
@@ -409,6 +417,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildDetailRow(String label, String value, {bool isMonospace = false}) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -418,10 +427,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
             width: 130,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -432,7 +441,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                 fontSize: 13,
                 fontFamily: isMonospace ? 'monospace' : null,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -442,12 +451,14 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildConsultationSection() {
+    final colors = context.colors;
     if (!_isDoctor) {
       return Card(
         elevation: 0.5,
+        color: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.2)),
+          side: BorderSide(color: colors.border),
         ),
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -463,7 +474,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                 child: const Icon(Icons.shield_outlined, color: Colors.blueGrey, size: 22),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -472,15 +483,15 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 3),
+                    const SizedBox(height: 3),
                     Text(
                       'Clinical narratives, diagnoses, and prescriptions are strictly restricted to DOCTOR memberships under OPD medical privacy regulations. Demographic data is accessible to Administrators and Receptionists.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                         height: 1.3,
                       ),
                     ),
@@ -498,9 +509,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
 
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -511,13 +523,13 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
               children: [
                 const Icon(Icons.medical_services_outlined, size: 20, color: Colors.purple),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Clinical Visit History (Doctor View)',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -539,7 +551,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('patientPrescriptionsButton'),
-                  icon: const Icon(Icons.receipt_long_rounded, color: AppTheme.accentTeal, size: 22),
+                  icon: Icon(Icons.receipt_long_rounded, color: colors.primaryAccent, size: 22),
                   tooltip: 'Patient Prescriptions',
                   onPressed: () {
                     Navigator.of(context).push(
@@ -579,13 +591,13 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundLight,
+                  color: colors.surfaceContainer,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'No recorded consultation visits for this patient.',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                 ),
               )
@@ -614,9 +626,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.backgroundLight,
+                        color: colors.surfaceContainer,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderSubtle),
+                        border: Border.all(color: colors.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,10 +639,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                                 c.encounterDate.length >= 10
                                     ? c.encounterDate.substring(0, 10)
                                     : c.encounterDate,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
+                                  color: colors.textPrimary,
                                 ),
                               ),
                               const Spacer(),
@@ -639,7 +651,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                                 decoration: BoxDecoration(
                                   color: isFinal
                                       ? AppTheme.successGreen.withValues(alpha: 0.12)
-                                      : Colors.amber.withValues(alpha: 0.15),
+                                      : (context.isDarkMode
+                                          ? colors.accentContainer
+                                          : Colors.amber.withValues(alpha: 0.15)),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -647,29 +661,35 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
-                                    color: isFinal ? AppTheme.successGreen : Colors.amber.shade900,
+                                    color: isFinal
+                                        ? (context.isDarkMode
+                                            ? AppTheme.statusApprovedDark
+                                            : AppTheme.statusApprovedLight)
+                                        : (context.isDarkMode
+                                            ? AppTheme.statusDraftDark
+                                            : AppTheme.statusDraftLight),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.chevron_right, size: 16, color: AppTheme.textSecondary),
+                              Icon(Icons.chevron_right, size: 16, color: colors.textSecondary),
                             ],
                           ),
                           if (c.chiefComplaint != null && c.chiefComplaint!.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(
                               'Chief Complaint: ${c.chiefComplaint}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              style: TextStyle(fontSize: 12, color: colors.textSecondary),
                             ),
                           ],
                           if (c.diagnosis != null && c.diagnosis!.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
                               'Diagnosis: ${c.diagnosis}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.textPrimary,
+                                color: colors.textPrimary,
                               ),
                             ),
                           ],

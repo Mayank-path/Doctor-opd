@@ -160,7 +160,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Registered ${newPatient.fullName} (${newPatient.uhid})'),
-          backgroundColor: AppTheme.accentTeal,
+          backgroundColor: context.colors.primaryAccent,
         ),
       );
       _loadPatients(reset: true);
@@ -185,8 +185,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Patient Directory'),
         actions: [
@@ -198,8 +200,8 @@ class _PatientListScreenState extends State<PatientListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.primaryNavy,
-        foregroundColor: Colors.white,
+        backgroundColor: colors.primaryAccent,
+        foregroundColor: context.isDarkMode ? colors.background : Colors.white,
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Register Patient'),
         onPressed: _navigateToRegister,
@@ -216,7 +218,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
             // Patient List or Loading / Empty States
             Expanded(
               child: RefreshIndicator(
-                color: AppTheme.accentTeal,
+                color: colors.primaryAccent,
                 onRefresh: () => _loadPatients(reset: true),
                 child: _buildBody(),
               ),
@@ -228,8 +230,9 @@ class _PatientListScreenState extends State<PatientListScreen> {
   }
 
   Widget _buildSearchBar() {
+    final colors = context.colors;
     return Container(
-      color: Colors.white,
+      color: colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +242,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
             onChanged: _onSearchChanged,
             decoration: InputDecoration(
               hintText: 'Search by full name or phone number...',
-              prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textSecondary),
+              prefixIcon: Icon(Icons.search_rounded, color: colors.textSecondary),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 20),
@@ -250,11 +253,11 @@ class _PatientListScreenState extends State<PatientListScreen> {
             ),
           ),
           if (_currentQuery.isNotEmpty && _currentQuery.length < 2)
-            const Padding(
-              padding: EdgeInsets.only(top: 6, left: 4),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
               child: Text(
                 'Type at least 2 characters to search',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+                style: TextStyle(fontSize: 11, color: colors.textSecondary, fontStyle: FontStyle.italic),
               ),
             ),
           const SizedBox(height: 8),
@@ -262,10 +265,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
             children: [
               Text(
                 '$_totalCount patient${_totalCount == 1 ? '' : 's'} registered',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ),
               const Spacer(),
@@ -273,15 +276,15 @@ class _PatientListScreenState extends State<PatientListScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentTeal.withValues(alpha: 0.1),
+                    color: colors.primaryAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     'Filter: "$_currentQuery"',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.accentTeal,
+                      color: colors.primaryAccent,
                     ),
                   ),
                 ),
@@ -321,10 +324,11 @@ class _PatientListScreenState extends State<PatientListScreen> {
   }
 
   Widget _buildBody() {
+    final colors = context.colors;
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentTeal),
+          valueColor: AlwaysStoppedAnimation<Color>(colors.primaryAccent),
         ),
       );
     }
@@ -341,13 +345,13 @@ class _PatientListScreenState extends State<PatientListScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: AppTheme.borderSubtle.withValues(alpha: 0.4),
+                    color: colors.surfaceContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.person_search_rounded,
                     size: 48,
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -355,10 +359,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
                   _currentQuery.isNotEmpty
                       ? 'No patients found matching "$_currentQuery"'
                       : 'No patients registered in this clinic yet',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -366,12 +370,13 @@ class _PatientListScreenState extends State<PatientListScreen> {
                   _currentQuery.isNotEmpty
                       ? 'Check the spelling or try searching with a phone number.'
                       : 'Tap the button below to register the first patient.',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 13, color: colors.textSecondary),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryNavy,
+                    backgroundColor: colors.primaryAccent,
+                    foregroundColor: context.isDarkMode ? colors.background : Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   ),
                   icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
@@ -393,15 +398,15 @@ class _PatientListScreenState extends State<PatientListScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (ctx, index) {
         if (index == _patients.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Center(
               child: SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentTeal),
+                  valueColor: AlwaysStoppedAnimation<Color>(colors.primaryAccent),
                 ),
               ),
             ),
@@ -415,11 +420,13 @@ class _PatientListScreenState extends State<PatientListScreen> {
   }
 
   Widget _buildPatientCard(Patient patient) {
+    final colors = context.colors;
     return Card(
       elevation: 0.5,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(color: colors.border),
       ),
       child: InkWell(
         onTap: () => _navigateToDetails(patient),
@@ -430,13 +437,13 @@ class _PatientListScreenState extends State<PatientListScreen> {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: AppTheme.accentTeal.withValues(alpha: 0.12),
+                backgroundColor: colors.primaryAccent.withValues(alpha: 0.12),
                 child: Text(
                   patient.fullName.isNotEmpty
                       ? patient.fullName[0].toUpperCase()
                       : 'P',
-                  style: const TextStyle(
-                    color: AppTheme.accentTeal,
+                  style: TextStyle(
+                    color: colors.primaryAccent,
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
                   ),
@@ -452,10 +459,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
                         Flexible(
                           child: Text(
                             patient.fullName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
+                              color: colors.textPrimary,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -464,16 +471,16 @@ class _PatientListScreenState extends State<PatientListScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                            color: colors.primaryAccent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             patient.uhid,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.primaryNavy,
+                              color: colors.primaryAccent,
                             ),
                           ),
                         ),
@@ -482,26 +489,26 @@ class _PatientListScreenState extends State<PatientListScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.phone_outlined, size: 13, color: AppTheme.textSecondary),
+                        Icon(Icons.phone_outlined, size: 13, color: colors.textSecondary),
                         const SizedBox(width: 4),
                         Text(
                           patient.phone,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 12, color: colors.textSecondary),
                         ),
                         const SizedBox(width: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
-                            color: AppTheme.backgroundLight,
+                            color: colors.surfaceContainer,
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppTheme.borderSubtle),
+                            border: Border.all(color: colors.border),
                           ),
                           child: Text(
                             patient.gender,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
+                              color: colors.textSecondary,
                             ),
                           ),
                         ),
@@ -509,7 +516,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
                           const SizedBox(width: 6),
                           Text(
                             '• ${patient.age} yrs',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            style: TextStyle(fontSize: 11, color: colors.textSecondary),
                           ),
                         ],
                       ],
@@ -518,11 +525,11 @@ class _PatientListScreenState extends State<PatientListScreen> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 13, color: AppTheme.textMuted),
+                          Icon(Icons.location_on_outlined, size: 13, color: colors.textSecondary),
                           const SizedBox(width: 4),
                           Text(
                             patient.city!,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                            style: TextStyle(fontSize: 11, color: colors.textSecondary),
                           ),
                         ],
                       ),
@@ -530,9 +537,9 @@ class _PatientListScreenState extends State<PatientListScreen> {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: AppTheme.textMuted,
+                color: colors.textSecondary,
               ),
             ],
           ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../auth/models/auth_clinic.dart';
 import '../../auth/models/auth_user.dart';
 import '../../auth/services/auth_service.dart';
+import '../../settings/ui/settings_screen.dart';
 import '../models/clinic_dashboard_stats.dart';
 import '../services/dashboard_service.dart';
 import 'widgets/clinic_selector_card.dart';
@@ -332,8 +334,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : null;
     final bool isDoctor = _stats?.isDoctor ?? (effectiveRole == 'DOCTOR');
 
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: colors.background,
       drawer: _buildAppDrawer(context, effectiveRole, isDoctor),
       appBar: AppBar(
         title: Row(
@@ -342,12 +346,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppTheme.accentTeal.withValues(alpha: 0.15),
+                color: colors.primaryAccent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.local_hospital_rounded,
-                color: AppTheme.accentTeal,
+                color: colors.primaryAccent,
                 size: 20,
               ),
             ),
@@ -362,15 +366,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              context.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
+              color: context.isDarkMode ? AppTheme.goldenEmber : AppTheme.primaryNavy,
+            ),
+            tooltip: context.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              ThemeControllerScope.of(context).toggleTheme();
+            },
+          ),
           if (hasActiveClinic)
             IconButton(
               icon: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppTheme.primaryNavy,
+                        color: colors.primaryAccent,
                       ),
                     )
                   : const Icon(Icons.refresh_rounded),
@@ -457,13 +471,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'OPD CLINICAL DASHBOARD',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.8,
-                              color: AppTheme.primaryNavy,
+                              color: colors.primaryAccent,
                             ),
                           ),
                           if (hasActiveClinic && _stats != null)
@@ -556,11 +570,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildUserProfileCard(String? role) {
+    final colors = context.colors;
     return Card(
       elevation: 1,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppTheme.borderGray),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -568,13 +584,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: AppTheme.primaryNavy,
+              backgroundColor: context.isDarkMode ? colors.accentContainer : AppTheme.primaryNavy,
               child: Text(
                 widget.user.fullName.isNotEmpty
                     ? widget.user.fullName[0].toUpperCase()
                     : 'U',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: context.isDarkMode ? colors.primaryAccent : Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -590,10 +606,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Flexible(
                         child: Text(
                           widget.user.fullName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                            color: colors.textPrimary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -603,8 +619,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: role != null
-                              ? AppTheme.accentTeal.withValues(alpha: 0.12)
-                              : Colors.grey.withValues(alpha: 0.12),
+                              ? colors.primaryAccent.withValues(alpha: 0.12)
+                              : colors.border.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -612,7 +628,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: role != null ? AppTheme.accentTeal : Colors.grey.shade700,
+                            color: role != null ? colors.primaryAccent : colors.textSecondary,
                           ),
                         ),
                       ),
@@ -621,19 +637,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 2),
                   Text(
                     widget.user.email ?? 'No email associated',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'User ID: ${widget.user.id.length > 8 ? "${widget.user.id.substring(0, 8)}..." : widget.user.id}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontFamily: 'monospace',
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -646,6 +662,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildErrorBanner() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -672,7 +689,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 2),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                  style: TextStyle(fontSize: 12, color: colors.textPrimary),
                 ),
               ],
             ),
@@ -688,41 +705,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMissingClinicContextPrompt() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.accentTeal.withValues(alpha: 0.1),
+              color: colors.primaryAccent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.apartment_rounded,
               size: 40,
-              color: AppTheme.accentTeal,
+              color: colors.primaryAccent,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Select Active Clinic',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'To load real clinic and patient data, please enter and save your Clinic UUID in the section above.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+            style: TextStyle(fontSize: 13, color: colors.textSecondary, height: 1.4),
           ),
         ],
       ),
@@ -730,22 +748,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildLoadingPlaceholder() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: colors.border),
       ),
-      child: const Column(
+      child: Column(
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentTeal),
+            valueColor: AlwaysStoppedAnimation<Color>(colors.primaryAccent),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'Loading clinic metrics...',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: 13, color: colors.textSecondary),
           ),
         ],
       ),
@@ -753,9 +772,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildAppDrawer(BuildContext context, String? effectiveRole, bool isDoctor) {
+    final colors = context.colors;
     final hasActiveClinic = _activeClinicId != null && _activeClinicId!.isNotEmpty;
 
     return Drawer(
+      backgroundColor: colors.surface,
       child: Column(
         children: [
           Expanded(
@@ -763,17 +784,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 children: [
                   UserAccountsDrawerHeader(
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primaryNavy,
+                    decoration: BoxDecoration(
+                      color: context.isDarkMode ? colors.surfaceContainer : AppTheme.primaryNavy,
                     ),
                     currentAccountPicture: CircleAvatar(
-                      backgroundColor: AppTheme.accentTeal,
+                      backgroundColor: colors.primaryAccent,
                       child: Text(
                         widget.user.fullName.isNotEmpty
                             ? widget.user.fullName[0].toUpperCase()
                             : 'U',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.isDarkMode ? colors.background : Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
                         ),
@@ -781,32 +802,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     accountName: Text(
                       widget.user.fullName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
+                        color: colors.textPrimary,
                       ),
                     ),
                     accountEmail: Text(
                       effectiveRole != null
                           ? '${widget.user.email ?? "No email"} • $effectiveRole'
                           : (widget.user.email ?? "No email"),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white70,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.dashboard_rounded, color: AppTheme.primaryNavy),
-                    title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+                    leading: Icon(Icons.dashboard_rounded, color: colors.primaryAccent),
+                    title: Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600, color: colors.textPrimary)),
                     onTap: () {
                       Navigator.of(context).pop();
                       _scrollToDashboard();
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.people_alt_rounded, color: AppTheme.accentTeal),
-                    title: const Text('Patients'),
+                    leading: Icon(Icons.people_alt_rounded, color: colors.primaryAccent),
+                    title: Text('Patients', style: TextStyle(color: colors.textPrimary)),
                     onTap: () {
                       Navigator.of(context).pop();
                       _navigateToPatients();
@@ -815,7 +837,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
                     ListTile(
                       leading: const Icon(Icons.medical_services_rounded, color: Colors.purple),
-                      title: const Text('Consultations'),
+                      title: Text('Consultations', style: TextStyle(color: colors.textPrimary)),
                       onTap: () {
                         Navigator.of(context).pop();
                         _navigateToConsultations();
@@ -824,21 +846,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (isDoctor || effectiveRole == 'DOCTOR' || (_stats?.isDoctor ?? false))
                     ListTile(
                       leading: const Icon(Icons.receipt_long_rounded, color: Colors.teal),
-                      title: const Text('Prescriptions'),
+                      title: Text('Prescriptions', style: TextStyle(color: colors.textPrimary)),
                       onTap: () {
                         Navigator.of(context).pop();
                         _navigateToPrescriptions();
                       },
                     ),
-                  const Divider(),
                   ListTile(
-                    leading: const Icon(Icons.apartment_rounded, color: AppTheme.textSecondary),
-                    title: const Text('Active Clinic Context'),
+                    leading: Icon(Icons.settings_outlined, color: colors.textSecondary),
+                    title: Text('Settings', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w500)),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                    },
+                  ),
+                  Divider(color: colors.divider),
+                  ListTile(
+                    leading: Icon(Icons.apartment_rounded, color: colors.textSecondary),
+                    title: Text('Active Clinic Context', style: TextStyle(color: colors.textPrimary)),
                     subtitle: Text(
                       hasActiveClinic ? _activeClinicId! : 'No clinic configured',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                      style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: colors.textSecondary),
                     ),
                     onTap: () {
                       Navigator.of(context).pop();
@@ -855,7 +887,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: colors.divider),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: AppTheme.errorRed),
             title: const Text(

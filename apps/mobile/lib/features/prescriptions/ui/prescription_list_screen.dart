@@ -117,19 +117,23 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Prescriptions',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: context.colors.textPrimary,
+          ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         actions: [
           IconButton(
             key: const Key('refreshPrescriptionsButton'),
             icon: const Icon(Icons.refresh_rounded),
-            color: AppTheme.primaryNavy,
+            color: context.colors.textPrimary,
             onPressed: () => _loadPrescriptions(page: _currentPage),
           ),
         ],
@@ -137,8 +141,9 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('newPrescriptionFab'),
         onPressed: _openCreatePrescription,
-        backgroundColor: AppTheme.accentTeal,
-        foregroundColor: Colors.white,
+        backgroundColor: context.colors.primaryAccent,
+        foregroundColor:
+            context.isDarkMode ? const Color(0xFF111315) : Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: const Text(
           'New Prescription',
@@ -162,7 +167,7 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
 
   Widget _buildFilterBar() {
     return Container(
-      color: Colors.white,
+      color: context.colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -217,11 +222,12 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.primaryNavy
-              : AppTheme.backgroundLight,
+              ? context.colors.primaryAccent
+              : context.colors.surfaceContainer,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryNavy : AppTheme.borderGray,
+            color:
+                isSelected ? context.colors.primaryAccent : context.colors.border,
           ),
         ),
         child: Text(
@@ -229,7 +235,9 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : AppTheme.textPrimary,
+            color: isSelected
+                ? (context.isDarkMode ? const Color(0xFF111315) : Colors.white)
+                : context.colors.textPrimary,
           ),
         ),
       ),
@@ -280,31 +288,33 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.receipt_long_outlined,
-                    size: 56, color: Colors.grey.shade400),
+                    size: 56, color: context.colors.textMuted),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'No prescriptions found',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Prescriptions created for this clinic or patient will be displayed here.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppTheme.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: _openCreatePrescription,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentTeal,
-                    foregroundColor: Colors.white,
+                    backgroundColor: context.colors.primaryAccent,
+                    foregroundColor: context.isDarkMode
+                        ? const Color(0xFF111315)
+                        : Colors.white,
                   ),
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: const Text('Create Prescription'),
@@ -334,21 +344,7 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
   }
 
   Widget _buildPrescriptionCard(Prescription rx) {
-    Color statusColor;
-    switch (rx.status) {
-      case PrescriptionStatus.approved:
-        statusColor = AppTheme.successGreen;
-        break;
-      case PrescriptionStatus.draft:
-        statusColor = Colors.orange.shade800;
-        break;
-      case PrescriptionStatus.superseded:
-        statusColor = Colors.grey.shade700;
-        break;
-      case PrescriptionStatus.cancelled:
-        statusColor = AppTheme.dangerRed;
-        break;
-    }
+    final statusColor = rx.status.colorFor(isDark: context.isDarkMode);
 
     final dateStr =
         '${rx.createdAt.day.toString().padLeft(2, '0')}/${rx.createdAt.month.toString().padLeft(2, '0')}/${rx.createdAt.year}';
@@ -356,9 +352,9 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -391,17 +387,17 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
                       children: [
                         Text(
                           rx.patient?.fullName ?? 'Patient ID: ${rx.patientId}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
+                            color: context.colors.textPrimary,
                           ),
                         ),
                         Text(
                           'Dr. ${rx.doctor?.fullName ?? "Attending Doctor"} • $dateStr',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                       ],
@@ -433,16 +429,24 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.indigo.shade50,
+                        color: context.isDarkMode
+                            ? context.colors.accentContainer
+                            : Colors.indigo.shade50,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.indigo.shade200),
+                        border: Border.all(
+                          color: context.isDarkMode
+                              ? context.colors.accentBorder
+                              : Colors.indigo.shade200,
+                        ),
                       ),
                       child: Text(
                         'v${rx.amendmentVersion}',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: Colors.indigo.shade800,
+                          color: context.isDarkMode
+                              ? context.colors.primaryAccent
+                              : Colors.indigo.shade800,
                         ),
                       ),
                     ),
@@ -479,32 +483,32 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
                 ),
                 const SizedBox(height: 6),
               ],
-              const Divider(height: 1, color: AppTheme.borderGray),
+              Divider(height: 1, color: context.colors.divider),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Icon(Icons.medication_rounded,
-                      size: 14, color: AppTheme.textSecondary),
+                      size: 14, color: context.colors.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     '${rx.items.length} medication item(s)',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+                      color: context.colors.textSecondary,
                     ),
                   ),
                   const Spacer(),
-                  const Text(
+                  Text(
                     'View Details',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.accentTeal,
+                      color: context.colors.primaryAccent,
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded,
-                      size: 16, color: AppTheme.accentTeal),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 16, color: context.colors.primaryAccent),
                 ],
               ),
             ],
@@ -528,9 +532,9 @@ class _PrescriptionListScreenState extends State<PrescriptionListScreen> {
           ),
           Text(
             'Page $_currentPage of $_totalPages ($_totalCount total)',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppTheme.textSecondary,
+              color: context.colors.textSecondary,
             ),
           ),
           OutlinedButton(

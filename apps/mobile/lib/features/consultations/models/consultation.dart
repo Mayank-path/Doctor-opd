@@ -41,14 +41,16 @@ enum ConsultationStatus {
     }
   }
 
-  Color get color {
+  Color get color => AppTheme.statusApprovedLight;
+
+  Color colorFor({required bool isDark}) {
     switch (this) {
       case ConsultationStatus.voided:
-        return AppTheme.errorRed;
+        return isDark ? AppTheme.statusVoidedDark : AppTheme.statusVoidedLight;
       case ConsultationStatus.finalized:
-        return AppTheme.successGreen;
+        return isDark ? AppTheme.statusFinalizedDark : AppTheme.statusFinalizedLight;
       case ConsultationStatus.draft:
-        return AppTheme.warningAmber;
+        return isDark ? AppTheme.statusDraftDark : AppTheme.statusDraftLight;
     }
   }
 

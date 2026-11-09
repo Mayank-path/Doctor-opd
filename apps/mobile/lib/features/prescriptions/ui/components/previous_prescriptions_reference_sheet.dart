@@ -93,9 +93,9 @@ class _PreviousPrescriptionsReferenceSheetState
 
     return Container(
       height: height,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -105,7 +105,7 @@ class _PreviousPrescriptionsReferenceSheetState
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: context.colors.divider,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -115,9 +115,9 @@ class _PreviousPrescriptionsReferenceSheetState
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.history_edu_rounded,
-                  color: AppTheme.primaryNavy,
+                  color: context.colors.primaryAccent,
                   size: 24,
                 ),
                 const SizedBox(width: 10),
@@ -125,26 +125,26 @@ class _PreviousPrescriptionsReferenceSheetState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Prior Prescriptions History',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       Text(
                         'Patient: ${widget.patientName}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppTheme.textSecondary,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded),
+                  icon: Icon(Icons.close_rounded, color: context.colors.textPrimary),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -156,9 +156,15 @@ class _PreviousPrescriptionsReferenceSheetState
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: context.isDarkMode
+                  ? context.colors.accentContainer
+                  : Colors.blue.shade50,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue.shade200),
+              border: Border.all(
+                color: context.isDarkMode
+                    ? context.colors.accentBorder
+                    : Colors.blue.shade200,
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +172,9 @@ class _PreviousPrescriptionsReferenceSheetState
                 Icon(
                   Icons.shield_outlined,
                   size: 20,
-                  color: Colors.blue.shade900,
+                  color: context.isDarkMode
+                      ? context.colors.primaryAccent
+                      : Colors.blue.shade900,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -178,7 +186,9 @@ class _PreviousPrescriptionsReferenceSheetState
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
+                          color: context.isDarkMode
+                              ? context.colors.primaryAccent
+                              : Colors.blue.shade900,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -187,7 +197,9 @@ class _PreviousPrescriptionsReferenceSheetState
                         style: TextStyle(
                           fontSize: 11.5,
                           height: 1.35,
-                          color: Colors.blue.shade900,
+                          color: context.isDarkMode
+                              ? context.colors.textSecondary
+                              : Colors.blue.shade900,
                         ),
                       ),
                     ],
@@ -250,23 +262,23 @@ class _PreviousPrescriptionsReferenceSheetState
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.inventory_2_outlined,
-                  size: 48, color: Colors.grey.shade400),
+                  size: 48, color: context.colors.textMuted),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'No previous prescriptions found',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'There are no historical prescription records on file for this patient.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],
@@ -286,21 +298,7 @@ class _PreviousPrescriptionsReferenceSheetState
   }
 
   Widget _buildPrescriptionCard(Prescription rx) {
-    Color statusColor;
-    switch (rx.status) {
-      case PrescriptionStatus.approved:
-        statusColor = AppTheme.successGreen;
-        break;
-      case PrescriptionStatus.draft:
-        statusColor = Colors.orange.shade800;
-        break;
-      case PrescriptionStatus.superseded:
-        statusColor = Colors.grey.shade700;
-        break;
-      case PrescriptionStatus.cancelled:
-        statusColor = AppTheme.dangerRed;
-        break;
-    }
+    final statusColor = rx.status.colorFor(isDark: context.isDarkMode);
 
     final doctorName = rx.doctor?.fullName ?? 'Attending Clinician';
     final dateStr = '${rx.createdAt.day}/${rx.createdAt.month}/${rx.createdAt.year}';
@@ -308,9 +306,9 @@ class _PreviousPrescriptionsReferenceSheetState
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -336,10 +334,10 @@ class _PreviousPrescriptionsReferenceSheetState
           children: [
             Text(
               dateStr,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(width: 8),
@@ -364,16 +362,24 @@ class _PreviousPrescriptionsReferenceSheetState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
+                  color: context.isDarkMode
+                      ? context.colors.accentContainer
+                      : Colors.indigo.shade50,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.indigo.shade200),
+                  border: Border.all(
+                    color: context.isDarkMode
+                        ? context.colors.accentBorder
+                        : Colors.indigo.shade200,
+                  ),
                 ),
                 child: Text(
                   'v${rx.amendmentVersion}',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Colors.indigo.shade800,
+                    color: context.isDarkMode
+                        ? context.colors.primaryAccent
+                        : Colors.indigo.shade800,
                   ),
                 ),
               ),
@@ -382,9 +388,9 @@ class _PreviousPrescriptionsReferenceSheetState
         ),
         subtitle: Text(
           'Dr. $doctorName • ${rx.items.length} item(s)',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
-            color: AppTheme.textSecondary,
+            color: context.colors.textSecondary,
           ),
         ),
         children: [
@@ -394,21 +400,21 @@ class _PreviousPrescriptionsReferenceSheetState
               padding: const EdgeInsets.all(10),
               margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundLight,
+                color: context.colors.surfaceContainer,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderGray),
+                border: Border.all(color: context.colors.border),
               ),
               child: Text(
                 'Notes: ${rx.notes!.trim()}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontStyle: FontStyle.italic,
-                  color: AppTheme.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ),
           ],
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'MEDICATION ITEMS (READ-ONLY)',
@@ -416,7 +422,7 @@ class _PreviousPrescriptionsReferenceSheetState
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
-                color: AppTheme.textSecondary,
+                color: context.colors.textSecondary,
               ),
             ),
           ),
@@ -428,19 +434,19 @@ class _PreviousPrescriptionsReferenceSheetState
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundLight,
+                color: context.colors.surfaceContainer,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderGray),
+                border: Border.all(color: context.colors.border),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '${idx + 1}.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: context.colors.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -450,18 +456,18 @@ class _PreviousPrescriptionsReferenceSheetState
                       children: [
                         Text(
                           '${item.medicationName} (${item.strength}) - ${item.dosageForm.displayName}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            color: context.colors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Route: ${item.route.displayName} • Frequency: ${item.frequency} • ${item.durationValue} ${item.durationUnit.toLowerCase()} • Timing: ${item.timing.displayName}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: AppTheme.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                         if (item.specialInstructions != null &&
@@ -472,7 +478,9 @@ class _PreviousPrescriptionsReferenceSheetState
                             style: TextStyle(
                               fontSize: 11,
                               fontStyle: FontStyle.italic,
-                              color: Colors.amber.shade900,
+                              color: context.isDarkMode
+                                  ? context.colors.primaryAccent
+                                  : Colors.amber.shade900,
                             ),
                           ),
                         ],

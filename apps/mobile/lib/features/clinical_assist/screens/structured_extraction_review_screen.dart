@@ -586,17 +586,18 @@ class _StructuredExtractionReviewScreenState
     required int assessments,
     required int unmapped,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: [
-        _buildStatBadge('Total', total.toString(), Colors.blueGrey),
-        _buildStatBadge('Present', present.toString(), Colors.green),
-        _buildStatBadge('Absent', absent.toString(), Colors.red),
-        if (uncertain > 0) _buildStatBadge('Uncertain', uncertain.toString(), Colors.orange),
-        if (excluded > 0) _buildStatBadge('Excluded', excluded.toString(), Colors.grey),
-        if (assessments > 0) _buildStatBadge('Assessments', assessments.toString(), Colors.purple),
-        if (unmapped > 0) _buildStatBadge('Unmapped', unmapped.toString(), Colors.amber.shade800),
+        _buildStatBadge('Total', total.toString(), isDark ? Colors.blueGrey.shade300 : AppTheme.statusSupersededLight),
+        _buildStatBadge('Present', present.toString(), isDark ? AppTheme.statusApprovedDark : AppTheme.statusApprovedLight),
+        _buildStatBadge('Absent', absent.toString(), isDark ? AppTheme.statusVoidedDark : AppTheme.statusVoidedLight),
+        if (uncertain > 0) _buildStatBadge('Uncertain', uncertain.toString(), isDark ? AppTheme.statusDraftDark : AppTheme.statusDraftLight),
+        if (excluded > 0) _buildStatBadge('Excluded', excluded.toString(), isDark ? Colors.grey.shade400 : AppTheme.statusSupersededLight),
+        if (assessments > 0) _buildStatBadge('Assessments', assessments.toString(), isDark ? Colors.purple.shade300 : Colors.purple.shade800),
+        if (unmapped > 0) _buildStatBadge('Unmapped', unmapped.toString(), isDark ? Colors.amber.shade300 : AppTheme.statusDraftLight),
       ],
     );
   }

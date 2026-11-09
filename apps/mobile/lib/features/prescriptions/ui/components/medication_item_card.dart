@@ -26,9 +26,9 @@ class MedicationItemCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: context.colors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -51,15 +51,19 @@ class MedicationItemCard extends StatelessWidget {
                   height: 26,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                    color: context.isDarkMode
+                        ? context.colors.accentContainer
+                        : AppTheme.primaryNavy.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryNavy,
+                      color: context.isDarkMode
+                          ? context.colors.primaryAccent
+                          : AppTheme.primaryNavy,
                     ),
                   ),
                 ),
@@ -73,10 +77,10 @@ class MedicationItemCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               item.medicationName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
+                                color: context.colors.textPrimary,
                               ),
                             ),
                           ),
@@ -85,10 +89,10 @@ class MedicationItemCard extends StatelessWidget {
                             const SizedBox(width: 6),
                             Text(
                               '(${item.brandName!.trim()})',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontStyle: FontStyle.italic,
-                                color: AppTheme.textSecondary,
+                                color: context.colors.textSecondary,
                               ),
                             ),
                           ],
@@ -101,15 +105,19 @@ class MedicationItemCard extends StatelessWidget {
                         children: [
                           _buildBadge(
                             text: item.strength,
-                            color: AppTheme.accentTeal,
+                            color: context.colors.primaryAccent,
                           ),
                           _buildBadge(
                             text: item.dosageForm.displayName,
-                            color: Colors.purple.shade700,
+                            color: context.isDarkMode
+                                ? const Color(0xFFC084FC)
+                                : Colors.purple.shade700,
                           ),
                           _buildBadge(
                             text: item.route.displayName,
-                            color: Colors.indigo.shade700,
+                            color: context.isDarkMode
+                                ? const Color(0xFF818CF8)
+                                : Colors.indigo.shade700,
                           ),
                         ],
                       ),
@@ -120,7 +128,7 @@ class MedicationItemCard extends StatelessWidget {
                   IconButton(
                     key: Key('editMedication_${item.medicationName}'),
                     icon: const Icon(Icons.edit_outlined, size: 20),
-                    color: AppTheme.accentTeal,
+                    color: context.colors.primaryAccent,
                     tooltip: 'Edit item',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -140,7 +148,7 @@ class MedicationItemCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            const Divider(height: 1, color: AppTheme.borderGray),
+            Divider(height: 1, color: context.colors.divider),
             const SizedBox(height: 10),
 
             // Regimen details: Frequency, Duration, Timing
@@ -148,6 +156,7 @@ class MedicationItemCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildDetailCell(
+                    context: context,
                     label: 'Frequency',
                     value: item.frequency,
                     icon: Icons.repeat_rounded,
@@ -155,6 +164,7 @@ class MedicationItemCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _buildDetailCell(
+                    context: context,
                     label: 'Duration',
                     value: '${item.durationValue} ${item.durationUnit.toLowerCase()}',
                     icon: Icons.timelapse_rounded,
@@ -162,6 +172,7 @@ class MedicationItemCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _buildDetailCell(
+                    context: context,
                     label: 'Timing',
                     value: item.timing.displayName,
                     icon: Icons.schedule_rounded,
@@ -178,9 +189,15 @@ class MedicationItemCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: context.isDarkMode
+                      ? context.colors.accentContainer
+                      : Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.amber.shade200),
+                  border: Border.all(
+                    color: context.isDarkMode
+                        ? context.colors.accentBorder
+                        : Colors.amber.shade200,
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +205,9 @@ class MedicationItemCard extends StatelessWidget {
                     Icon(
                       Icons.info_outline_rounded,
                       size: 14,
-                      color: Colors.amber.shade900,
+                      color: context.isDarkMode
+                          ? context.colors.primaryAccent
+                          : Colors.amber.shade900,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -196,7 +215,9 @@ class MedicationItemCard extends StatelessWidget {
                         item.specialInstructions!.trim(),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.amber.shade900,
+                          color: context.isDarkMode
+                              ? context.colors.textSecondary
+                              : Colors.amber.shade900,
                         ),
                       ),
                     ),
@@ -230,6 +251,7 @@ class MedicationItemCard extends StatelessWidget {
   }
 
   Widget _buildDetailCell({
+    required BuildContext context,
     required String label,
     required String value,
     required IconData icon,
@@ -239,13 +261,13 @@ class MedicationItemCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 12, color: AppTheme.textSecondary),
+            Icon(icon, size: 12, color: context.colors.textSecondary),
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppTheme.textSecondary,
+                color: context.colors.textSecondary,
               ),
             ),
           ],
@@ -253,10 +275,10 @@ class MedicationItemCard extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
       ],

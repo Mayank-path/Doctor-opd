@@ -19,11 +19,14 @@ class PatientsOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Card(
       elevation: 1,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderGray),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -35,23 +38,23 @@ class PatientsOverviewCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                    color: colors.primaryAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.people_alt_rounded,
-                    color: AppTheme.accentTeal,
+                    color: colors.primaryAccent,
                     size: 22,
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Registered Patients',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -61,15 +64,15 @@ class PatientsOverviewCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                        color: colors.primaryAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '${stats.totalPatients} total',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.accentTeal,
+                          color: colors.primaryAccent,
                         ),
                       ),
                     ),
@@ -78,7 +81,7 @@ class PatientsOverviewCard extends StatelessWidget {
                       TextButton(
                         onPressed: onViewAllTap,
                         style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.accentTeal,
+                          foregroundColor: colors.primaryAccent,
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -97,32 +100,32 @@ class PatientsOverviewCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundLight,
+                  color: colors.surfaceContainer,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderGray),
+                  border: Border.all(color: colors.border),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
                     Icon(
                       Icons.person_add_disabled_rounded,
                       size: 36,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       'No patients registered in this clinic yet',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Patients created in OPD registration will appear here.',
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -143,21 +146,21 @@ class PatientsOverviewCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppTheme.backgroundLight,
+                        color: colors.surfaceContainer,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderGray),
+                        border: Border.all(color: colors.border),
                       ),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 18,
-                            backgroundColor: AppTheme.accentTeal.withValues(alpha: 0.15),
+                            backgroundColor: colors.primaryAccent.withValues(alpha: 0.15),
                             child: Text(
                               patient.fullName.isNotEmpty
                                   ? patient.fullName[0].toUpperCase()
                                   : 'P',
-                              style: const TextStyle(
-                                color: AppTheme.accentTeal,
+                              style: TextStyle(
+                                color: colors.primaryAccent,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14,
                               ),
@@ -170,18 +173,18 @@ class PatientsOverviewCard extends StatelessWidget {
                               children: [
                                 Text(
                                   patient.fullName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
+                                    color: colors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   'UHID: ${patient.uhid} • Phone: ${patient.phone}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.textSecondary,
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -190,16 +193,16 @@ class PatientsOverviewCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppTheme.backgroundLight,
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppTheme.borderGray),
+                              border: Border.all(color: colors.border),
                             ),
                             child: Text(
                               patient.gender,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
+                                color: colors.textSecondary,
                               ),
                             ),
                           ),
@@ -216,7 +219,8 @@ class PatientsOverviewCard extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: onViewAllTap,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.borderGray),
+                      foregroundColor: colors.textPrimary,
+                      side: BorderSide(color: colors.border),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text('View All ${stats.totalPatients} Patients'),
