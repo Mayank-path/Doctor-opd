@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/errors/api_exception.dart';
+import '../../../../core/spell_check/presentation/spelling_context_menu.dart';
+import '../../../../core/spell_check/presentation/spelling_suggestion_strip.dart';
+import '../../../../core/spell_check/presentation/spelling_text_editing_controller.dart';
+import '../../../../core/spell_check/spell_check_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../patients/models/patient.dart';
@@ -26,6 +30,7 @@ class ConsultationCreateScreen extends StatefulWidget {
   final ConsultationsService? consultationsService;
   final SecureStorageService? storageService;
   final PatientsService? patientsService;
+  final SpellCheckService? spellCheckService;
 
   const ConsultationCreateScreen({
     super.key,
@@ -38,6 +43,7 @@ class ConsultationCreateScreen extends StatefulWidget {
     this.consultationsService,
     this.storageService,
     this.patientsService,
+    this.spellCheckService,
   });
 
   @override
@@ -51,6 +57,7 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
   late final ConsultationsService _consultationsService;
   late final SecureStorageService _storageService;
   late final PatientsService _patientsService;
+  late final SpellCheckService _spellCheckService;
 
   bool _isLoading = true;
   bool _isCreating = false;
@@ -61,11 +68,11 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
   Patient? _selectedPatient;
 
   // Controllers
-  final _chiefComplaintController = TextEditingController();
-  final _symptomsController = TextEditingController();
-  final _examinationController = TextEditingController();
-  final _diagnosisController = TextEditingController();
-  final _treatmentPlanController = TextEditingController();
+  late final SpellingTextEditingController _chiefComplaintController;
+  late final SpellingTextEditingController _symptomsController;
+  late final SpellingTextEditingController _examinationController;
+  late final SpellingTextEditingController _diagnosisController;
+  late final SpellingTextEditingController _treatmentPlanController;
   final _followUpDateController = TextEditingController();
 
   // Vitals
@@ -85,6 +92,16 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
         widget.consultationsService ?? ConsultationsService();
     _storageService = widget.storageService ?? SecureStorageService();
     _patientsService = widget.patientsService ?? PatientsService();
+    _spellCheckService =
+        widget.spellCheckService ?? SpellCheckService.instance;
+
+    _chiefComplaintController = _spellCheckService.createController(
+      text: widget.initialChiefComplaint,
+    );
+    _symptomsController = _spellCheckService.createController();
+    _examinationController = _spellCheckService.createController();
+    _diagnosisController = _spellCheckService.createController();
+    _treatmentPlanController = _spellCheckService.createController();
 
     if (widget.patientId != null) {
       _selectedPatient = Patient(
@@ -98,9 +115,6 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-    }
-    if (widget.initialChiefComplaint != null) {
-      _chiefComplaintController.text = widget.initialChiefComplaint!;
     }
 
     _loadUserSession();
@@ -510,6 +524,16 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                       TextFormField(
                         controller: _chiefComplaintController,
                         maxLines: 3,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        contextMenuBuilder: (context, editableTextState) =>
+                            buildSpellingContextMenu(
+                          context,
+                          editableTextState,
+                          _chiefComplaintController,
+                        ),
                         decoration: const InputDecoration(
                           hintText:
                               'Primary reason for visit (e.g. Acute high fever with cough for 3 days)...',
@@ -524,6 +548,9 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                           }
                           return null;
                         },
+                      ),
+                      SpellingSuggestionStrip(
+                        controller: _chiefComplaintController,
                       ),
                     ],
                   ),
@@ -555,36 +582,79 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                       TextFormField(
                         controller: _symptomsController,
                         maxLines: 2,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        contextMenuBuilder: (context, editableTextState) =>
+                            buildSpellingContextMenu(
+                          context,
+                          editableTextState,
+                          _symptomsController,
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Symptoms / History of Present Illness',
                           hintText: 'e.g. Chills, sore throat, fatigue...',
                           border: OutlineInputBorder(),
                         ),
                       ),
+                      SpellingSuggestionStrip(controller: _symptomsController),
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _examinationController,
                         maxLines: 2,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        contextMenuBuilder: (context, editableTextState) =>
+                            buildSpellingContextMenu(
+                          context,
+                          editableTextState,
+                          _examinationController,
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Physical Examination Findings',
                           hintText: 'e.g. Chest clear, throat hyperemic...',
                           border: OutlineInputBorder(),
                         ),
                       ),
+                      SpellingSuggestionStrip(controller: _examinationController),
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _diagnosisController,
                         maxLines: 2,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        contextMenuBuilder: (context, editableTextState) =>
+                            buildSpellingContextMenu(
+                          context,
+                          editableTextState,
+                          _diagnosisController,
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Clinical Diagnosis / Impression',
                           hintText: 'e.g. Upper Respiratory Tract Infection (URTI)...',
                           border: OutlineInputBorder(),
                         ),
                       ),
+                      SpellingSuggestionStrip(controller: _diagnosisController),
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _treatmentPlanController,
                         maxLines: 3,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        contextMenuBuilder: (context, editableTextState) =>
+                            buildSpellingContextMenu(
+                          context,
+                          editableTextState,
+                          _treatmentPlanController,
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Treatment Plan & Prescriptions',
                           hintText:
@@ -592,6 +662,7 @@ class ConsultationCreateScreenState extends State<ConsultationCreateScreen> {
                           border: OutlineInputBorder(),
                         ),
                       ),
+                      SpellingSuggestionStrip(controller: _treatmentPlanController),
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _followUpDateController,

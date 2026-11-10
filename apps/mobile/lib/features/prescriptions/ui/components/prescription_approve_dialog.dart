@@ -125,6 +125,10 @@ class _PrescriptionApproveDialogState extends State<PrescriptionApproveDialog> {
               key: const Key('approvalNotesField'),
               controller: _doctorNotesController,
               maxLines: 2,
+              autocorrect: true,
+              enableSuggestions: true,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
                 labelText: 'Approval Notes (Optional)',
                 hintText: 'e.g. Verified with patient, no known allergies...',

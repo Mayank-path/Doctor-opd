@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/spell_check/presentation/spelling_context_menu.dart';
+import '../../../core/spell_check/presentation/spelling_suggestion_strip.dart';
+import '../../../core/spell_check/presentation/spelling_text_editing_controller.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Keyboard-safe multiline editor for reviewing and refining speech-to-text transcripts.
@@ -73,7 +76,13 @@ class TranscriptEditor extends StatelessWidget {
             maxLines: 8,
             minLines: 5,
             keyboardType: TextInputType.multiline,
+            autocorrect: true,
+            enableSuggestions: true,
             textCapitalization: TextCapitalization.sentences,
+            contextMenuBuilder: controller is SpellingTextEditingController
+                ? (ctx, state) =>
+                    buildSpellingContextMenu(ctx, state, controller as SpellingTextEditingController)
+                : null,
             style: const TextStyle(
               fontSize: 15,
               height: 1.5,
@@ -87,6 +96,10 @@ class TranscriptEditor extends StatelessWidget {
             ),
           ),
         ),
+        if (controller is SpellingTextEditingController)
+          SpellingSuggestionStrip(
+            controller: controller as SpellingTextEditingController,
+          ),
         const SizedBox(height: 8),
 
         // Character / Word count footer

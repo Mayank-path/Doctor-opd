@@ -117,6 +117,10 @@ class _PrescriptionAmendDialogState extends State<PrescriptionAmendDialog> {
                 key: const Key('amendmentReasonField'),
                 controller: _reasonController,
                 maxLines: 3,
+                autocorrect: true,
+                enableSuggestions: true,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
                   labelText: 'Clinical Justification / Reason *',
                   hintText:
@@ -146,6 +150,10 @@ class _PrescriptionAmendDialogState extends State<PrescriptionAmendDialog> {
                 key: const Key('amendmentNotesField'),
                 controller: _notesController,
                 maxLines: 2,
+                autocorrect: true,
+                enableSuggestions: true,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
                   labelText: 'Additional Notes (Optional)',
                   hintText: 'e.g. Follow up in 3 days if symptoms persist...',

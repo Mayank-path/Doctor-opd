@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/errors/api_exception.dart';
+import '../../../../core/spell_check/presentation/spelling_context_menu.dart';
+import '../../../../core/spell_check/presentation/spelling_suggestion_strip.dart';
+import '../../../../core/spell_check/presentation/spelling_text_editing_controller.dart';
+import '../../../../core/spell_check/spell_check_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../auth/models/auth_user.dart';
@@ -22,6 +26,7 @@ class ConsultationDetailsScreen extends StatefulWidget {
   final Consultation? initialConsultation;
   final ConsultationsService? consultationsService;
   final SecureStorageService? storageService;
+  final SpellCheckService? spellCheckService;
 
   const ConsultationDetailsScreen({
     super.key,
@@ -29,6 +34,7 @@ class ConsultationDetailsScreen extends StatefulWidget {
     this.initialConsultation,
     this.consultationsService,
     this.storageService,
+    this.spellCheckService,
   });
 
   @override
@@ -41,6 +47,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
 
   late final ConsultationsService _consultationsService;
   late final SecureStorageService _storageService;
+  late final SpellCheckService _spellCheckService;
 
   Consultation? _consultation;
   AuthUser? _currentUser;
@@ -54,11 +61,11 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
   bool _isForbidden = false;
 
   // Form controllers
-  final _chiefComplaintController = TextEditingController();
-  final _symptomsController = TextEditingController();
-  final _examinationController = TextEditingController();
-  final _diagnosisController = TextEditingController();
-  final _treatmentPlanController = TextEditingController();
+  late final SpellingTextEditingController _chiefComplaintController;
+  late final SpellingTextEditingController _symptomsController;
+  late final SpellingTextEditingController _examinationController;
+  late final SpellingTextEditingController _diagnosisController;
+  late final SpellingTextEditingController _treatmentPlanController;
   final _followUpDateController = TextEditingController();
 
   // Vitals controllers
@@ -77,6 +84,14 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     _consultationsService =
         widget.consultationsService ?? ConsultationsService();
     _storageService = widget.storageService ?? SecureStorageService();
+    _spellCheckService =
+        widget.spellCheckService ?? SpellCheckService.instance;
+
+    _chiefComplaintController = _spellCheckService.createController();
+    _symptomsController = _spellCheckService.createController();
+    _examinationController = _spellCheckService.createController();
+    _diagnosisController = _spellCheckService.createController();
+    _treatmentPlanController = _spellCheckService.createController();
 
     if (widget.initialConsultation != null) {
       _consultation = widget.initialConsultation;
@@ -1023,25 +1038,44 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
             title: 'Chief Complaint *',
             icon: Icons.chat_bubble_outline_rounded,
             child: isEditable
-                ? TextFormField(
-                    key: const Key('chiefComplaintField'),
-                    controller: _chiefComplaintController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: 'Enter patient chief complaint (e.g. Fever, persistent cough for 3 days)...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        key: const Key('chiefComplaintField'),
+                        controller: _chiefComplaintController,
+                        maxLines: 3,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        contextMenuBuilder: (ctx, state) =>
+                            buildSpellingContextMenu(
+                          ctx,
+                          state,
+                          _chiefComplaintController,
+                        ),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Enter patient chief complaint (e.g. Fever, persistent cough for 3 days)...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Chief complaint is required';
+                          }
+                          if (val.trim().length > 500) {
+                            return 'Exceeds maximum 500 characters';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Chief complaint is required';
-                      }
-                      if (val.trim().length > 500) {
-                        return 'Exceeds maximum 500 characters';
-                      }
-                      return null;
-                    },
+                      SpellingSuggestionStrip(
+                        controller: _chiefComplaintController,
+                      ),
+                    ],
                   )
                 : Text(
                     c.chiefComplaint,
@@ -1389,10 +1423,18 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        if (isEditable)
+        if (isEditable) ...[
           TextFormField(
             controller: controller,
             maxLines: 3,
+            autocorrect: true,
+            enableSuggestions: true,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            contextMenuBuilder: controller is SpellingTextEditingController
+                ? (ctx, state) =>
+                    buildSpellingContextMenu(ctx, state, controller)
+                : null,
             decoration: InputDecoration(
               hintText: hintText,
               suffixIcon: suffixIcon,
@@ -1408,8 +1450,10 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
               }
               return null;
             },
-          )
-        else
+          ),
+          if (controller is SpellingTextEditingController)
+            SpellingSuggestionStrip(controller: controller),
+        ] else
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(10),

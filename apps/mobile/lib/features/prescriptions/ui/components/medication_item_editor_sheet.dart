@@ -368,6 +368,10 @@ class _MedicationItemEditorSheetState extends State<MedicationItemEditorSheet> {
               // Instructions
               TextFormField(
                 controller: _instructionsController,
+                autocorrect: true,
+                enableSuggestions: true,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
                   labelText: 'Instructions & Advice (Optional)',
                   hintText: 'e.g. Take with warm water, complete course',

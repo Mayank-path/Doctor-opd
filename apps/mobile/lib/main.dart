@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/network/api_client.dart';
+import 'core/spell_check/spell_check_service.dart';
 import 'core/storage/secure_storage_service.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/theme/theme_preference_repository.dart';
@@ -21,10 +22,11 @@ void main() async {
   );
   final themeController = ThemeController(repository: themeRepository);
 
-  // Restore existing session and theme preference from encrypted device storage
+  // Restore existing session, theme preference, and initialize offline spell check
   await Future.wait([
     authService.initialize(),
     themeController.initialize(),
+    SpellCheckService.instance.initialize(),
   ]);
 
   runApp(DoctorOpdApp(

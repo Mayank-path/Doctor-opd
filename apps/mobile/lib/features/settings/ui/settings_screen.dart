@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_controller.dart';
+import 'open_source_licenses_screen.dart';
 
 /// Settings screen allowing the doctor to customize appearance and application settings.
 class SettingsScreen extends StatelessWidget {
@@ -151,6 +152,62 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: colors.border, height: 1),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    key: const Key('settings_openSourceLicensesTile'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const OpenSourceLicensesScreen(),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.gavel_rounded,
+                            color: colors.primaryAccent,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Open Source Licenses',
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'SCOWL, 12Dicts, NLM MeSH, FDA & open source attributions',
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: colors.textSecondary,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
